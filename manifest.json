@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "ResearchMate",
+  "version": "0.1.1",
+  "action": { "default_popup": "popup/popup.html" },
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "notifications",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": { "128": "assets/icon128.png" }
+}

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.map
+.vscode/
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-*.log*
+local/
+node_modules/
+dist/
+.vscode/
+*.log

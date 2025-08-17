@@ -1,0 +1,701 @@
+:root {
+  --bg: #0b0c0f; /* default to dark; we flip for light */
+  --panel: #0f172a;
+  --fg: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #1f2937;
+  --tile: #111827;
+  --accent: #60a5fa; /* will be dynamically set */
+  --accent-fg: #0b0c0f; /* text on accent */
+  --grad-start: #3b82f6; /* dynamic gradient start */
+  --grad-end: #22d3ee; /* dynamic gradient end */
+  --danger: #ef4444;
+  --radius: 12px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+body:not(.dark) {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --fg: #0f172a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --tile: #f8fafc;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --grad-start: #93c5fd;
+  --grad-end: #a7f3d0;
+  --shadow: 0 12px 18px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  width: 100%;
+  min-width: 380px; /* instead of fixed width */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 560px; /* keep your existing height */
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+body {
+  width: 380px;
+  background: radial-gradient(
+      1200px 480px at top right,
+      color-mix(in oklab, var(--grad-start) 22%, transparent),
+      transparent 60%
+    ),
+    var(--bg);
+  color: var(--fg);
+  font: 14px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial,
+    sans-serif;
+}
+button {
+  cursor: pointer;
+}
+.hidden {
+  display: none !important;
+}
+.small {
+  font-size: 12px;
+}
+.muted {
+  color: var(--muted);
+}
+
+/* container blocks */
+#auth,
+#app {
+  width: 100%;
+  max-width: 380px; /* Consistent width for both */
+  display: flex;
+  flex-direction: column;
+}
+
+/* header + segmented tabs */
+header {
+  border: 1px solid var(--border);
+  background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--grad-start) 32%, transparent),
+      color-mix(in oklab, var(--grad-end) 28%, transparent)
+    ),
+    var(--panel);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+}
+header h1 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+.tab-btn {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--fg);
+  padding: 8px 0;
+  border-radius: 999px;
+  transition: 0.15s ease;
+}
+.tab-btn:hover {
+  transform: translateY(-1px);
+}
+.tab-btn.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
+/* sections */
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+
+/* inputs */
+label.lbl {
+  display: block;
+  margin: 10px 0 6px;
+  color: var(--muted);
+}
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  padding: 10px 12px;
+  border-radius: 10px;
+  outline: none;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+/* selection preview box (fixed height + scrollbar) */
+.selection-preview {
+  height: 140px; /* fixed (pick 120–180 if you prefer) */
+  overflow: auto; /* scroll instead of growing */
+  border: 1px dashed var(--border);
+  background: var(--tile);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 6px 0 2px;
+  white-space: pre-wrap;
+  word-break: break-word; /* keeps very long URLs from expanding the box */
+}
+/* optional: pin the save row at the bottom of the tab */
+.sticky-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--bg) 92%, transparent),
+    transparent
+  );
+  padding-top: 6px;
+}
+
+/* buttons */
+.primary-btn,
+.secondary-btn,
+.danger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  transition: 0.15s ease;
+}
+.primary-btn {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.secondary-btn {
+  background: var(--tile);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.danger-btn {
+  background: var(--danger);
+  color: #fff;
+}
+.primary-btn:hover,
+.secondary-btn:hover,
+.danger-btn:hover {
+  transform: translateY(-1px);
+}
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.row.center {
+  justify-content: center;
+}
+
+/* center Save + Logout without changing HTML */
+#save-btn {
+  margin-left: auto;
+  margin-right: auto;
+}
+#signout {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* saved list */
+.saved-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.item {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: var(--shadow);
+}
+.item .title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.item .domain {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.item .text {
+  color: var(--muted);
+  margin: 6px 0 8px;
+}
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.chip {
+  font-size: 12px;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.item .actions {
+  display: flex;
+  gap: 6px;
+}
+.item .actions button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+/* search */
+.search-box {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--panel);
+}
+.search-box input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+/* toast */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.2s ease;
+  max-width: 320px;
+}
+.toast.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+/* keep popup height consistent so auth == main */
+body {
+  min-height: 560px;
+}
+
+/* generic card we can reuse */
+.card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+/* AUTH page layout */
+#auth .auth-card {
+  width: 100%;
+  text-align: center;
+  margin-top: 0; /* remove your existing margin-top */
+  padding: 24px; /* increased padding for better spacing */
+}
+#auth h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+#auth .sub {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+#auth .form {
+  margin: 20px 0; /* more vertical spacing */
+}
+
+#auth input[type="email"],
+#auth input[type="password"] {
+  width: 100%; /* ensure full width */
+  height: 42px;
+  font-size: 14px;
+}
+
+#auth .auth-actions {
+  width: 100%;
+  justify-content: space-between; /* better button spacing */
+  margin-top: 20px;
+}
+
+#auth #signup,
+#auth #signin {
+  flex: 1; /* make buttons equal width */
+  min-width: auto; /* remove fixed min-width */
+  max-width: 48%; /* prevent touching */
+}
+
+#auth .log {
+  margin-top: 10px;
+  max-height: 100px;
+  overflow: auto;
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  white-space: pre-wrap;
+  color: var(--muted);
+}
+
+/* keep logout & save centered like main */
+#signout {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+#save-btn {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* (optional) make tab sections scroll if tall */
+.tab-content {
+  max-height: 480px;
+  overflow: auto;
+}
+
+/* ===== Unified, centered shell for ALL tabs ===== */
+
+/* 1) Center the whole popup, not a fixed 380px body */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  width: 100% !important; /* override older fixed width */
+  min-width: 380px;
+  min-height: 560px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+  /* keep your existing background + colors as-is above this block */
+}
+
+/* 2) Constrain both views (auth + app) to the same width */
+#auth,
+#app {
+  width: 100%;
+  max-width: 380px;
+}
+
+/* 3) Make the app stack nicely and fill width */
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 4) Ensure all major blocks fill width */
+#auth .auth-card,
+header,
+.tab-content,
+.card {
+  width: 100%;
+}
+
+/* 5) Same visible area for every tab: fixed panel height + scroll inside */
+.tab-content {
+  min-height: 420px; /* pick a number you like (400–460) */
+  max-height: 420px;
+  overflow: auto; /* content scrolls; the frame stays stable */
+  padding-bottom: 8px; /* a little breathing room for sticky rows */
+}
+
+/* 6) Keep Save / Logout centered without changing layout */
+#save-btn {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+#signout {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+/* (optional) keep the action row visible at the bottom of each tab */
+.sticky-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--bg) 92%, transparent),
+    transparent
+  );
+  padding-top: 6px;
+}
+
+.google-btn {
+  background: var(--tile);
+}
+.google-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* ===== Auth view: background image + gradient + glass card ===== */
+
+/* The wrapper (#auth) gets the photo */
+#auth {
+  position: relative;
+  width: 100%;
+  max-width: 380px; /* same as your centered width */
+  min-height: 420px; /* matches tab frame height */
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  isolation: isolate; /* so blur/overlays stay inside */
+  padding: 0; /* we’ll pad the card, not the wrapper */
+}
+
+/* Photo layer */
+#auth::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../assets/login-bg.jpg") center / cover no-repeat;
+  filter: brightness(0.7) saturate(1.05);
+  z-index: 0;
+}
+
+/* Subtle gradient overlay so text stays readable (adapts to theme vars) */
+#auth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      120% 80% at 90% 10%,
+      color-mix(in oklab, var(--grad-end) 28%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.35));
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* The card itself becomes glassy and centered inside #auth */
+#auth .auth-card {
+  position: relative;
+  z-index: 2;
+  margin: 14px; /* inner margin inside the bg wrapper */
+  padding: 16px 16px 18px;
+  width: calc(100% - 28px);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  background: color-mix(in oklab, var(--panel) 35%, transparent);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+}
+
+/* Headings and subtitle pop a bit more on photo */
+#auth h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--fg);
+}
+#auth .sub {
+  margin: 0 0 12px;
+  color: color-mix(in oklab, var(--fg) 80%, transparent);
+}
+
+/* Inputs: semi-transparent, readable */
+#auth input[type="email"],
+#auth input[type="password"] {
+  height: 42px;
+  font-size: 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  background: color-mix(in oklab, var(--tile) 40%, transparent);
+  color: var(--fg);
+}
+#auth input::placeholder {
+  color: color-mix(in oklab, var(--muted) 80%, transparent);
+}
+#auth input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Center the buttons */
+#auth .auth-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+/* Log box stays low-contrast and subtle */
+#auth .log {
+  margin-top: 10px;
+  max-height: 100px;
+  overflow: auto;
+  background: color-mix(in oklab, var(--tile) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  border-radius: 8px;
+  padding: 8px;
+  white-space: pre-wrap;
+  color: color-mix(in oklab, var(--fg) 80%, transparent);
+}
+
+/* Keep global shell centered & same size for all tabs (from your previous setup) */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  width: 100% !important;
+  min-width: 380px;
+  min-height: 560px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+#auth,
+#app {
+  width: 100%;
+  max-width: 380px;
+}
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+header,
+.tab-content,
+.card {
+  width: 100%;
+}
+.tab-content {
+  min-height: 420px;
+  max-height: 420px;
+  overflow: auto;
+  padding-bottom: 8px;
+}
+
+/* While booting, hide both views to avoid auth flash */
+body.booting #auth,
+body.booting #app {
+  display: none !important;
+}
+
+/* Boot overlay */
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+      120% 80% at 90% 10%,
+      color-mix(in oklab, var(--grad-start) 24%, transparent),
+      transparent 60%
+    ),
+    var(--bg);
+  z-index: 9999;
+}
+#boot-splash .boot-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--panel) 50%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+#boot-splash .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ping 1s infinite ease-in-out;
+}
+@keyframes ping {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+}
+
+/* After boot, hide the overlay */
+body.ready #boot-splash {
+  display: none;
+}
