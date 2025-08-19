@@ -7,6 +7,11 @@
 
   let t = null;
   let hadNonEmpty = false;
+  window.addEventListener("blur", () => {
+    const text =
+      (window.getSelection && window.getSelection().toString()) || "";
+    if (!text.trim()) chrome.runtime.sendMessage({ type: "selectionCleared" });
+  });
 
   document.addEventListener("selectionchange", () => {
     clearTimeout(t);

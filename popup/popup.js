@@ -59,6 +59,59 @@ const fontFamily = byId("fontFamily");
 const fontSize = byId("fontSize");
 
 // --- show/hide helpers ---
+// Move the interactive glow with the pointer
+window.addEventListener(
+  "pointermove",
+  (e) => {
+    const r = document.body.getBoundingClientRect();
+    const x = Math.max(
+      0,
+      Math.min(100, ((e.clientX - r.left) / r.width) * 100)
+    );
+    const y = Math.max(
+      0,
+      Math.min(100, ((e.clientY - r.top) / r.height) * 100)
+    );
+    const root = document.documentElement.style;
+    root.setProperty("--mx", x + "%");
+    root.setProperty("--my", y + "%");
+  },
+  { passive: true }
+);
+
+function friendlyAuthError(codeOrMsg = "") {
+  const code = String(codeOrMsg).toLowerCase();
+  if (code.includes("invalid-credential"))
+    return "Incorrect email or password.";
+  if (code.includes("missing-password")) return "Enter your password.";
+  if (code.includes("invalid-email")) return "Enter a valid email address.";
+  if (code.includes("user-not-found")) return "Account not found.";
+  if (code.includes("email-already-in-use")) return "Email is already in use.";
+  if (code.includes("too-many-requests"))
+    return "Too many attempts. Please try again later.";
+  if (code.includes("network-request-failed"))
+    return "Network error. Check your connection.";
+  return "Sign in failed. Please try again.";
+}
+function shake(sel) {
+  const el = document.querySelector(sel);
+  if (!el) return;
+  el.classList.remove("shake");
+  void el.offsetWidth; // restart animation
+  el.classList.add("shake");
+  setTimeout(() => el.classList.remove("shake"), 400);
+}
+function markInputsError() {
+  [
+    document.getElementById("email"),
+    document.getElementById("password"),
+  ].forEach((i) => {
+    if (!i) return;
+    i.classList.add("input-error");
+    setTimeout(() => i.classList.remove("input-error"), 1200);
+  });
+}
+
 function showApp() {
   authView?.classList.add("hidden");
   appView?.classList.remove("hidden");
@@ -69,6 +122,9 @@ function showAuth() {
   authView?.classList.remove("hidden");
   if (email) email.value = "";
   if (password) password.value = "";
+  const log = document.getElementById("auth-log");
+  if (log) log.textContent = ""; // keep the log empty
+  clearPreview?.();
 }
 
 /* ---------- State ---------- */
@@ -117,24 +173,68 @@ function finishBoot() {
 function hsl(h, s, l) {
   return `hsl(${h} ${s}% ${l}%)`;
 }
+
+function hslToRgb(h, s, l) {
+  s /= 100;
+  l /= 100;
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) =>
+    l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [
+    Math.round(255 * f(0)),
+    Math.round(255 * f(8)),
+    Math.round(255 * f(4)),
+  ];
+}
+function setRgbVar(name, h, s, l) {
+  const [r, g, b] = hslToRgb(h, s, l);
+  document.documentElement.style.setProperty(name, `${r}, ${g}, ${b}`);
+}
+
 async function applyDynamicTheme() {
   const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
   const dark = !!rmSettings.dark;
   let seed = rmSettings.themeSeed;
   if (typeof seed !== "number") {
-    seed = Math.floor(Date.now() / 86400000) % 360; // change daily by default
+    seed = Math.floor(Date.now() / 86400000) % 360;
     rmSettings.themeSeed = seed;
     await chrome.storage.local.set({ rmSettings });
   }
-  const hue = seed % 360;
-  const accent = hsl(hue, dark ? 70 : 70, dark ? 55 : 45);
-  const gs = hsl((hue + 10) % 360, 80, dark ? 24 : 84);
-  const ge = hsl((hue + 60) % 360, 80, dark ? 28 : 78);
+
+  // Accent + panel gradient you already had
   const root = document.documentElement.style;
+  const accentH = seed % 360;
+  const accent = `hsl(${accentH} ${70}% ${dark ? 55 : 45}%)`;
   root.setProperty("--accent", accent);
-  root.setProperty("--grad-start", gs);
-  root.setProperty("--grad-end", ge);
+  root.setProperty(
+    "--grad-start",
+    `hsl(${(accentH + 10) % 360} 80% ${dark ? 24 : 84}%)`
+  );
+  root.setProperty(
+    "--grad-end",
+    `hsl(${(accentH + 60) % 360} 80% ${dark ? 28 : 78}%)`
+  );
+
+  // Bubbles palette (RGB triplets)
+  setRgbVar("--color1", accentH, 85, dark ? 60 : 55);
+  setRgbVar("--color2", (accentH + 40) % 360, 85, dark ? 62 : 58);
+  setRgbVar("--color3", (accentH + 80) % 360, 85, dark ? 64 : 60);
+  setRgbVar("--color4", (accentH + 160) % 360, 78, dark ? 58 : 50);
+  setRgbVar("--color5", (accentH + 200) % 360, 78, dark ? 52 : 48);
+  setRgbVar("--color-interactive", (accentH + 300) % 360, 85, dark ? 65 : 55);
+
+  // background stops
+  root.setProperty(
+    "--color-bg1",
+    `hsl(${(accentH + 335) % 360} 32% ${dark ? 10 : 98}%)`
+  );
+  root.setProperty(
+    "--color-bg2",
+    `hsl(${(accentH + 30) % 360} 32% ${dark ? 14 : 96}%)`
+  );
 }
+
 function injectShuffleButton() {
   const settings = byId("settings-tab");
   if (!settings || byId("shuffleTheme")) return;
@@ -183,38 +283,56 @@ document.addEventListener("click", (e) => {
 });
 
 /* ---------- Auth UI ---------- */
+//SIGN UP
 signupBtn.onclick = async () => {
   try {
-    const em = (email?.value || "").trim();
-    const pw = password?.value || "";
-    if (!em || !pw) return say(authLog, "Email and password required");
-    if (pw.length < 6) return say(authLog, "Password must be at least 6 chars");
+    const em = (email.value || "").trim();
+    const pw = password.value || "";
+    if (!em || !pw) {
+      toast("Enter email and password");
+      markInputsError();
+      return;
+    }
+    if (pw.length < 6) {
+      toast("Password must be at least 6 characters");
+      markInputsError();
+      return;
+    }
+
     await createUserWithEmailAndPassword(auth, em, pw);
-    if (email) email.value = "";
-    if (password) password.value = "";
-    showApp();
+    toast("Account created");
+    showApp?.(); // optional immediate switch; auth listener will confirm
   } catch (e) {
-    say(authLog, `Sign up failed: ${e.code || e.message}`);
+    toast(friendlyAuthError(e.code || e.message));
+    markInputsError();
+    shake("#auth .auth-card");
   }
 };
 // SIGN IN
 signinBtn.onclick = async () => {
   try {
-    const em = (email?.value || "").trim();
-    const pw = password?.value || "";
-    if (!em || !pw) return say(authLog, "Email and password required");
+    const em = (email.value || "").trim();
+    const pw = password.value || "";
+    if (!em || !pw) {
+      toast("Enter email and password");
+      markInputsError();
+      return;
+    }
+
     await signInWithEmailAndPassword(auth, em, pw);
-    if (email) email.value = "";
-    if (password) password.value = "";
-    showApp();
+    toast("Signed in");
+    showApp?.();
   } catch (e) {
-    say(authLog, `Sign in failed: ${e.code || e.message}`);
+    toast(friendlyAuthError(e.code || e.message));
+    markInputsError();
+    shake("#auth .auth-card");
   }
 };
 // SIGN OUT
 signoutBtn.onclick = async () => {
   try {
     await signOut(auth);
+    await chrome.storage.local.remove("latestHighlight");
   } finally {
     if (email) email.value = "";
     if (password) password.value = "";
@@ -325,7 +443,10 @@ onAuthStateChanged(auth, async (u) => {
   await loadItems?.();
 
   const gotLive = await tryFetchSelection?.();
-  if (!gotLive) await loadLatestHighlight?.();
+  if (!gotLive) {
+    await chrome.storage.local.remove("latestHighlight");
+    clearPreview();
+  }
 });
 
 /* ---------- Load latest cached preview ---------- */
@@ -398,8 +519,16 @@ saveBtn.onclick = async () => {
       collection(db, `users/${user.uid}/projects/${currentProjectId}/items`),
       payload
     );
+
+    // clear inputs
     tagsInput.value = "";
     notesInput.value = "";
+
+    // NEW: clear preview + cache and disable Save
+    await chrome.storage.local.remove("latestHighlight"); // NEW
+    clearPreview(); // NEW
+    updateSaveEnabled?.(); // NEW
+
     toast("Saved!");
     await loadItems();
   } catch (e) {

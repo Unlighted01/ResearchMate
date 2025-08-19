@@ -21,8 +21,8 @@ chrome.runtime.onMessage.addListener(async (msg) => {
   }
 
   if (msg?.type === "selectionCleared") {
-    await chrome.storage.local.remove("latestHighlight");
-    chrome.runtime.sendMessage({ type: "latestHighlightCleared" });
+    await chrome.storage.local.remove("latestHighlight"); // ensure cache is gone
+    chrome.runtime.sendMessage({ type: "latestHighlightCleared" }); // popup clears UI
   }
 });
 
