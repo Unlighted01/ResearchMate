@@ -1,24 +1,25 @@
 {
   "manifest_version": 3,
   "name": "ResearchMate",
-  "version": "0.1.1",
-  "action": { "default_popup": "popup/popup.html" },
-  "permissions": [
-    "storage",
-    "contextMenus",
-    "activeTab",
-    "scripting",
-    "notifications",
-    "tabs"
-  ],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js", "type": "module" },
+  "version": "0.1.0",
+  "action": {
+    "default_title": "ResearchMate",
+    "default_popup": "scr/UI/popup/popup.html"
+  },
+  "background": {
+    "service_worker": "scr/background/background.js"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
+      "js": ["scr/content/content.js"],
+      "run_at": "document_idle"
     }
   ],
-  "icons": { "128": "assets/icon128.png" }
+  "options_page": "scr/UI/options/option.html",
+  "icons": {
+    "128": "assets/icon128.png"
+  },
+  "permissions": ["storage", "activeTab", "contextMenus", "scripting"],
+  "host_permissions": ["<all_urls>"]
 }

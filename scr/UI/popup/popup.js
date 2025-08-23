@@ -1,5 +1,5 @@
 // popup/popup.js
-import { summarizeText, setApiKey, getApiKey } from "../lib/ai.js";
+import { summarizeText, setApiKey, getApiKey } from "../../lib/ai.js";
 import {
   auth,
   db,
@@ -18,7 +18,7 @@ import {
   orderBy,
   GoogleAuthProvider, // <-- keep
   signInWithPopup, // <-- keep
-} from "../lib/firebase-init.js";
+} from "../../lib/firebase-init.js";
 
 /* ---------- DOM helpers ---------- */
 
