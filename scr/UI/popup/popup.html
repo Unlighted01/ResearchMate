@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>ResearchMate</title>
-    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="../popup/popup.css" />
   </head>
   <body class="booting">
     <!-- Animated background (behind everything) -->
@@ -106,6 +106,37 @@
               <path d="M6 2h12v20l-6-4-6 4V2z" fill="currentColor" />
             </svg>
           </button>
+          <!-- ✅ ADD CITATION TAB BUTTON -->
+          <button
+            class="tab-btn"
+            data-tab="citation"
+            title="Citation"
+            style="display: none"
+            id="citation-tab-btn"
+          >
+            <!-- quote icon -->
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path
+                d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <button
+            class="tab-btn"
+            data-tab="edit"
+            title="Edit"
+            style="display: none"
+            id="edit-tab-btn"
+          >
+            <!-- edit icon -->
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path
+                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
           <button class="tab-btn" data-tab="summary" title="AI">
             <!-- robot icon -->
             <svg viewBox="0 0 24 24" width="16" height="16">
@@ -133,11 +164,10 @@
         <div id="selected-text" class="selection-preview"></div>
         <div class="form-group">
           <label class="lbl">Tags (comma separated):</label>
-          <input
-            type="text"
-            id="tags-input"
-            placeholder="biology, climate, research"
-          />
+          <div class="tag-input-container">
+            <div class="tag-chips" id="tag-chips"></div>
+            <input type="text" id="tags-input" placeholder="Add tags..." />
+          </div>
         </div>
 
         <div class="form-group">
@@ -183,10 +213,153 @@
         </div>
         <div id="saved-items-list" class="saved-items">
           <div class="empty-state" id="empty-state">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <path d="M6 2h12v20l-6-4-6 4V2z" fill="currentColor" />
-            </svg>
-            <p>No saved items yet</p>
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  opacity="0.3"
+                />
+              </svg>
+            </div>
+            <h3>Start Your Research Journey</h3>
+            <p>
+              Highlight text on any webpage to save your first research note
+            </p>
+            <div class="empty-actions">
+              <button
+                class="secondary-btn"
+                onclick="chrome.tabs.create({url: 'https://example.com'})"
+              >
+                Try on a Sample Page
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit -->
+      <div class="tab-content" id="edit-tab">
+        <div class="card editor-card">
+          <h3>Edit tags & notes</h3>
+          <div class="muted small" id="edit-meta"></div>
+
+          <div class="form-group">
+            <label class="lbl">Tags (comma separated):</label>
+            <input id="edit-tags" type="text" placeholder="tag1, tag2, …" />
+          </div>
+
+          <div class="form-group">
+            <label class="lbl">Notes:</label>
+            <textarea
+              id="edit-notes"
+              rows="4"
+              placeholder="Add your note…"
+            ></textarea>
+          </div>
+
+          <div class="row right" style="gap: 8px">
+            <button id="edit-cancel" class="secondary-btn" type="button">
+              Cancel
+            </button>
+            <button id="edit-save" class="primary-btn" type="button">
+              Save changes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Citation -->
+      <div class="tab-content" id="citation-tab">
+        <div class="card">
+          <h3>Citation Builder</h3>
+          <p
+            class="muted small"
+            id="citation-meta"
+            style="margin-bottom: 12px"
+          ></p>
+
+          <div class="row" style="gap: 8px; margin-bottom: 12px">
+            <label class="lbl" style="flex: 1">
+              Style
+              <select id="cite-style">
+                <option value="apa">APA 7</option>
+                <option value="mla">MLA 9</option>
+                <option value="chicago">Chicago (author-date)</option>
+              </select>
+            </label>
+
+            <label class="lbl" style="flex: 1">
+              Type
+              <select id="cite-type">
+                <option value="web">Web page</option>
+                <option value="article">Journal article</option>
+                <option value="book">Book</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="lbl">
+            Authors (one per line, "First Last")
+            <textarea
+              id="cite-authors"
+              rows="2"
+              placeholder="Ada Lovelace&#10;Alan Turing"
+            ></textarea>
+          </label>
+
+          <label class="lbl">
+            Title
+            <input
+              id="cite-title"
+              type="text"
+              placeholder="Article or page title"
+            />
+          </label>
+
+          <label class="lbl">
+            Website / Journal
+            <input
+              id="cite-container"
+              type="text"
+              placeholder="Website or journal name"
+            />
+          </label>
+
+          <div class="row" style="gap: 8px">
+            <label class="lbl" style="flex: 1">
+              Year
+              <input id="cite-year" type="text" placeholder="YYYY" />
+            </label>
+            <label class="lbl" style="flex: 1">
+              Month
+              <input id="cite-month" type="text" placeholder="MM" />
+            </label>
+            <label class="lbl" style="flex: 1">
+              Day
+              <input id="cite-day" type="text" placeholder="DD" />
+            </label>
+          </div>
+
+          <label class="lbl">
+            URL
+            <input id="cite-url" type="text" placeholder="https://..." />
+          </label>
+
+          <!-- Citation Output -->
+          <div
+            id="cite-output"
+            class="cite-output"
+            style="margin-top: 12px"
+          ></div>
+
+          <div class="row" style="gap: 8px; margin-top: 12px">
+            <button id="cite-copy" class="primary-btn" style="flex: 1">
+              Copy Citation
+            </button>
+            <button id="cite-cancel" class="secondary-btn">Cancel</button>
           </div>
         </div>
       </div>
@@ -220,11 +393,14 @@
 
       <!-- Settings -->
       <div class="tab-content" id="settings-tab">
-        <div class="row center" style="margin-bottom: 8px">
+        <div class="row">
+          <button id="exportData" class="secondary-btn">📤 Export Data</button>
+          <button id="importData" class="secondary-btn">📥 Import Data</button>
           <button id="shuffleTheme" class="secondary-btn" type="button">
             Shuffle Theme
           </button>
         </div>
+        <div class="row center" style="margin-bottom: 8px"></div>
         <div class="row">
           <label><input type="checkbox" id="darkMode" /> Dark mode</label>
         </div>
@@ -247,8 +423,7 @@
         </div>
       </div>
     </div>
-
-    <script type="module" src="popup.js"></script>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="popup.js"></script>
   </body>
 </html>

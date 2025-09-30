@@ -5,7 +5,7 @@ import {
   addDoc,
   collection,
   serverTimestamp,
-} from "./lib/firebase-init.js";
+} from "../lib/firebase-init.js";
 
 /* ---------- Live selection preview from content scripts ---------- */
 chrome.runtime.onMessage.addListener(async (msg) => {

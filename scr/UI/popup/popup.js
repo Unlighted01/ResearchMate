@@ -1,5 +1,8 @@
 // popup/popup.js
+import { validateItemData, sanitizeText } from "../../lib/validation.js";
+import { aiRateLimiter } from "../../lib/rateLimiter.js";
 import { summarizeText, setApiKey, getApiKey } from "../../lib/ai.js";
+import { buildCitation } from "../../lib/citation.js"; // ✅ ADD THIS
 import {
   auth,
   db,
@@ -20,8 +23,55 @@ import {
   signInWithPopup, // <-- keep
 } from "../../lib/firebase-init.js";
 
-/* ---------- DOM helpers ---------- */
+function handleAsyncError(operation, context = "") {
+  return async (...args) => {
+    try {
+      return await operation(...args);
+    } catch (error) {
+      const msg = friendlyAuthError(error.code || error.message);
+      // nice UI feedback
+      toast(msg);
+      markInputsError?.();
+      shake?.("#auth .auth-card");
+      console.error(`${context} failed:`, error);
+      return null;
+    }
+  };
+}
 
+// WRAP existing async functions
+const safeSignUp = handleAsyncError(async () => {
+  const em = (email.value || "").trim();
+  const pw = password.value || "";
+  if (!em || !pw) {
+    toast("Enter email and password");
+    markInputsError();
+    return;
+  }
+  if (pw.length < 6) {
+    toast("Password must be at least 6 characters");
+    markInputsError();
+    return;
+  }
+  await createUserWithEmailAndPassword(auth, em, pw);
+  toast("Account created");
+  showApp?.();
+}, "Sign up");
+
+const safeSignIn = handleAsyncError(async () => {
+  const em = (email.value || "").trim();
+  const pw = password.value || "";
+  if (!em || !pw) {
+    toast("Enter email and password");
+    markInputsError();
+    return;
+  }
+  await signInWithEmailAndPassword(auth, em, pw);
+  toast("Signed in");
+  showApp?.();
+}, "Sign in");
+
+/* ---------- DOM helpers ---------- */
 // Summary tab controls
 const summaryInput = document.getElementById("summary-input");
 const summarizeBtn = document.getElementById("summarize-btn");
@@ -37,6 +87,32 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const byId = (id) => document.getElementById(id);
 
+//Edit tab controls
+const editTab = byId("edit-tab");
+const editTags = byId("edit-tags");
+const editNotes = byId("edit-notes");
+const editMeta = byId("edit-meta");
+const editSave = byId("edit-save");
+const editCancel = byId("edit-cancel");
+let editItemId = null;
+
+// Citation tab controls
+const citationTab = byId("citation-tab");
+const citeStyle = byId("cite-style");
+const citeType = byId("cite-type");
+const citeAuthors = byId("cite-authors");
+const citeTitle = byId("cite-title");
+const citeContainer = byId("cite-container");
+const citeYear = byId("cite-year");
+const citeMonth = byId("cite-month");
+const citeDay = byId("cite-day");
+const citeUrl = byId("cite-url");
+const citeOutput = byId("cite-output");
+const citeCopy = byId("cite-copy");
+const citeCancel = byId("cite-cancel");
+const citationMeta = byId("citation-meta");
+
+// Auth and App views
 const authView = byId("auth");
 const appView = byId("app");
 const authLog = byId("auth-log");
@@ -110,6 +186,71 @@ function markInputsError() {
     i.classList.add("input-error");
     setTimeout(() => i.classList.remove("input-error"), 1200);
   });
+}
+
+function showSection(id) {
+  document
+    .querySelectorAll(".tab-content")
+    .forEach((s) => s.classList.remove("active"));
+  byId(id)?.classList.add("active");
+}
+
+// ✅ ADD CITATION FUNCTIONS
+function getCitationData() {
+  return {
+    style: citeStyle?.value || "apa",
+    type: citeType?.value || "web",
+    authors: (citeAuthors?.value || "")
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+    title: citeTitle?.value?.trim() || "",
+    container: citeContainer?.value?.trim() || "",
+    year: citeYear?.value?.trim() || "",
+    month: citeMonth?.value?.trim() || "",
+    day: citeDay?.value?.trim() || "",
+    url: citeUrl?.value?.trim() || "",
+  };
+}
+
+function refreshCitation() {
+  if (!citeOutput) return;
+  const data = getCitationData();
+  try {
+    const citation = buildCitation(data);
+    citeOutput.innerHTML = citation || "";
+  } catch (error) {
+    console.error("Citation error:", error);
+    citeOutput.textContent = "Error generating citation";
+  }
+}
+
+function clearCitationForm() {
+  if (citeAuthors) citeAuthors.value = "";
+  if (citeTitle) citeTitle.value = "";
+  if (citeContainer) citeContainer.value = "";
+  if (citeYear) citeYear.value = "";
+  if (citeMonth) citeMonth.value = "";
+  if (citeDay) citeDay.value = "";
+  if (citeUrl) citeUrl.value = "";
+  if (citeOutput) citeOutput.innerHTML = "";
+  if (citationMeta) citationMeta.textContent = "";
+}
+
+function openEditItem(itemId) {
+  const rec = itemsCache.find((x) => x.id === itemId);
+  if (!rec) return toast("Item not found");
+  editItemId = itemId;
+
+  const it = rec.data;
+  const title = it.sourceTitle || it.sourceUrl || "Untitled";
+  const domain = it.sourceUrl ? new URL(it.sourceUrl).hostname : "";
+  editMeta.textContent = domain ? `${title} — ${domain}` : title;
+
+  editTags.value = Array.isArray(it.tags) ? it.tags.join(", ") : "";
+  editNotes.value = it.note || "";
+
+  showSection("edit-tab");
 }
 
 function showApp() {
@@ -235,22 +376,6 @@ async function applyDynamicTheme() {
   );
 }
 
-function injectShuffleButton() {
-  const settings = byId("settings-tab");
-  if (!settings || byId("shuffleTheme")) return;
-  const row = document.createElement("div");
-  row.className = "row center";
-  row.innerHTML = `<button id="shuffleTheme" class="secondary-btn" type="button">Shuffle Theme</button>`;
-  settings.appendChild(row);
-  byId("shuffleTheme").addEventListener("click", async () => {
-    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-    rmSettings.themeSeed = Math.floor(Math.random() * 360);
-    await chrome.storage.local.set({ rmSettings });
-    await applyDynamicTheme();
-    toast("Theme updated");
-  });
-}
-
 /* ---------- Tabs ---------- */
 googleBtn?.addEventListener("click", async () => {
   try {
@@ -273,61 +398,129 @@ const sections = {
   summary: byId("summary-tab"),
   settings: byId("settings-tab"),
 };
+
+// Initialize active tab based on URL hash (e.g. #summary), fallback to 'collect'
+document.addEventListener("DOMContentLoaded", () => {
+  const hash = (location.hash || "").replace(/^#/, "");
+  const valid = ["collect", "saved", "summary", "settings"];
+  const initial = valid.includes(hash) ? hash : "collect";
+
+  document
+    .querySelectorAll(".tab-btn")
+    .forEach((b) => b.classList.remove("active"));
+  document
+    .querySelector(`.tab-btn[data-tab="${initial}"]`)
+    ?.classList.add("active");
+
+  Object.values(sections).forEach((s) => s?.classList.remove("active"));
+  sections[initial]?.classList.add("active");
+});
+
+document.addEventListener("keydown", (e) => {
+  // Ctrl/Cmd + S to save
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    e.preventDefault();
+    saveBtn?.click();
+  }
+
+  // Escape to clear selection
+  if (e.key === "Escape") {
+    clearPreview();
+  }
+
+  // Tab navigation between tabs
+  if (e.key === "Tab" && e.altKey) {
+    e.preventDefault();
+    const tabs = Array.from(document.querySelectorAll(".tab-btn"));
+    const active = document.querySelector(".tab-btn.active");
+    const currentIndex = tabs.indexOf(active);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    tabs[nextIndex]?.click();
+  }
+});
+
 document.addEventListener("click", (e) => {
   const btn = e.target.closest(".tab-btn");
   if (!btn) return;
   $$(".tab-btn").forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
-  Object.values(sections).forEach((s) => s?.classList.remove("active"));
-  sections[btn.dataset.tab]?.classList.add("active");
+  // Use the generic section switcher so ALL .tab-content panels are reset
+  showSection(btn.dataset.tab + "-tab");
 });
 
 /* ---------- Auth UI ---------- */
-//SIGN UP
-signupBtn.onclick = async () => {
-  try {
-    const em = (email.value || "").trim();
-    const pw = password.value || "";
-    if (!em || !pw) {
-      toast("Enter email and password");
-      markInputsError();
-      return;
-    }
-    if (pw.length < 6) {
-      toast("Password must be at least 6 characters");
-      markInputsError();
-      return;
-    }
 
-    await createUserWithEmailAndPassword(auth, em, pw);
-    toast("Account created");
-    showApp?.(); // optional immediate switch; auth listener will confirm
-  } catch (e) {
-    toast(friendlyAuthError(e.code || e.message));
-    markInputsError();
-    shake("#auth .auth-card");
-  }
-};
-// SIGN IN
-signinBtn.onclick = async () => {
-  try {
-    const em = (email.value || "").trim();
-    const pw = password.value || "";
-    if (!em || !pw) {
-      toast("Enter email and password");
-      markInputsError();
-      return;
-    }
+/* ---------- Citation Builder ---------- */
+// Auto-refresh citation on any input change
+[
+  citeStyle,
+  citeType,
+  citeAuthors,
+  citeTitle,
+  citeContainer,
+  citeYear,
+  citeMonth,
+  citeDay,
+  citeUrl,
+].forEach((el) => {
+  el?.addEventListener("input", refreshCitation);
+  el?.addEventListener("change", refreshCitation);
+});
 
-    await signInWithEmailAndPassword(auth, em, pw);
-    toast("Signed in");
-    showApp?.();
-  } catch (e) {
-    toast(friendlyAuthError(e.code || e.message));
-    markInputsError();
-    shake("#auth .auth-card");
+// Copy citation
+citeCopy?.addEventListener("click", async () => {
+  const html = citeOutput?.innerHTML?.trim() || "";
+  const text = citeOutput?.textContent?.trim() || "";
+
+  if (!text) {
+    toast("Please fill in the citation fields first");
+    return;
   }
-};
+
+  try {
+    // Try to copy as both HTML and plain text
+    if (navigator.clipboard && window.ClipboardItem) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        }),
+      ]);
+    } else {
+      // Fallback to plain text
+      await navigator.clipboard.writeText(text);
+    }
+    toast("Citation copied to clipboard!");
+  } catch (error) {
+    console.error("Copy failed:", error);
+    toast("Copy failed. Please try again.");
+  }
+});
+
+// Cancel citation
+citeCancel?.addEventListener("click", () => {
+  // Go back to saved tab
+  document
+    .querySelectorAll(".tab-content")
+    .forEach((s) => s.classList.remove("active"));
+  document.getElementById("saved-tab")?.classList.add("active");
+
+  document
+    .querySelectorAll(".tab-btn")
+    .forEach((b) => b.classList.remove("active"));
+  document.querySelector('.tab-btn[data-tab="saved"]')?.classList.add("active");
+
+  const citeTabBtn = document.getElementById("citation-tab-btn");
+  if (citeTabBtn) citeTabBtn.style.display = "none";
+
+  clearCitationForm();
+});
+
+/* ---------- Auth UI ---------- */
+
+// REPLACE existing onclick handlers
+signupBtn.onclick = safeSignUp;
+signinBtn.onclick = safeSignIn;
 // SIGN OUT
 signoutBtn.onclick = async () => {
   try {
@@ -341,6 +534,50 @@ signoutBtn.onclick = async () => {
 };
 
 /* ---------- Selection helpers ---------- */
+function showSkeletonLoader() {
+  if (savedList) {
+    savedList.innerHTML = `
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-text"></div>
+      <div class="skeleton skeleton-text" style="width: 80%"></div>
+    `.repeat(3);
+  }
+}
+// Auto-save drafts
+function saveDraft() {
+  const draft = {
+    tags: tagsInput?.value || "",
+    notes: notesInput?.value || "",
+    timestamp: Date.now(),
+  };
+  chrome.storage.local.set({ researchDraft: draft });
+}
+
+function loadDraft() {
+  chrome.storage.local.get("researchDraft").then(({ researchDraft }) => {
+    if (researchDraft && Date.now() - researchDraft.timestamp < 3600000) {
+      // 1 hour
+      if (tagsInput) tagsInput.value = researchDraft.tags;
+      if (notesInput) notesInput.value = researchDraft.notes;
+    }
+  });
+}
+
+// Add event listeners
+tagsInput?.addEventListener("input", debounce(saveDraft, 500));
+notesInput?.addEventListener("input", debounce(saveDraft, 500));
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 function applyPreview(text, url, title) {
   const st = byId("selected-text");
   const cm = byId("captured-meta");
@@ -356,6 +593,7 @@ function applyPreview(text, url, title) {
     },
   });
 }
+
 async function tryFetchSelection() {
   try {
     const [tab] = await chrome.tabs.query({
@@ -438,9 +676,16 @@ onAuthStateChanged(auth, async (u) => {
   // initial app setup
   await ensureDefaultProject?.();
   await applyDynamicTheme?.();
-  injectShuffleButton?.();
   await loadSettings?.();
   await loadItems?.();
+
+  // After: await loadItems?.();
+  const { focusTab } = await chrome.storage.local.get("focusTab");
+  if (focusTab) {
+    // your code already has showSection(id) that activates a tab by id
+    showSection("summary-tab"); // force AI tab
+    await chrome.storage.local.remove("focusTab");
+  }
 
   const gotLive = await tryFetchSelection?.();
   if (!gotLive) {
@@ -491,7 +736,6 @@ saveAIKeyBtn?.addEventListener("click", async () => {
 saveBtn.onclick = async () => {
   if (!user) return toast("Sign in first.");
 
-  // If empty, try to fetch live selection right now
   let st = byId("selected-text");
   if (!st || !(st.textContent || "").trim()) {
     const ok = await tryFetchSelection();
@@ -499,20 +743,32 @@ saveBtn.onclick = async () => {
     if (!ok || !st || !(st.textContent || "").trim())
       return toast("No selection found on this page.");
   }
-  const text = st.textContent.trim();
+
+  // ✅ Sanitize and validate
+  const text = sanitizeText(st.textContent);
+  const tags = (tagsInput.value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 20); // max 20 tags
 
   const { latestHighlight } = await chrome.storage.local.get("latestHighlight");
+
   const payload = {
     text,
-    tags: (tagsInput.value || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-    note: (notesInput.value || "").trim(),
+    tags,
+    note: (notesInput.value || "").trim().slice(0, 1000), // max 1000 chars
     sourceUrl: latestHighlight?.sourceUrl || "",
     sourceTitle: latestHighlight?.sourceTitle || "",
     createdAt: serverTimestamp(),
   };
+
+  // ✅ Validate before saving
+  const validation = validateItemData(payload);
+  if (!validation.valid) {
+    toast(validation.errors[0]);
+    return;
+  }
 
   try {
     await addDoc(
@@ -520,42 +776,51 @@ saveBtn.onclick = async () => {
       payload
     );
 
-    // clear inputs
+    // Clear inputs
     tagsInput.value = "";
     notesInput.value = "";
-
-    // NEW: clear preview + cache and disable Save
-    await chrome.storage.local.remove("latestHighlight"); // NEW
-    clearPreview(); // NEW
-    updateSaveEnabled?.(); // NEW
+    await chrome.storage.local.remove("latestHighlight");
+    clearPreview();
+    updateSaveEnabled?.();
 
     toast("Saved!");
     await loadItems();
   } catch (e) {
     console.error(e);
-    toast("Save failed");
+    toast("Save failed: " + (e.message || "Unknown error"));
   }
 };
 
 summarizeBtn?.removeAttribute("disabled");
+
 summarizeBtn?.addEventListener("click", async () => {
   const text = (summaryInput?.value || "").trim();
   if (!text) return toast("Paste some text to summarize");
 
   summarizeBtn.disabled = true;
   summarizeBtn.textContent = "Summarizing…";
+
   try {
+    // ✅ Apply rate limiting
+    await aiRateLimiter.throttle();
+
     const out = await summarizeText(text);
     if (!out.ok) {
       if (out.reason === "missing_api_key")
-        return toast("Add your API key in Settings");
-      return toast("Summarization failed");
+        return toast("Add your API key in the AI tab first");
+      if (out.reason === "network_error")
+        return toast("Network error. Check your connection.");
+      return toast(`Summarization failed: ${out.error || out.reason}`);
     }
-    // show result
+
+    // Show result
     const box = summaryResult?.querySelector(".summary-content");
     if (summaryResult) summaryResult.classList.remove("hidden");
     if (box) box.textContent = out.summary;
     toast("Summary ready");
+  } catch (error) {
+    console.error("Summarization error:", error);
+    toast("An unexpected error occurred");
   } finally {
     summarizeBtn.disabled = false;
     summarizeBtn.textContent = "Generate Summary";
@@ -599,20 +864,30 @@ async function loadItems() {
       : "";
 
     div.innerHTML = `
-      <div class="title">${title}${
+  <div class="title">${title}${
       domain ? `<span class="domain">${domain}</span>` : ""
     }</div>
-      ${chips}
-      <div class="text">${text}</div>
-      <div class="actions">
-        <button data-act="copy" data-id="${d.id}">Copy</button>
-        ${
-          it.sourceUrl
-            ? `<button data-act="open" data-id="${d.id}">Open</button>`
-            : ""
-        }
-        <button data-act="delete" data-id="${d.id}">Delete</button>
-      </div>`;
+  ${chips}
+  <div class="text">${text}</div>
+  ${
+    it.note
+      ? `<div class="note">📝 ${String(it.note).slice(0, 140)}${
+          (it.note || "").length > 140 ? "…" : ""
+        }</div>`
+      : ""
+  }
+  <div class="actions">
+    <button data-act="copy" data-id="${d.id}">Copy</button>
+    ${
+      it.sourceUrl
+        ? `<button data-act="open" data-id="${d.id}">Open</button>`
+        : ""
+    }
+    <button data-act="edit" data-id="${d.id}">Edit</button>
+    <button data-act="cite" data-id="${d.id}">Cite</button>
+    <button data-act="delete" data-id="${d.id}">Delete</button>
+    </div>`;
+
     savedList?.appendChild(div);
   });
 }
@@ -642,6 +917,7 @@ savedList?.addEventListener("click", async (e) => {
   if (!rec) return;
   const it = rec.data;
 
+  // ===== COPY ACTION =====
   if (btn.dataset.act === "copy") {
     const tags = Array.isArray(it.tags) ? it.tags : [];
     const blob = [
@@ -656,18 +932,97 @@ savedList?.addEventListener("click", async (e) => {
     ].join("");
     try {
       await navigator.clipboard.writeText(blob.trim());
-      toast("Copied");
+      toast("Copied to clipboard");
     } catch {
       toast("Copy failed");
     }
   }
 
+  // ===== OPEN ACTION =====
   if (btn.dataset.act === "open" && it.sourceUrl) {
     chrome.tabs.create({ url: it.sourceUrl });
   }
 
+  // ===== EDIT ACTION ===== ✅ FIXED
+  if (btn.dataset.act === "edit") {
+    editItemId = btn.dataset.id;
+
+    // Populate edit form
+    const title = it.sourceTitle || it.sourceUrl || "Untitled";
+    const domain = it.sourceUrl ? new URL(it.sourceUrl).hostname : "";
+    editMeta.textContent = domain ? `${title} — ${domain}` : title;
+    editTags.value = Array.isArray(it.tags) ? it.tags.join(", ") : "";
+    editNotes.value = it.note || "";
+
+    // Show edit tab button and switch to it
+    const editTabBtn = document.getElementById("edit-tab-btn");
+    if (editTabBtn) editTabBtn.style.display = "block";
+
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelector('.tab-btn[data-tab="edit"]')
+      ?.classList.add("active");
+
+    showSection("edit-tab");
+    return;
+  }
+
+  // ===== CITE ACTION ===== ✅ NEW
+  // ===== CITE ACTION ===== ✅ UPDATED
+  if (btn.dataset.act === "cite") {
+    // Populate citation form
+    clearCitationForm();
+
+    if (citeTitle) citeTitle.value = it.sourceTitle || "";
+    if (citeUrl) citeUrl.value = it.sourceUrl || "";
+
+    // Try to extract domain for container
+    if (it.sourceUrl && citeContainer) {
+      try {
+        const hostname = new URL(it.sourceUrl).hostname.replace(/^www\./, "");
+        citeContainer.value = hostname;
+      } catch {}
+    }
+
+    // Extract year from createdAt if available
+    if (it.createdAt && citeYear) {
+      try {
+        const date = it.createdAt.toDate
+          ? it.createdAt.toDate()
+          : new Date(it.createdAt);
+        citeYear.value = date.getFullYear().toString();
+        citeMonth.value = (date.getMonth() + 1).toString();
+        citeDay.value = date.getDate().toString();
+      } catch {}
+    }
+
+    // Set meta info
+    const title = it.sourceTitle || it.sourceUrl || "Untitled";
+    if (citationMeta) citationMeta.textContent = `Citing: ${title}`;
+
+    // Refresh citation preview
+    refreshCitation();
+
+    // Show citation tab button and switch to it
+    const citeTabBtn = document.getElementById("citation-tab-btn");
+    if (citeTabBtn) citeTabBtn.style.display = "block";
+
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelector('.tab-btn[data-tab="citation"]')
+      ?.classList.add("active");
+
+    showSection("citation-tab");
+    return;
+  }
+
+  // ===== DELETE ACTION =====
   if (btn.dataset.act === "delete") {
-    if (!confirm("Delete this item?")) return;
+    if (!confirm("Delete this item permanently?")) return;
     try {
       await deleteDoc(
         doc(
@@ -681,6 +1036,63 @@ savedList?.addEventListener("click", async (e) => {
       console.error(e);
       toast("Delete failed");
     }
+  }
+});
+
+editCancel?.addEventListener("click", () => {
+  // ✅ Go back to saved tab and hide edit button
+  showSection("saved-tab");
+  document
+    .querySelectorAll(".tab-btn")
+    .forEach((b) => b.classList.remove("active"));
+  document.querySelector('.tab-btn[data-tab="saved"]')?.classList.add("active");
+
+  const editTabBtn = document.getElementById("edit-tab-btn");
+  if (editTabBtn) editTabBtn.style.display = "none";
+
+  editItemId = null;
+});
+
+editSave?.addEventListener("click", async () => {
+  if (!user || !editItemId) {
+    toast("No item selected to edit");
+    return;
+  }
+
+  const tags = (editTags.value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const note = (editNotes.value || "").trim();
+
+  try {
+    await setDoc(
+      doc(
+        db,
+        `users/${user.uid}/projects/${currentProjectId}/items/${editItemId}`
+      ),
+      { tags, note, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    toast("Changes saved");
+    await loadItems();
+
+    // ✅ Go back to saved tab and hide edit button
+    showSection("saved-tab");
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelector('.tab-btn[data-tab="saved"]')
+      ?.classList.add("active");
+
+    const editTabBtn = document.getElementById("edit-tab-btn");
+    if (editTabBtn) editTabBtn.style.display = "none";
+
+    editItemId = null;
+  } catch (e) {
+    console.error(e);
+    toast("Update failed: " + e.message);
   }
 });
 
@@ -698,6 +1110,7 @@ searchInput?.addEventListener("input", () => {
   );
   renderFiltered(filtered);
 });
+
 function renderFiltered(list) {
   if (!savedList) return;
   savedList.innerHTML = "";
@@ -709,6 +1122,7 @@ function renderFiltered(list) {
   list.forEach(({ id, data: it }) => {
     const div = document.createElement("div");
     div.className = "item";
+    div.dataset.id = id;
     const title = it.sourceTitle || it.sourceUrl || "Untitled";
     const text = (it.text || "").slice(0, 240).replace(/\s+/g, " ");
     const domain = it.sourceUrl ? new URL(it.sourceUrl).hostname : "";
@@ -718,21 +1132,31 @@ function renderFiltered(list) {
           .map((t) => `<span class="chip">#${t}</span>`)
           .join("")}</div>`
       : "";
+
     div.innerHTML = `
-      <div class="title">${title}${
+  <div class="title">${title}${
       domain ? `<span class="domain">${domain}</span>` : ""
     }</div>
-      ${chips}
-      <div class="text">${text}</div>
-      <div class="actions">
-        <button data-act="copy" data-id="${id}">Copy</button>
-        ${
-          it.sourceUrl
-            ? `<button data-act="open" data-id="${id}">Open</button>`
-            : ""
-        }
-        <button data-act="delete" data-id="${id}">Delete</button>
-      </div>`;
+  ${chips}
+  <div class="text">${text}</div>
+  ${
+    it.note
+      ? `<div class="note">📝 ${String(it.note).slice(0, 140)}${
+          (it.note || "").length > 140 ? "…" : ""
+        }</div>`
+      : ""
+  }
+  <div class="actions">
+    <button data-act="copy" data-id="${id}">Copy</button>
+    ${
+      it.sourceUrl
+        ? `<button data-act="open" data-id="${d.id}">Open</button>`
+        : ""
+    }
+    <button data-act="edit" data-id="${d.id}">Edit</button>
+    <button data-act="delete" data-id="${d.id}">Delete</button>
+  </div>`;
+
     savedList.appendChild(div);
   });
 }

@@ -28,14 +28,14 @@ const firebaseConfig = {
   projectId: "researchmate-61a8a",
   storageBucket: "researchmate-61a8a.firebasestorage.app",
   messagingSenderId: "63045817614",
-  appId: "1:63045817614:web:bc2b5cf1df65c31d63f35f",
+  appId: "Y1:63045817614:web:bc2b5cf1df65c31d63f35f",
 };
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// ✅ EXPLICITLY export everything popup.js uses
+// Export everything popup.js uses
 export {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -50,6 +50,6 @@ export {
   serverTimestamp,
   query,
   orderBy,
-  GoogleAuthProvider, // ✅ now exported
-  signInWithPopup, // ✅ now exported
+  GoogleAuthProvider,
+  signInWithPopup,
 };

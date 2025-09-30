@@ -20566,14 +20566,14 @@ function serverTimestamp() {
   registerVersion(F, M, "esm2020");
 })();
 
-// lib/firebase-init.ts
+// scr/lib/firebase-init.ts
 var firebaseConfig = {
   apiKey: "AIzaSyC2Ws7B-YMcC4vz7c6R313D4ZwdnVbjpXg",
   authDomain: "researchmate-61a8a.firebaseapp.com",
   projectId: "researchmate-61a8a",
   storageBucket: "researchmate-61a8a.firebasestorage.app",
   messagingSenderId: "63045817614",
-  appId: "1:63045817614:web:bc2b5cf1df65c31d63f35f"
+  appId: "Y1:63045817614:web:bc2b5cf1df65c31d63f35f"
 };
 var app = initializeApp(firebaseConfig);
 var auth = getAuth(app);
@@ -20593,7 +20593,6 @@ export {
   query,
   serverTimestamp,
   setDoc,
-  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut

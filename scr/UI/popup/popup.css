@@ -14,7 +14,8 @@
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-body:not(.dark) {
+/* change this selector */
+body.light {
   --bg: #ffffff;
   --panel: #ffffff;
   --fg: #0f172a;
@@ -326,6 +327,7 @@ select:focus {
   pointer-events: none;
   transition: 0.2s ease;
   max-width: 320px;
+  z-index: 10001;
 }
 .toast.show {
   opacity: 1;
@@ -490,10 +492,27 @@ header,
   padding-top: 6px;
 }
 
+.google-auth-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
 .google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
   background: var(--tile);
+  color: var(--fg);
+  font-size: 14px;
+  width: 100%; /* make it full width like inputs */
+  justify-content: center;
 }
 .google-btn:hover {
+  background: color-mix(in oklab, var(--tile) 90%, var(--accent) 10%);
   transform: translateY(-1px);
 }
 
@@ -651,27 +670,27 @@ body.booting #app {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(
-      120% 80% at 90% 10%,
-      color-mix(in oklab, var(--grad-start) 24%, transparent),
-      transparent 60%
-    ),
-    var(--bg);
+  /* background: ...  ⬅ remove this line */
+  background: transparent; /* ✅ let the animated bg show through */
   z-index: 9999;
 }
+
 #boot-splash .boot-card {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: color-mix(in oklab, var(--panel) 50%, transparent);
-  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  /* override the mix that trends white in light mode */
+  background: rgba(17, 24, 39, 0.3); /* glassy tint */
+  border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--fg);
   box-shadow: var(--shadow);
   font-weight: 600;
 }
+
 #boot-splash .dot {
   width: 10px;
   height: 10px;
@@ -903,4 +922,365 @@ body.ready #boot-splash {
 }
 .input-error {
   border-color: #ef4444 !important;
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--tile) 25%,
+    color-mix(in oklab, var(--tile) 50%, transparent) 50%,
+    var(--tile) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-text {
+  height: 16px;
+  margin: 4px 0;
+}
+
+.skeleton-title {
+  height: 20px;
+  width: 60%;
+  margin: 8px 0;
+}
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+
+.empty-icon {
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.empty-state h3 {
+  margin: 0 0 8px;
+  color: var(--fg);
+  font-size: 16px;
+}
+
+.empty-state p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+/* Button press feedback */
+.primary-btn:active,
+.secondary-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* Success states */
+.success-flash {
+  animation: successPulse 0.6s ease-out;
+}
+
+@keyframes successPulse {
+  0% {
+    background-color: var(--accent);
+    transform: scale(1);
+  }
+  50% {
+    background-color: color-mix(in oklab, var(--accent) 80%, #22c55e 20%);
+    transform: scale(1.02);
+  }
+  100% {
+    background-color: var(--accent);
+    transform: scale(1);
+  }
+}
+
+/* Input focus glow */
+input:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+/* Card hover effects */
+.item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.tag-input-container {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 42px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  background: var(--tile);
+}
+
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-input-container input {
+  border: none;
+  background: transparent;
+  flex: 1;
+  min-width: 120px;
+  padding: 4px;
+}
+
+.tag-chip {
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-chip .remove {
+  cursor: pointer;
+  opacity: 0.7;
+  hover {
+    opacity: 1;
+  }
+}
+/* Stagger animations for lists */
+.item {
+  animation: slideInUp 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+.item:nth-child(1) {
+  animation-delay: 0ms;
+}
+.item:nth-child(2) {
+  animation-delay: 50ms;
+}
+.item:nth-child(3) {
+  animation-delay: 100ms;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Forced Colors / High Contrast support */
+@media (forced-colors: active) {
+  /* Hide the fancy background and rely on system colors */
+  .gradient-bg {
+    display: none;
+  }
+
+  /* Use system color keywords for good contrast */
+  body {
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  header,
+  .card,
+  .tab-content,
+  .item,
+  .search-box,
+  .toast,
+  .selection-preview {
+    background: Canvas;
+    color: CanvasText;
+    border-color: GrayText;
+    box-shadow: none;
+  }
+
+  .primary-btn {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .secondary-btn,
+  .danger-btn {
+    background: Canvas;
+    color: ButtonText;
+    border-color: ButtonText;
+  }
+  .tab-btn.active {
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  input,
+  select,
+  textarea {
+    background: Canvas;
+    color: CanvasText;
+    border-color: GrayText;
+  }
+}
+.note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel) 70%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+#edit-tab .form-group {
+  margin: 10px 0;
+}
+#edit-tab textarea {
+  resize: vertical;
+}
+/* Edit tab card: match the toast clarity + a touch of glass */
+#edit-tab .editor-card {
+  background: color-mix(in oklab, var(--panel) 40%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+}
+
+/* Make the fields readable on any theme */
+#edit-tab .lbl {
+  color: var(--muted);
+}
+#edit-tab input,
+#edit-tab textarea {
+  background: color-mix(in oklab, var(--tile) 45%, transparent);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+#edit-tab textarea {
+  resize: vertical;
+}
+/* ===== Accessibility Improvements ===== */
+
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible {
+  outline-offset: 3px;
+}
+
+/* Skip to main content link */
+.skip-to-main {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 100;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+/* Ensure minimum touch target sizes (44x44px) */
+button,
+.tab-btn,
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --border: #000;
+    --fg: #000;
+    --bg: #fff;
+  }
+
+  body.light {
+    --border: #000;
+  }
+}
+
+/* Reduced motion support (already present, but ensure it's complete) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* ===== Citation Builder ===== */
+.cite-output {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--tile);
+  min-height: 60px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.cite-output em {
+  font-style: italic;
+}
+
+.cite-output:empty::before {
+  content: "Fill in the fields above to generate a citation...";
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Compact form layout for citation */
+#citation-tab .lbl {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#citation-tab input,
+#citation-tab textarea,
+#citation-tab select {
+  width: 100%;
+  margin: 0;
+}
+
+#citation-tab textarea {
+  resize: vertical;
+  min-height: 50px;
 }

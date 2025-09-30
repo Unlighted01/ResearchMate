@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./scr",
+    "types": ["chrome"],
+    "lib": ["ES2020", "DOM"]
+  },
+  "include": ["scr/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
