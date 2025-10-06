@@ -10,23 +10,14 @@
     "build:ts": "tsc",
     "build:js": "esbuild scr/lib/firebase-init.ts --bundle --format=esm --outfile=scr/lib/firebase-init.js --target=es2020",
     "watch": "npm run build:js -- --watch",
-    "type-check": "tsc --noEmit",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npm run build:ts && npm run build:js",
-    "build:ts": "tsc",
-    "build:js": "esbuild scr/lib/firebase-init.ts --bundle --format=esm --outfile=scr/lib/firebase-init.js --target=es2020",
-    "watch": "npm run build:js -- --watch",
-    "type-check": "tsc --noEmit",
-    "lint": "eslint scr/**/*.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npm run watch"
+    "type-check": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "firebase": "^12.1.0"
+    "firebase": "^12.3.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",

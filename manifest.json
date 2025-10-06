@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ResearchMate",
-  "version": "0.1.0",
-  "description": "Save and organize research highlights with AI-powered tools",
+  "version": "0.1.2",
+  "description": "Save and organize research highlights with tags, notes, and citations",
   "action": {
     "default_title": "ResearchMate",
     "default_popup": "scr/UI/popup/popup.html",
@@ -15,7 +15,7 @@
     "type": "module"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://firebasestorage.googleapis.com https://*.googleapis.com https://api.openai.com;"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com"
   },
   "content_scripts": [
     {
@@ -28,13 +28,12 @@
   "icons": {
     "128": "assets/icon128.png"
   },
-  "permissions": [
-    "storage",
-    "activeTab",
-    "contextMenus",
-    "scripting",
-    "notifications"
-  ],
+  "permissions": ["storage", "activeTab", "contextMenus", "scripting"],
   "host_permissions": ["<all_urls>"],
-  "optional_permissions": ["clipboardWrite"]
+  "web_accessible_resources": [
+    {
+      "resources": ["scr/lib/pdf.worker.min.js", "scr/lib/pdf.min.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

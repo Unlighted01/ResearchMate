@@ -1,13 +1,13 @@
-// lib/firebase-init.ts
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
   onAuthStateChanged,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
-  GoogleAuthProvider,
-  signInWithPopup,
+  //GoogleAuthProvider,
+  //signInWithPopup,
+  //signInWithCredential,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -22,25 +22,32 @@ import {
   orderBy,
 } from "firebase/firestore";
 
+// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyC2Ws7B-YMcC4vz7c6R313D4ZwdnVbjpXg",
   authDomain: "researchmate-61a8a.firebaseapp.com",
   projectId: "researchmate-61a8a",
   storageBucket: "researchmate-61a8a.firebasestorage.app",
   messagingSenderId: "63045817614",
-  appId: "Y1:63045817614:web:bc2b5cf1df65c31d63f35f",
+  appId: "1:63045817614:web:bc2b5cf1df65c31d63f35f",
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-// Export everything popup.js uses
+// Export everything
 export {
+  auth,
+  db,
   onAuthStateChanged,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
+  //GoogleAuthProvider,
+  //signInWithPopup,
+  //signInWithCredential,
   collection,
   addDoc,
   getDocs,
@@ -50,6 +57,4 @@ export {
   serverTimestamp,
   query,
   orderBy,
-  GoogleAuthProvider,
-  signInWithPopup,
 };

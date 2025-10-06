@@ -3,6 +3,8 @@ import { validateItemData, sanitizeText } from "../../lib/validation.js";
 import { aiRateLimiter } from "../../lib/rateLimiter.js";
 import { summarizeText, setApiKey, getApiKey } from "../../lib/ai.js";
 import { buildCitation } from "../../lib/citation.js"; // ✅ ADD THIS
+import { initFileImporter, autoSaveImport } from "../../lib/fileImport.js"; // ✅ NEW
+import { exportItems } from "../../lib/fileExport.js"; // ✅ NEW
 import {
   auth,
   db,
@@ -19,8 +21,9 @@ import {
   serverTimestamp,
   query,
   orderBy,
-  GoogleAuthProvider, // <-- keep
-  signInWithPopup, // <-- keep
+  //GoogleAuthProvider, // <-- keep
+  //signInWithPopup, // <-- keep
+  //signInWithCredential, // ADD THIS
 } from "../../lib/firebase-init.js";
 
 function handleAsyncError(operation, context = "") {
@@ -71,6 +74,48 @@ const safeSignIn = handleAsyncError(async () => {
   showApp?.();
 }, "Sign in");
 
+/* ---------- Google Sign-In with Chrome Identity API ---------- 
+const googleBtn = document.getElementById("google-signin");
+
+googleBtn?.addEventListener("click", async () => {
+  if (!googleBtn) return;
+
+  const originalHTML = googleBtn.innerHTML;
+
+  try {
+    googleBtn.disabled = true;
+    googleBtn.textContent = "Signing in...";
+
+    // Use Chrome Identity API to get OAuth token
+    const token = await new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: true }, (token) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(token);
+        }
+      });
+    });
+
+    // Create Google credential from token
+    const credential = GoogleAuthProvider.credential(null, token);
+
+    // Sign in to Firebase with the credential
+    await signInWithCredential(auth, credential);
+
+    toast("Signed in with Google");
+    showApp();
+  } catch (error) {
+    console.error("Google sign-in error:", error);
+    toast("Google sign-in failed. Try email/password.");
+    markInputsError();
+    shake("#auth .auth-card");
+  } finally {
+    googleBtn.disabled = false;
+    googleBtn.innerHTML = originalHTML;
+  }
+});
+
 /* ---------- DOM helpers ---------- */
 // Summary tab controls
 const summaryInput = document.getElementById("summary-input");
@@ -81,7 +126,12 @@ const saveAIKeyBtn = document.getElementById("saveAIKey");
 
 // Settings tab control
 const shuffleThemeBtn = document.getElementById("shuffleTheme");
-const googleBtn = document.getElementById("google-signin");
+const exportBtn = document.getElementById("exportData"); // ✅ NEW
+const importBtn = document.getElementById("importData"); // ✅ NEW
+const exportFormat = document.getElementById("exportFormat"); // ✅ NEW
+
+// ✅ NEW: Initialize file importer (after user is authenticated)
+let triggerFileImport = null;
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -96,7 +146,13 @@ const editSave = byId("edit-save");
 const editCancel = byId("edit-cancel");
 let editItemId = null;
 
+const editOverlay = byId("edit-overlay");
+const editBack = byId("edit-back");
+const citationOverlay = byId("citation-overlay");
+const citationBack = byId("citation-back");
 // Citation tab controls
+// ✅ ADD CITATION VARIABLES
+
 const citationTab = byId("citation-tab");
 const citeStyle = byId("cite-style");
 const citeType = byId("cite-type");
@@ -111,6 +167,8 @@ const citeOutput = byId("cite-output");
 const citeCopy = byId("cite-copy");
 const citeCancel = byId("cite-cancel");
 const citationMeta = byId("citation-meta");
+const citeAccessed = byId("cite-accessed");
+const citeEdition = byId("cite-edition");
 
 // Auth and App views
 const authView = byId("auth");
@@ -154,6 +212,43 @@ window.addEventListener(
   },
   { passive: true }
 );
+
+// ✅ NEW: Overlay control functions
+// ✅ IMPROVED: Overlay control functions with animations
+function showOverlay(overlayId) {
+  document.body.classList.add("overlay-active");
+  const overlay = byId(overlayId);
+  if (overlay) {
+    overlay.classList.remove("hidden", "closing");
+  }
+}
+
+function hideOverlay(overlayId) {
+  const overlay = byId(overlayId);
+  if (overlay) {
+    overlay.classList.add("closing");
+    // Wait for animation to complete before hiding
+    setTimeout(() => {
+      overlay.classList.add("hidden");
+      overlay.classList.remove("closing");
+      document.body.classList.remove("overlay-active");
+    }, 300); // matches animation duration
+  } else {
+    document.body.classList.remove("overlay-active");
+  }
+}
+
+function hideAllOverlays() {
+  editOverlay?.classList.add("closing");
+  citationOverlay?.classList.add("closing");
+  setTimeout(() => {
+    document.body.classList.remove("overlay-active");
+    editOverlay?.classList.add("hidden");
+    editOverlay?.classList.remove("closing");
+    citationOverlay?.classList.add("hidden");
+    citationOverlay?.classList.remove("closing");
+  }, 300);
+}
 
 function friendlyAuthError(codeOrMsg = "") {
   const code = String(codeOrMsg).toLowerCase();
@@ -210,6 +305,8 @@ function getCitationData() {
     month: citeMonth?.value?.trim() || "",
     day: citeDay?.value?.trim() || "",
     url: citeUrl?.value?.trim() || "",
+    accessed: citeAccessed?.value?.trim() || "",
+    edition: citeEdition?.value?.trim() || "",
   };
 }
 
@@ -233,6 +330,8 @@ function clearCitationForm() {
   if (citeMonth) citeMonth.value = "";
   if (citeDay) citeDay.value = "";
   if (citeUrl) citeUrl.value = "";
+  if (citeAccessed) citeAccessed.value = "";
+  if (citeEdition) citeEdition.value = "";
   if (citeOutput) citeOutput.innerHTML = "";
   if (citationMeta) citationMeta.textContent = "";
 }
@@ -377,20 +476,6 @@ async function applyDynamicTheme() {
 }
 
 /* ---------- Tabs ---------- */
-googleBtn?.addEventListener("click", async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: "select_account" });
-    await signInWithPopup(auth, provider);
-    // clear any lingering fields and switch view
-    if (email) email.value = "";
-    if (password) password.value = "";
-    showApp?.();
-    toast?.("Signed in with Google");
-  } catch (e) {
-    say(authLog, `Google sign-in failed: ${e.code || e.message}`);
-  }
-});
 
 const sections = {
   collect: byId("collect-tab"),
@@ -416,26 +501,140 @@ document.addEventListener("DOMContentLoaded", () => {
   sections[initial]?.classList.add("active");
 });
 
+/* ---------- Enhanced Keyboard Shortcuts ---------- */
+
 document.addEventListener("keydown", (e) => {
+  // Global shortcuts (work everywhere)
+
   // Ctrl/Cmd + S to save
   if ((e.ctrlKey || e.metaKey) && e.key === "s") {
     e.preventDefault();
-    saveBtn?.click();
+    if (!editOverlay?.classList.contains("hidden")) {
+      editSave?.click();
+    } else if (!citationOverlay?.classList.contains("hidden")) {
+      // Don't do anything in citation overlay
+    } else {
+      saveBtn?.click();
+    }
+    return;
   }
 
-  // Escape to clear selection
+  // Escape key handling - context aware
   if (e.key === "Escape") {
+    // Close overlay if open
+    if (!editOverlay?.classList.contains("hidden")) {
+      hideOverlay("edit-overlay");
+      editItemId = null;
+      return;
+    }
+    if (!citationOverlay?.classList.contains("hidden")) {
+      hideOverlay("citation-overlay");
+      clearCitationForm();
+      return;
+    }
+    // Close dropdown menus
+    const openDropdown = document.querySelector(".more-dropdown.show");
+    if (openDropdown) {
+      openDropdown.classList.remove("show");
+      return;
+    }
+    // Clear selection preview
     clearPreview();
+    return;
   }
 
-  // Tab navigation between tabs
-  if (e.key === "Tab" && e.altKey) {
+  // Alt + Number for quick tab switching
+  if (e.altKey && !e.ctrlKey && !e.metaKey) {
+    const num = parseInt(e.key);
+    if (num >= 1 && num <= 4) {
+      e.preventDefault();
+      const tabs = Array.from(document.querySelectorAll(".tab-btn"));
+      tabs[num - 1]?.click();
+      return;
+    }
+  }
+
+  // Ctrl/Cmd + F to focus search (when on Saved tab)
+  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+    if (document.getElementById("saved-tab")?.classList.contains("active")) {
+      e.preventDefault();
+      searchInput?.focus();
+      return;
+    }
+  }
+
+  // Delete key - context aware
+  if (e.key === "Delete") {
+    // If focused on an item in the saved list
+    const focusedItem = document.activeElement?.closest(".item");
+    if (focusedItem) {
+      const deleteBtn = focusedItem.querySelector("[data-act='delete']");
+      deleteBtn?.click();
+      return;
+    }
+  }
+});
+
+// Handle Enter key in confirmation dialogs
+const originalConfirm = window.confirm;
+window.confirm = function (message) {
+  const result = originalConfirm(message);
+  // Allow Enter key to confirm
+  return result;
+};
+
+// Enter key in overlays
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+
+  // Don't trigger if typing in textarea
+  if (e.target.tagName === "TEXTAREA") return;
+
+  // Edit overlay - save on Enter
+  if (
+    !editOverlay?.classList.contains("hidden") &&
+    (e.target.tagName === "INPUT" || e.target.id === "edit-tags")
+  ) {
     e.preventDefault();
-    const tabs = Array.from(document.querySelectorAll(".tab-btn"));
-    const active = document.querySelector(".tab-btn.active");
-    const currentIndex = tabs.indexOf(active);
-    const nextIndex = (currentIndex + 1) % tabs.length;
-    tabs[nextIndex]?.click();
+    editSave?.click();
+    return;
+  }
+
+  // Auth form - submit on Enter
+  if (
+    !authView?.classList.contains("hidden") &&
+    (e.target.id === "email" || e.target.id === "password")
+  ) {
+    e.preventDefault();
+    signinBtn?.click();
+    return;
+  }
+});
+
+// Arrow keys for navigation in saved items
+document.addEventListener("keydown", (e) => {
+  if (!document.getElementById("saved-tab")?.classList.contains("active"))
+    return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+  const items = Array.from(document.querySelectorAll(".item"));
+  if (items.length === 0) return;
+
+  const focused = document.activeElement?.closest(".item");
+  const currentIndex = items.indexOf(focused);
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+    items[nextIndex]?.focus();
+    items[nextIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+    items[prevIndex]?.focus();
+    items[prevIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 });
 
@@ -450,8 +649,6 @@ document.addEventListener("click", (e) => {
 
 /* ---------- Auth UI ---------- */
 
-/* ---------- Citation Builder ---------- */
-// Auto-refresh citation on any input change
 [
   citeStyle,
   citeType,
@@ -462,6 +659,8 @@ document.addEventListener("click", (e) => {
   citeMonth,
   citeDay,
   citeUrl,
+  citeAccessed,
+  citeEdition,
 ].forEach((el) => {
   el?.addEventListener("input", refreshCitation);
   el?.addEventListener("change", refreshCitation);
@@ -499,30 +698,26 @@ citeCopy?.addEventListener("click", async () => {
 
 // Cancel citation
 citeCancel?.addEventListener("click", () => {
-  // Go back to saved tab
-  document
-    .querySelectorAll(".tab-content")
-    .forEach((s) => s.classList.remove("active"));
-  document.getElementById("saved-tab")?.classList.add("active");
+  // ✅ Hide overlay
+  hideOverlay("citation-overlay");
+  clearCitationForm();
+});
 
-  document
-    .querySelectorAll(".tab-btn")
-    .forEach((b) => b.classList.remove("active"));
-  document.querySelector('.tab-btn[data-tab="saved"]')?.classList.add("active");
-
-  const citeTabBtn = document.getElementById("citation-tab-btn");
-  if (citeTabBtn) citeTabBtn.style.display = "none";
-
+// ✅ NEW: Back button for citation
+citationBack?.addEventListener("click", () => {
+  hideOverlay("citation-overlay");
   clearCitationForm();
 });
 
 /* ---------- Auth UI ---------- */
+// Sign up
+signupBtn?.addEventListener("click", safeSignUp);
 
-// REPLACE existing onclick handlers
-signupBtn.onclick = safeSignUp;
-signinBtn.onclick = safeSignIn;
-// SIGN OUT
-signoutBtn.onclick = async () => {
+// Sign in
+signinBtn?.addEventListener("click", safeSignIn);
+
+// Sign out
+signoutBtn?.addEventListener("click", async () => {
   try {
     await signOut(auth);
     await chrome.storage.local.remove("latestHighlight");
@@ -531,7 +726,7 @@ signoutBtn.onclick = async () => {
     if (password) password.value = "";
     showAuth();
   }
-};
+});
 
 /* ---------- Selection helpers ---------- */
 function showSkeletonLoader() {
@@ -653,44 +848,101 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 /* ---------- Auth state ---------- */
 let booted = false;
-
 onAuthStateChanged(auth, async (u) => {
   user = u || null;
 
   if (!user) {
-    showAuth(); // your existing helper
-    finishBoot(); // << hide the splash now
+    showAuth();
+    finishBoot();
     booted = false;
     return;
   }
 
   showApp();
-  finishBoot(); // hide the splash now
+  finishBoot();
 
   if (email) email.value = "";
   if (password) password.value = "";
 
-  if (booted) return; // prevent double init
+  if (booted) return;
   booted = true;
 
-  // initial app setup
-  await ensureDefaultProject?.();
-  await applyDynamicTheme?.();
-  await loadSettings?.();
-  await loadItems?.();
+  // ✅ CORRECT ORDER: Initialize Firebase first
+  await ensureDefaultProject();
+  await applyDynamicTheme();
+  await loadSettings();
+  await loadItems();
 
-  // After: await loadItems?.();
-  const { focusTab } = await chrome.storage.local.get("focusTab");
-  if (focusTab) {
-    // your code already has showSection(id) that activates a tab by id
-    showSection("summary-tab"); // force AI tab
-    await chrome.storage.local.remove("focusTab");
-  }
+  // ✅ Initialize file importer AFTER Firebase is ready
+  triggerFileImport = initFileImporter({
+    onPreview: (text, fileName) => {
+      applyPreview(text, "", fileName);
+      document
+        .querySelectorAll(".tab-btn")
+        .forEach((b) => b.classList.remove("active"));
+      document
+        .querySelector('.tab-btn[data-tab="collect"]')
+        ?.classList.add("active");
+      showSection("collect-tab");
+    },
+    onToast: toast,
+    onAutoSave: async (text, fileName) => {
+      const saved = await autoSaveImport(text, fileName, {
+        db,
+        user,
+        projectId: currentProjectId,
+        serverTimestamp,
+        addDoc,
+        collection,
+      });
+      if (saved) {
+        await loadItems();
+        toast("Imported and saved!");
+      }
+    },
+  });
 
-  const gotLive = await tryFetchSelection?.();
+  // ✅ Check for cached highlight
+  const gotLive = await tryFetchSelection();
   if (!gotLive) {
     await chrome.storage.local.remove("latestHighlight");
     clearPreview();
+  }
+});
+
+// Import button
+importBtn?.addEventListener("click", () => {
+  if (!user) {
+    toast("Please sign in first");
+    return;
+  }
+  if (triggerFileImport) {
+    triggerFileImport();
+  } else {
+    toast("Import not ready. Please try again.");
+  }
+});
+
+// Export button
+exportBtn?.addEventListener("click", async () => {
+  if (!user) {
+    toast("Please sign in first");
+    return;
+  }
+
+  if (itemsCache.length === 0) {
+    toast("No items to export");
+    return;
+  }
+
+  const format = exportFormat?.value || "txt";
+
+  try {
+    const filename = exportItems(itemsCache, format);
+    toast(`Exported ${itemsCache.length} items as ${filename}`);
+  } catch (error) {
+    console.error("Export error:", error);
+    toast("Export failed. Please try again.");
   }
 });
 
@@ -850,12 +1102,12 @@ async function loadItems() {
     itemsCache.push({ id: d.id, data: it });
     const div = document.createElement("div");
     div.className = "item";
+    div.tabIndex = 0; // ✅ Make focusable
 
     const title = it.sourceTitle || it.sourceUrl || "Untitled";
     const text = (it.text || "").slice(0, 240).replace(/\s+/g, " ");
     const domain = it.sourceUrl ? new URL(it.sourceUrl).hostname : "";
 
-    // tags → chips
     const tags = Array.isArray(it.tags) ? it.tags : [];
     const chips = tags.length
       ? `<div class="chips">${tags
@@ -863,30 +1115,71 @@ async function loadItems() {
           .join("")}</div>`
       : "";
 
+    // ✅ NEW LAYOUT: Delete as X button, simplified actions
     div.innerHTML = `
-  <div class="title">${title}${
+    <button class="delete-btn" data-act="delete" data-id="${
+      d.id
+    }" title="Delete">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+      </svg>
+    </button>
+    
+    <div class="title">${title}${
       domain ? `<span class="domain">${domain}</span>` : ""
     }</div>
-  ${chips}
-  <div class="text">${text}</div>
-  ${
-    it.note
-      ? `<div class="note">📝 ${String(it.note).slice(0, 140)}${
-          (it.note || "").length > 140 ? "…" : ""
-        }</div>`
-      : ""
-  }
-  <div class="actions">
-    <button data-act="copy" data-id="${d.id}">Copy</button>
+    ${chips}
+    <div class="text">${text}</div>
     ${
-      it.sourceUrl
-        ? `<button data-act="open" data-id="${d.id}">Open</button>`
+      it.note
+        ? `<div class="note">📝 ${String(it.note).slice(0, 140)}${
+            (it.note || "").length > 140 ? "…" : ""
+          }</div>`
         : ""
     }
-    <button data-act="edit" data-id="${d.id}">Edit</button>
-    <button data-act="cite" data-id="${d.id}">Cite</button>
-    <button data-act="delete" data-id="${d.id}">Delete</button>
-    </div>`;
+    
+    <div class="actions">
+      <button data-act="copy" data-id="${d.id}">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        </svg>
+        Copy
+      </button>
+      
+      ${
+        it.sourceUrl
+          ? `<button data-act="open" data-id="${d.id}">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+              </svg>
+              Open
+            </button>`
+          : ""
+      }
+      
+      <div class="more-menu">
+        <button class="more-btn" data-act="more" data-id="${d.id}">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+        </button>
+        <div class="more-dropdown" data-id="${d.id}">
+          <button data-act="edit" data-id="${d.id}">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+            Edit tags & notes
+          </button>
+          <button data-act="cite" data-id="${d.id}">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Generate citation
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 
     savedList?.appendChild(div);
   });
@@ -911,14 +1204,39 @@ saveAIKeyBtn?.addEventListener("click", async () => {
 });
 
 savedList?.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-act]");
+  // Handle "more" dropdown toggle
+  const moreBtn = e.target.closest("[data-act='more']");
+  if (moreBtn) {
+    e.stopPropagation();
+    const id = moreBtn.dataset.id;
+    const dropdown = savedList.querySelector(`.more-dropdown[data-id="${id}"]`);
+
+    // Close all other dropdowns
+    savedList.querySelectorAll(".more-dropdown").forEach((d) => {
+      if (d !== dropdown) d.classList.remove("show");
+    });
+
+    dropdown?.classList.toggle("show");
+    return;
+  }
+
+  // ✅ Handle all other button actions
+  const btn = e.target.closest("button[data-act]:not([data-act='more'])");
   if (!btn) return;
-  const rec = itemsCache.find((x) => x.id === btn.dataset.id);
-  if (!rec) return;
+
+  const action = btn.dataset.act;
+  const itemId = btn.dataset.id;
+  const rec = itemsCache.find((x) => x.id === itemId);
+
+  if (!rec) {
+    console.error("Item not found:", itemId);
+    return;
+  }
+
   const it = rec.data;
 
   // ===== COPY ACTION =====
-  if (btn.dataset.act === "copy") {
+  if (action === "copy") {
     const tags = Array.isArray(it.tags) ? it.tags : [];
     const blob = [
       it.text || "",
@@ -930,55 +1248,48 @@ savedList?.addEventListener("click", async (e) => {
         : "",
       it.note ? `\nNote: ${it.note}` : "",
     ].join("");
+
     try {
       await navigator.clipboard.writeText(blob.trim());
       toast("Copied to clipboard");
     } catch {
       toast("Copy failed");
     }
+    return;
   }
 
   // ===== OPEN ACTION =====
-  if (btn.dataset.act === "open" && it.sourceUrl) {
+  if (action === "open" && it.sourceUrl) {
     chrome.tabs.create({ url: it.sourceUrl });
+    return;
   }
 
-  // ===== EDIT ACTION ===== ✅ FIXED
-  if (btn.dataset.act === "edit") {
-    editItemId = btn.dataset.id;
+  // ===== EDIT ACTION =====
+  if (action === "edit") {
+    editItemId = itemId;
 
-    // Populate edit form
     const title = it.sourceTitle || it.sourceUrl || "Untitled";
     const domain = it.sourceUrl ? new URL(it.sourceUrl).hostname : "";
     editMeta.textContent = domain ? `${title} — ${domain}` : title;
     editTags.value = Array.isArray(it.tags) ? it.tags.join(", ") : "";
     editNotes.value = it.note || "";
 
-    // Show edit tab button and switch to it
-    const editTabBtn = document.getElementById("edit-tab-btn");
-    if (editTabBtn) editTabBtn.style.display = "block";
+    // Close dropdown if open
+    savedList.querySelectorAll(".more-dropdown").forEach((d) => {
+      d.classList.remove("show");
+    });
 
-    document
-      .querySelectorAll(".tab-btn")
-      .forEach((b) => b.classList.remove("active"));
-    document
-      .querySelector('.tab-btn[data-tab="edit"]')
-      ?.classList.add("active");
-
-    showSection("edit-tab");
+    showOverlay("edit-overlay");
     return;
   }
 
-  // ===== CITE ACTION ===== ✅ NEW
-  // ===== CITE ACTION ===== ✅ UPDATED
-  if (btn.dataset.act === "cite") {
-    // Populate citation form
+  // ===== CITE ACTION =====
+  if (action === "cite") {
     clearCitationForm();
 
     if (citeTitle) citeTitle.value = it.sourceTitle || "";
     if (citeUrl) citeUrl.value = it.sourceUrl || "";
 
-    // Try to extract domain for container
     if (it.sourceUrl && citeContainer) {
       try {
         const hostname = new URL(it.sourceUrl).hostname.replace(/^www\./, "");
@@ -986,7 +1297,6 @@ savedList?.addEventListener("click", async (e) => {
       } catch {}
     }
 
-    // Extract year from createdAt if available
     if (it.createdAt && citeYear) {
       try {
         const date = it.createdAt.toDate
@@ -998,44 +1308,56 @@ savedList?.addEventListener("click", async (e) => {
       } catch {}
     }
 
-    // Set meta info
     const title = it.sourceTitle || it.sourceUrl || "Untitled";
     if (citationMeta) citationMeta.textContent = `Citing: ${title}`;
 
-    // Refresh citation preview
     refreshCitation();
 
-    // Show citation tab button and switch to it
-    const citeTabBtn = document.getElementById("citation-tab-btn");
-    if (citeTabBtn) citeTabBtn.style.display = "block";
+    // Close dropdown if open
+    savedList.querySelectorAll(".more-dropdown").forEach((d) => {
+      d.classList.remove("show");
+    });
 
-    document
-      .querySelectorAll(".tab-btn")
-      .forEach((b) => b.classList.remove("active"));
-    document
-      .querySelector('.tab-btn[data-tab="citation"]')
-      ?.classList.add("active");
-
-    showSection("citation-tab");
+    showOverlay("citation-overlay");
     return;
   }
 
   // ===== DELETE ACTION =====
-  if (btn.dataset.act === "delete") {
+  if (action === "delete") {
     if (!confirm("Delete this item permanently?")) return;
+
     try {
       await deleteDoc(
         doc(
           db,
-          `users/${user.uid}/projects/${currentProjectId}/items/${btn.dataset.id}`
+          `users/${user.uid}/projects/${currentProjectId}/items/${itemId}`
         )
       );
-      toast("Deleted");
+      toast("Deleted successfully");
       await loadItems();
     } catch (e) {
       console.error(e);
-      toast("Delete failed");
+      toast("Delete failed: " + e.message);
     }
+    return;
+  }
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".more-menu")) {
+    document.querySelectorAll(".more-dropdown").forEach((d) => {
+      d.classList.remove("show");
+    });
+  }
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".more-menu")) {
+    document.querySelectorAll(".more-dropdown").forEach((d) => {
+      d.classList.remove("show");
+    });
   }
 });
 
@@ -1077,23 +1399,25 @@ editSave?.addEventListener("click", async () => {
     toast("Changes saved");
     await loadItems();
 
-    // ✅ Go back to saved tab and hide edit button
-    showSection("saved-tab");
-    document
-      .querySelectorAll(".tab-btn")
-      .forEach((b) => b.classList.remove("active"));
-    document
-      .querySelector('.tab-btn[data-tab="saved"]')
-      ?.classList.add("active");
-
-    const editTabBtn = document.getElementById("edit-tab-btn");
-    if (editTabBtn) editTabBtn.style.display = "none";
-
+    // ✅ Hide overlay and return to saved tab
+    hideOverlay("edit-overlay");
     editItemId = null;
   } catch (e) {
     console.error(e);
     toast("Update failed: " + e.message);
   }
+});
+
+editCancel?.addEventListener("click", () => {
+  // ✅ Hide overlay and return to saved tab
+  hideOverlay("edit-overlay");
+  editItemId = null;
+});
+
+// ✅ NEW: Back button for edit
+editBack?.addEventListener("click", () => {
+  hideOverlay("edit-overlay");
+  editItemId = null;
 });
 
 /* search filter */
@@ -1119,10 +1443,13 @@ function renderFiltered(list) {
     return;
   }
   emptyState?.classList.add("hidden");
+
   list.forEach(({ id, data: it }) => {
     const div = document.createElement("div");
     div.className = "item";
     div.dataset.id = id;
+    div.tabIndex = 0; // ✅ Make focusable
+
     const title = it.sourceTitle || it.sourceUrl || "Untitled";
     const text = (it.text || "").slice(0, 240).replace(/\s+/g, " ");
     const domain = it.sourceUrl ? new URL(it.sourceUrl).hostname : "";
@@ -1133,29 +1460,69 @@ function renderFiltered(list) {
           .join("")}</div>`
       : "";
 
+    // ✅ Use the same new layout
     div.innerHTML = `
-  <div class="title">${title}${
+      <button class="delete-btn" data-act="delete" data-id="${id}" title="Delete">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+      
+      <div class="title">${title}${
       domain ? `<span class="domain">${domain}</span>` : ""
     }</div>
-  ${chips}
-  <div class="text">${text}</div>
-  ${
-    it.note
-      ? `<div class="note">📝 ${String(it.note).slice(0, 140)}${
-          (it.note || "").length > 140 ? "…" : ""
-        }</div>`
-      : ""
-  }
-  <div class="actions">
-    <button data-act="copy" data-id="${id}">Copy</button>
-    ${
-      it.sourceUrl
-        ? `<button data-act="open" data-id="${d.id}">Open</button>`
-        : ""
-    }
-    <button data-act="edit" data-id="${d.id}">Edit</button>
-    <button data-act="delete" data-id="${d.id}">Delete</button>
-  </div>`;
+      ${chips}
+      <div class="text">${text}</div>
+      ${
+        it.note
+          ? `<div class="note">📝 ${String(it.note).slice(0, 140)}${
+              (it.note || "").length > 140 ? "…" : ""
+            }</div>`
+          : ""
+      }
+      
+      <div class="actions">
+        <button data-act="copy" data-id="${id}">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+          Copy
+        </button>
+        
+        ${
+          it.sourceUrl
+            ? `<button data-act="open" data-id="${id}">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                </svg>
+                Open
+              </button>`
+            : ""
+        }
+        
+        <div class="more-menu">
+          <button class="more-btn" data-act="more" data-id="${id}">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
+          </button>
+          <div class="more-dropdown" data-id="${id}">
+            <button data-act="edit" data-id="${id}">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+              </svg>
+              Edit tags & notes
+            </button>
+            <button data-act="cite" data-id="${id}">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              Generate citation
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
 
     savedList.appendChild(div);
   });
@@ -1167,9 +1534,19 @@ async function loadSettings() {
   const { dark = false, ff = "system-ui", fs = 14 } = rmSettings;
   if (darkMode) darkMode.checked = dark;
   if (fontFamily) fontFamily.value = ff;
-  if (fontSize) fontSize.value = fs;
+  if (fontSize) {
+    fontSize.value = fs;
+    // ✅ Update display value
+    const display = document.getElementById("fontSize-value");
+    if (display) display.textContent = fs;
+  }
   applySettings(dark, ff, fs);
 }
+
+fontSize?.addEventListener("input", (e) => {
+  const display = document.getElementById("fontSize-value");
+  if (display) display.textContent = e.target.value;
+});
 
 const existingKey = await getApiKey();
 if (aiKeyInput) aiKeyInput.value = existingKey ? "••••••••••" : "";

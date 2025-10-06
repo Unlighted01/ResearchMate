@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="../popup/popup.css" />
   </head>
   <body class="booting">
-    <!-- Animated background (behind everything) -->
     <div class="gradient-bg" aria-hidden="true">
       <svg xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -36,7 +35,7 @@
       </div>
     </div>
 
-    <!-- AUTH (shown first) -->
+    <!-- Boot splash -->
     <div id="boot-splash">
       <div class="boot-card">
         <span class="dot"></span>
@@ -44,11 +43,11 @@
       </div>
     </div>
 
+    <!-- AUTH -->
     <div id="auth">
       <div class="card auth-card">
         <h2>Welcome to ResearchMate</h2>
         <p class="sub">Sign in to sync your highlights across devices.</p>
-
         <div class="form">
           <input
             id="email"
@@ -63,24 +62,61 @@
             autocomplete="new-password"
           />
         </div>
-
         <div class="auth-actions">
           <button id="signup" class="secondary-btn" type="button">
             Sign up
           </button>
           <button id="signin" class="primary-btn" type="button">Sign in</button>
-          <!-- (optional) Google button stays here too -->
         </div>
-
+        <!--
+        <div style="margin: 16px 0; text-align: center">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <div style="flex: 1; height: 1px; background: var(--border)"></div>
+            <span style="color: var(--muted); font-size: 12px">or</span>
+            <div style="flex: 1; height: 1px; background: var(--border)"></div>
+          </div>
+        </div>
+        <button
+          id="google-signin"
+          class="secondary-btn"
+          type="button"
+          style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          "
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path
+              fill="#4285F4"
+              d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"
+            />
+            <path
+              fill="#34A853"
+              d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"
+            />
+            <path
+              fill="#EA4335"
+              d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.31z"
+            />
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+        -->
         <pre id="auth-log" class="log hidden" aria-live="polite"></pre>
       </div>
     </div>
 
-    <!-- APP (after login) -->
+    <!-- APP -->
     <div id="app" class="container hidden">
       <header>
         <h1>
-          <!-- book-open icon -->
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path
               d="M21 4H12a4 4 0 0 0-4 4v10a3 3 0 0 1 3-3h10V4zM3 6a2 2 0 0 1 2-2h7v13H8a3 3 0 0 0-3 3V6z"
@@ -89,10 +125,8 @@
           </svg>
           ResearchMate
         </h1>
-
         <div class="tabs">
           <button class="tab-btn active" data-tab="collect" title="Highlight">
-            <!-- highlighter icon -->
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path
                 d="M3 16l5 5 3-3-5-5-3 3zm6-6l5 5 6-6-5-5-6 6z"
@@ -101,44 +135,11 @@
             </svg>
           </button>
           <button class="tab-btn" data-tab="saved" title="Saved">
-            <!-- bookmark icon -->
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path d="M6 2h12v20l-6-4-6 4V2z" fill="currentColor" />
             </svg>
           </button>
-          <!-- ✅ ADD CITATION TAB BUTTON -->
-          <button
-            class="tab-btn"
-            data-tab="citation"
-            title="Citation"
-            style="display: none"
-            id="citation-tab-btn"
-          >
-            <!-- quote icon -->
-            <svg viewBox="0 0 24 24" width="16" height="16">
-              <path
-                d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
-          <button
-            class="tab-btn"
-            data-tab="edit"
-            title="Edit"
-            style="display: none"
-            id="edit-tab-btn"
-          >
-            <!-- edit icon -->
-            <svg viewBox="0 0 24 24" width="16" height="16">
-              <path
-                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
           <button class="tab-btn" data-tab="summary" title="AI">
-            <!-- robot icon -->
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path
                 d="M9 2h6v2h3a2 2 0 012 2v8a4 4 0 01-4 4h-8a4 4 0 01-4-4V6a2 2 0 012-2h3V2h2zM7 10h2v2H7v-2zm8 0h2v2h-2v-2z"
@@ -147,7 +148,6 @@
             </svg>
           </button>
           <button class="tab-btn" data-tab="settings" title="Settings">
-            <!-- gear icon -->
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path
                 d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4a7.9 7.9 0 00-.2-1.8l2.1-1.6-2-3.5-2.6 1a8 8 0 00-3.1-1.8L14.8 2h-5.6l-.4 3.3A8 8 0 005.7 7l-2.6-1-2 3.5 2.1 1.6A8 8 0 003 12c0 .6.1 1.2.2 1.8L1.1 15.4l2 3.5 2.6-1a8 8 0 003.1 1.8l.4 3.3h5.6l.4-3.3a8 8 0 003.1-1.8l2.6 1 2-3.5-2.1-1.6c.1-.6.2-1.2.2-1.8z"
@@ -158,7 +158,7 @@
         </div>
       </header>
 
-      <!-- Collect -->
+      <!-- Collect Tab -->
       <div class="tab-content active" id="collect-tab">
         <h3>Current Selection</h3>
         <div id="selected-text" class="selection-preview"></div>
@@ -169,7 +169,6 @@
             <input type="text" id="tags-input" placeholder="Add tags..." />
           </div>
         </div>
-
         <div class="form-group">
           <label class="lbl">Notes:</label>
           <textarea
@@ -178,7 +177,6 @@
             placeholder="Optional notes..."
           ></textarea>
         </div>
-
         <div class="row">
           <button id="save-btn" class="primary-btn" type="button">
             <svg viewBox="0 0 24 24" width="16" height="16">
@@ -186,8 +184,6 @@
             </svg>
             Save Selection
           </button>
-
-          <!-- small meta on the right (domain/title); keep this, it’s not a label -->
           <span
             id="captured-meta"
             class="muted small"
@@ -196,7 +192,7 @@
         </div>
       </div>
 
-      <!-- Saved -->
+      <!-- Saved Tab -->
       <div class="tab-content" id="saved-tab">
         <div class="search-box">
           <input
@@ -228,39 +224,187 @@
             <p>
               Highlight text on any webpage to save your first research note
             </p>
-            <div class="empty-actions">
-              <button
-                class="secondary-btn"
-                onclick="chrome.tabs.create({url: 'https://example.com'})"
-              >
-                Try on a Sample Page
-              </button>
-            </div>
           </div>
         </div>
       </div>
 
-      <!-- Edit -->
-      <div class="tab-content" id="edit-tab">
-        <div class="card editor-card">
-          <h3>Edit tags & notes</h3>
-          <div class="muted small" id="edit-meta"></div>
+      <!-- AI Summary Tab -->
+      <div class="tab-content" id="summary-tab">
+        <div class="row" style="gap: 8px; margin-bottom: 8px">
+          <input
+            id="aiKey"
+            type="password"
+            style="flex: 1"
+            placeholder="OpenAI API Key"
+          />
+          <button id="saveAIKey" class="secondary-btn" type="button">
+            Save Key
+          </button>
+        </div>
+        <textarea
+          id="summary-input"
+          rows="6"
+          placeholder="Paste text to summarize..."
+        ></textarea>
+        <div class="row center" style="margin-top: 8px">
+          <button id="summarize-btn" class="primary-btn" type="button">
+            Generate Summary
+          </button>
+        </div>
+        <div id="summary-result" class="hidden" style="margin-top: 12px">
+          <h3>AI Summary</h3>
+          <div
+            class="summary-content"
+            style="
+              padding: 10px;
+              background: var(--tile);
+              border-radius: 8px;
+              margin-top: 8px;
+            "
+          ></div>
+        </div>
+      </div>
 
-          <div class="form-group">
-            <label class="lbl">Tags (comma separated):</label>
-            <input id="edit-tags" type="text" placeholder="tag1, tag2, …" />
+      <!-- Settings Tab -->
+      <!-- Settings Tab -->
+      <div class="tab-content" id="settings-tab">
+        <div class="row" style="gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
+          <button
+            id="exportData"
+            class="secondary-btn"
+            style="flex: 1; min-width: 100px"
+          >
+            📤 Export
+          </button>
+          <button
+            id="importData"
+            class="secondary-btn"
+            style="flex: 1; min-width: 100px"
+          >
+            📥 Import
+          </button>
+          <button
+            id="shuffleTheme"
+            class="secondary-btn"
+            style="flex: 1; min-width: 100px"
+          >
+            🎨 Theme
+          </button>
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <label class="lbl">Export Format</label>
+          <select id="exportFormat" style="width: 100%">
+            <option value="txt">Plain Text (.txt)</option>
+            <option value="json">JSON (.json)</option>
+            <option value="md">Markdown (.md)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              cursor: pointer;
+              padding: 8px 0;
+            "
+          >
+            <input type="checkbox" id="darkMode" />
+            <span>Dark mode</span>
+          </label>
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <label class="lbl">Font Family</label>
+          <select id="fontFamily" style="width: 100%">
+            <option value="system-ui">System</option>
+            <option value="serif">Serif</option>
+            <option value="monospace">Monospace</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 20px">
+          <label class="lbl"
+            >Font Size: <span id="fontSize-value">14</span>px</label
+          >
+          <input
+            id="fontSize"
+            type="range"
+            min="12"
+            max="18"
+            value="14"
+            style="width: 100%"
+          />
+        </div>
+
+        <div class="row right">
+          <button id="signout" class="danger-btn" type="button">Logout</button>
+        </div>
+
+        <!-- ✅ KEYBOARD SHORTCUTS - ONLY IN SETTINGS TAB -->
+        <div
+          style="
+            margin-top: 20px;
+            padding: 12px;
+            background: var(--tile);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+          "
+        >
+          <h4
+            style="
+              margin: 0 0 8px;
+              font-size: 12px;
+              color: var(--muted);
+              text-transform: uppercase;
+            "
+          >
+            Keyboard Shortcuts
+          </h4>
+          <div style="font-size: 11px; color: var(--muted); line-height: 1.6">
+            <div><kbd>Ctrl+S</kbd> Save / Save changes</div>
+            <div><kbd>Esc</kbd> Close overlay / Clear selection</div>
+            <div><kbd>Alt+1-4</kbd> Switch tabs</div>
+            <div><kbd>Ctrl+F</kbd> Search (Saved tab)</div>
+            <div><kbd>Enter</kbd> Confirm / Submit</div>
+            <div><kbd>Delete</kbd> Delete focused item</div>
+            <div><kbd>↑↓</kbd> Navigate items</div>
           </div>
+        </div>
+      </div>
+    </div>
 
-          <div class="form-group">
-            <label class="lbl">Notes:</label>
-            <textarea
-              id="edit-notes"
-              rows="4"
-              placeholder="Add your note…"
-            ></textarea>
-          </div>
-
-          <div class="row right" style="gap: 8px">
+    <!-- Edit Overlay -->
+    <div class="overlay-page hidden" id="edit-overlay">
+      <div class="overlay-header">
+        <button id="edit-back" class="back-btn" title="Back">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path
+              d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+        <h2>Edit Item</h2>
+      </div>
+      <div class="overlay-content">
+        <div class="card">
+          <div
+            class="muted small"
+            id="edit-meta"
+            style="margin-bottom: 12px"
+          ></div>
+          <label class="lbl">Tags (comma separated)</label>
+          <input id="edit-tags" type="text" placeholder="tag1, tag2, ..." />
+          <label class="lbl" style="margin-top: 8px">Notes</label>
+          <textarea
+            id="edit-notes"
+            rows="4"
+            placeholder="Add your note..."
+          ></textarea>
+          <div class="row right" style="gap: 8px; margin-top: 12px">
             <button id="edit-cancel" class="secondary-btn" type="button">
               Cancel
             </button>
@@ -270,29 +414,40 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Citation -->
-      <div class="tab-content" id="citation-tab">
+    <!-- Citation Overlay -->
+    <div class="overlay-page hidden" id="citation-overlay">
+      <div class="overlay-header">
+        <button id="citation-back" class="back-btn" title="Back">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path
+              d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+        <h2>Citation Builder</h2>
+      </div>
+      <div class="overlay-content">
         <div class="card">
-          <h3>Citation Builder</h3>
           <p
             class="muted small"
             id="citation-meta"
             style="margin-bottom: 12px"
           ></p>
-
           <div class="row" style="gap: 8px; margin-bottom: 12px">
-            <label class="lbl" style="flex: 1">
-              Style
+            <label class="lbl" style="flex: 1"
+              >Style
               <select id="cite-style">
                 <option value="apa">APA 7</option>
                 <option value="mla">MLA 9</option>
                 <option value="chicago">Chicago (author-date)</option>
+                <option value="ieee">IEEE</option>
               </select>
             </label>
-
-            <label class="lbl" style="flex: 1">
-              Type
+            <label class="lbl" style="flex: 1"
+              >Type
               <select id="cite-type">
                 <option value="web">Web page</option>
                 <option value="article">Journal article</option>
@@ -300,61 +455,46 @@
               </select>
             </label>
           </div>
-
-          <label class="lbl">
-            Authors (one per line, "First Last")
-            <textarea
-              id="cite-authors"
-              rows="2"
-              placeholder="Ada Lovelace&#10;Alan Turing"
-            ></textarea>
-          </label>
-
-          <label class="lbl">
-            Title
-            <input
-              id="cite-title"
-              type="text"
-              placeholder="Article or page title"
-            />
-          </label>
-
-          <label class="lbl">
-            Website / Journal
-            <input
-              id="cite-container"
-              type="text"
-              placeholder="Website or journal name"
-            />
-          </label>
-
+          <label class="lbl">Authors (one per line, "First Last")</label>
+          <textarea
+            id="cite-authors"
+            rows="2"
+            placeholder="Ada Lovelace&#10;Alan Turing"
+          ></textarea>
+          <label class="lbl">Title</label>
+          <input
+            id="cite-title"
+            type="text"
+            placeholder="Article or page title"
+          />
+          <label class="lbl">Website / Journal</label>
+          <input
+            id="cite-container"
+            type="text"
+            placeholder="Website or journal name"
+          />
+          <label class="lbl">Edition (for books, e.g., "2nd")</label>
+          <input id="cite-edition" type="text" placeholder="2nd, 3rd, etc." />
           <div class="row" style="gap: 8px">
-            <label class="lbl" style="flex: 1">
-              Year
-              <input id="cite-year" type="text" placeholder="YYYY" />
-            </label>
-            <label class="lbl" style="flex: 1">
-              Month
-              <input id="cite-month" type="text" placeholder="MM" />
-            </label>
-            <label class="lbl" style="flex: 1">
-              Day
-              <input id="cite-day" type="text" placeholder="DD" />
-            </label>
+            <label class="lbl" style="flex: 1"
+              >Year<input id="cite-year" type="text" placeholder="YYYY"
+            /></label>
+            <label class="lbl" style="flex: 1"
+              >Month<input id="cite-month" type="text" placeholder="MM"
+            /></label>
+            <label class="lbl" style="flex: 1"
+              >Day<input id="cite-day" type="text" placeholder="DD"
+            /></label>
           </div>
-
-          <label class="lbl">
-            URL
-            <input id="cite-url" type="text" placeholder="https://..." />
-          </label>
-
-          <!-- Citation Output -->
+          <label class="lbl">URL</label>
+          <input id="cite-url" type="text" placeholder="https://..." />
+          <label class="lbl">Accessed Date (for web sources)</label>
+          <input id="cite-accessed" type="date" placeholder="YYYY-MM-DD" />
           <div
             id="cite-output"
             class="cite-output"
             style="margin-top: 12px"
           ></div>
-
           <div class="row" style="gap: 8px; margin-top: 12px">
             <button id="cite-copy" class="primary-btn" style="flex: 1">
               Copy Citation
@@ -363,66 +503,8 @@
           </div>
         </div>
       </div>
-
-      <!-- AI -->
-      <div class="tab-content" id="summary-tab">
-        <!-- API key row ONLY lives in this tab -->
-        <div class="row" style="gap: 8px; margin-bottom: 8px">
-          <input id="aiKey" type="password" style="flex: 1" />
-          <button id="saveAIKey" class="secondary-btn" type="button">
-            Save Key
-          </button>
-        </div>
-
-        <textarea
-          id="summary-input"
-          placeholder="Paste text to summarize..."
-        ></textarea>
-
-        <div class="row center" style="margin-top: 8px">
-          <button id="summarize-btn" class="primary-btn" type="button">
-            Generate Summary
-          </button>
-        </div>
-
-        <div id="summary-result" class="hidden">
-          <h3>AI Summary</h3>
-          <div class="summary-content"></div>
-        </div>
-      </div>
-
-      <!-- Settings -->
-      <div class="tab-content" id="settings-tab">
-        <div class="row">
-          <button id="exportData" class="secondary-btn">📤 Export Data</button>
-          <button id="importData" class="secondary-btn">📥 Import Data</button>
-          <button id="shuffleTheme" class="secondary-btn" type="button">
-            Shuffle Theme
-          </button>
-        </div>
-        <div class="row center" style="margin-bottom: 8px"></div>
-        <div class="row">
-          <label><input type="checkbox" id="darkMode" /> Dark mode</label>
-        </div>
-        <div class="row">
-          <label
-            >Font
-            <select id="fontFamily">
-              <option value="system-ui">System</option>
-              <option value="serif">Serif</option>
-              <option value="monospace">Monospace</option>
-            </select>
-          </label>
-          <label style="margin-left: auto"
-            >Size
-            <input id="fontSize" type="range" min="12" max="18" value="14" />
-          </label>
-        </div>
-        <div class="row right">
-          <button id="signout" class="danger-btn" type="button">Logout</button>
-        </div>
-      </div>
     </div>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script type="module" src="popup.js"></script>
   </body>
