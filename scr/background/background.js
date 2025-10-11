@@ -1,94 +1,90 @@
-// background.js
-import {
-  auth,
-  db,
-  addDoc,
-  collection,
-  serverTimestamp,
-} from "../lib/firebase-init.js";
+// background.js - Detect OAuth callback at extension URL
+console.log("🚀 Background worker active");
 
-/* ---------- Live selection preview from content scripts ---------- */
-chrome.runtime.onMessage.addListener(async (msg) => {
-  if (msg?.type === "selectionPreview") {
-    const latest = {
-      text: msg.text,
-      sourceUrl: msg.url || "",
-      sourceTitle: msg.title || "",
-      createdAt: Date.now(),
-    };
-    await chrome.storage.local.set({ latestHighlight: latest });
-    chrome.runtime.sendMessage({ type: "latestHighlight", payload: latest });
-  }
-
-  if (msg?.type === "selectionCleared") {
-    await chrome.storage.local.remove("latestHighlight"); // ensure cache is gone
-    chrome.runtime.sendMessage({ type: "latestHighlightCleared" }); // popup clears UI
-  }
-});
-
-/* ---------- Context menu: save highlighted selection ---------- */
-async function createMenus() {
-  try {
-    await chrome.contextMenus.removeAll();
-    chrome.contextMenus.create({
-      id: "save-selection",
-      title: "Save selection to ResearchMate",
-      contexts: ["selection"],
-    });
-    console.log("Context menu ready");
-  } catch (e) {
-    console.error("Menu error", e);
-  }
-}
-createMenus();
-chrome.runtime.onInstalled.addListener(createMenus);
-
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== "save-selection" || !tab?.id) return;
-
-  // Get page title/url from the tab
-  const [{ result: page }] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: () => ({ title: document.title, url: location.href }),
+// Create context menu
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "save-to-researchmate",
+    title: "Save to ResearchMate",
+    contexts: ["selection"],
   });
+  console.log("✅ Context menu ready");
+});
 
-  const u = auth.currentUser;
-  const { currentProjectId } = await chrome.storage.local.get(
-    "currentProjectId"
-  );
-  const projectId = currentProjectId || "default"; // always have a project
-
-  if (!u) {
-    chrome.notifications?.create({
-      type: "basic",
-      title: "ResearchMate",
-      message: "Please sign in to save.",
-      iconUrl: "assets/icon128.png",
-    });
-    return;
-  }
-
-  try {
-    await addDoc(collection(db, `users/${u.uid}/projects/${projectId}/items`), {
-      text: info.selectionText || "",
-      sourceUrl: page.url,
-      sourceTitle: page.title,
-      createdAt: serverTimestamp(),
-    });
-    chrome.runtime.sendMessage({ type: "itemSaved" });
-    chrome.notifications?.create({
-      type: "basic",
-      title: "Saved!",
-      message: "Selection saved.",
-      iconUrl: "assets/icon128.png",
-    });
-  } catch (e) {
-    console.error("Save failed", e);
-    chrome.notifications?.create({
-      type: "basic",
-      title: "ResearchMate",
-      message: "Save failed. See Service Worker console.",
-      iconUrl: "assets/icon128.png",
-    });
+// Handle context menu
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "save-to-researchmate" && info.selectionText) {
+    console.log("💾 Context menu: Save selection");
+    const payload = {
+      text: info.selectionText.trim(),
+      sourceUrl: tab.url || "",
+      sourceTitle: tab.title || "",
+      timestamp: Date.now(),
+    };
+    await chrome.storage.local.set({ pendingSave: payload });
+    chrome.runtime
+      .sendMessage({ type: "contextMenuSave", payload })
+      .catch(() => console.log("ℹ️ Popup not open"));
   }
 });
+
+// ✅ Listen for OAuth callback at EXTENSION URL
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (!tab.url) return;
+
+  const url = tab.url;
+
+  // Check if this is our extension with OAuth tokens
+  const isOurExtension = url.includes(chrome.runtime.id);
+  const hasTokens =
+    url.includes("#access_token") || url.includes("access_token=");
+
+  if (isOurExtension && hasTokens) {
+    console.log("🔑 OAuth callback detected at extension URL!");
+    console.log("📍 URL:", url);
+
+    try {
+      const urlObj = new URL(url);
+      let hashFragment = urlObj.hash;
+
+      // Sometimes tokens are in search params instead of hash
+      if (!hashFragment && url.includes("access_token=")) {
+        const searchParams = urlObj.search;
+        hashFragment = searchParams.replace("?", "#");
+      }
+
+      if (hashFragment && hashFragment.includes("access_token")) {
+        console.log("✅ Storing OAuth tokens...");
+        console.log("🔑 Hash:", hashFragment.substring(0, 50) + "...");
+
+        await chrome.storage.local.set({
+          oauthCallback: hashFragment,
+          oauthTimestamp: Date.now(),
+        });
+
+        console.log("✅ Tokens stored successfully!");
+
+        // Close the blocked tab
+        await chrome.tabs.remove(tabId);
+        console.log("✅ OAuth tab closed");
+
+        // Notify popup if open
+        chrome.runtime.sendMessage({ type: "oauthComplete" }).catch(() => {
+          console.log("ℹ️ No popup open, will process on next open");
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error processing OAuth:", error);
+    }
+  }
+});
+
+// Keep alive
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "keepAlive") {
+    sendResponse({ status: "alive" });
+  }
+  return true;
+});
+
+console.log("✅ Background worker initialized");

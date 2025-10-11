@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>OAuth Callback</title>
+    <style>
+      body {
+        font-family: "Courier New", monospace;
+        padding: 20px;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-size: 12px;
+      }
+      .log {
+        margin: 5px 0;
+        padding: 5px;
+        background: #2d2d2d;
+        border-left: 3px solid #007acc;
+      }
+      .error {
+        border-left-color: #f44336;
+      }
+      .success {
+        border-left-color: #4caf50;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>🔍 OAuth Callback Debug</h2>
+    <div id="logs"></div>
+
+    <script>
+      const logsDiv = document.getElementById("logs");
+
+      function log(message, type = "info") {
+        console.log(message);
+        const div = document.createElement("div");
+        div.className = `log ${type}`;
+        div.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+        logsDiv.appendChild(div);
+      }
+
+      log("🚀 OAuth callback page loaded");
+      log("📍 Full URL: " + window.location.href);
+      log("🔗 Hash: " + window.location.hash);
+      log("🔗 Search: " + window.location.search);
+      log("🔗 Pathname: " + window.location.pathname);
+
+      // Check if we're in an extension context
+      if (typeof chrome !== "undefined" && chrome.runtime) {
+        log("✅ Chrome extension context available", "success");
+        log("🆔 Extension ID: " + chrome.runtime.id);
+      } else {
+        log("❌ Not in extension context!", "error");
+      }
+
+      // Try to extract tokens
+      const hash = window.location.hash;
+      const search = window.location.search;
+
+      if (hash || search) {
+        log("📦 Attempting to extract tokens...");
+
+        let params;
+        if (hash && hash.includes("access_token")) {
+          params = new URLSearchParams(hash.substring(1));
+          log("✅ Found tokens in hash", "success");
+        } else if (search && search.includes("access_token")) {
+          params = new URLSearchParams(search.substring(1));
+          log("✅ Found tokens in search", "success");
+        }
+
+        if (params) {
+          const accessToken = params.get("access_token");
+          const refreshToken = params.get("refresh_token");
+
+          log(
+            "🔑 Access token: " + (accessToken ? "✅ Present" : "❌ Missing")
+          );
+          log(
+            "🔑 Refresh token: " + (refreshToken ? "✅ Present" : "❌ Missing")
+          );
+
+          if (accessToken && refreshToken) {
+            log("💾 Storing tokens in chrome.storage...", "success");
+
+            chrome.storage.local
+              .set({
+                oauthCallback: hash || search,
+                oauthTimestamp: Date.now(),
+              })
+              .then(() => {
+                log("✅ Tokens stored successfully!", "success");
+                log("🔔 Sending message to runtime...");
+
+                chrome.runtime
+                  .sendMessage({ type: "oauthComplete" })
+                  .catch((err) => {
+                    log("⚠️ Message send failed (this is OK): " + err.message);
+                  });
+
+                log("⏱️ Closing window in 2 seconds...", "success");
+                setTimeout(() => {
+                  window.close();
+                }, 2000);
+              })
+              .catch((err) => {
+                log("❌ Storage error: " + err.message, "error");
+              });
+          } else {
+            log("❌ Tokens missing in URL!", "error");
+          }
+        } else {
+          log("❌ No tokens found in URL", "error");
+        }
+      } else {
+        log("❌ No hash or search params in URL", "error");
+        log("⚠️ This page should have been redirected to with OAuth tokens");
+      }
+    </script>
+  </body>
+</html>

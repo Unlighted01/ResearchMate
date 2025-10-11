@@ -493,7 +493,9 @@ header,
 }
 
 .google-auth-row {
-  margin-top: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
   display: flex;
   justify-content: center;
 }
@@ -501,19 +503,28 @@ header,
 .google-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 16px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--tile);
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  background: color-mix(in oklab, var(--tile) 60%, transparent);
   color: var(--fg);
   font-size: 14px;
-  width: 100%; /* make it full width like inputs */
+  font-weight: 500;
+  width: 100%;
   justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
 }
+
 .google-btn:hover {
-  background: color-mix(in oklab, var(--tile) 90%, var(--accent) 10%);
-  transform: translateY(-1px);
+  background: color-mix(in oklab, var(--tile) 80%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.google-btn:active {
+  transform: translateY(0);
 }
 
 /* ===== Auth view: background image + gradient + glass card ===== */

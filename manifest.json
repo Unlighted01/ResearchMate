@@ -1,39 +1,35 @@
 {
   "manifest_version": 3,
   "name": "ResearchMate",
-  "version": "0.1.2",
-  "description": "Save and organize research highlights with tags, notes, and citations",
+  "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuT/MR2Jm/CciK43sjDFMT8F4Vzrk/HYnbasBfOEpYC8/kxZhADueTkP9oBK1YGqQz8b4WgHVy0Wrv9sGKehWKHuOaYWikA+os7FnsCgURkA9/pOAnzF7PZtLqO7EaL1DrPM74z2bzjUQhBsa5zmV+Cyq3yo5kCQekWNvg2CRkYTOtrS8nYx16EQOjoSC5D58yhk6BT3zZUG3we6qd28Gig/EInNYmGeue8tTmam0oh2DOMRpJH945Vh1uc3uYdZ/tkmj3qdc8Qux/4eDL6lHpmfYOmAuyRXyf4nQOQmCefw2QfYZZuC7EQ/0w8U7BE6O06Dq9inGRx6SPpCZcB7XSQIDAQAB",
+  "description": "Highlight & save research snippets with cloud sync",
+  "permissions": ["storage", "contextMenus", "activeTab", "scripting", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    {
+      "resources": ["scr/pages/oauth-callback.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "background": {
+    "service_worker": "scr/background/background.js",
+    "type": "module"
+  },
   "action": {
-    "default_title": "ResearchMate",
     "default_popup": "scr/UI/popup/popup.html",
     "default_icon": {
       "128": "assets/icon128.png"
     }
   },
-  "background": {
-    "service_worker": "scr/background/background.js",
-    "type": "module"
-  },
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com"
+  "icons": {
+    "128": "assets/icon128.png"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["scr/content/content.js"],
-      "run_at": "document_idle",
-      "all_frames": false
-    }
-  ],
-  "icons": {
-    "128": "assets/icon128.png"
-  },
-  "permissions": ["storage", "activeTab", "contextMenus", "scripting"],
-  "host_permissions": ["<all_urls>"],
-  "web_accessible_resources": [
-    {
-      "resources": ["scr/lib/pdf.worker.min.js", "scr/lib/pdf.min.js"],
-      "matches": ["<all_urls>"]
+      "run_at": "document_end"
     }
   ]
 }
