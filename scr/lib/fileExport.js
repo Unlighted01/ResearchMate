@@ -3,6 +3,7 @@
 /**
  * File Export Module
  * Handles exporting saved items in multiple formats
+ * ✅ Updated for Supabase (flat data structure)
  */
 
 /**
@@ -19,33 +20,30 @@ export function exportAsText(items) {
   output += "═══════════════════════════════════════\n\n";
 
   items.forEach((item, index) => {
-    const data = item.data;
     const num = index + 1;
 
-    output += `\n[${num}] ${data.sourceTitle || "Untitled"}\n`;
+    output += `\n[${num}] ${item.sourceTitle || "Untitled"}\n`;
     output += "─".repeat(50) + "\n";
 
-    if (data.sourceUrl) {
-      output += `Source: ${data.sourceUrl}\n`;
+    if (item.sourceUrl) {
+      output += `Source: ${item.sourceUrl}\n`;
     }
 
-    if (data.createdAt) {
-      const date = data.createdAt.toDate
-        ? data.createdAt.toDate()
-        : new Date(data.createdAt);
+    if (item.createdAt) {
+      const date = new Date(item.createdAt);
       output += `Date: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
     }
 
-    if (data.tags && data.tags.length > 0) {
-      output += `Tags: ${data.tags.map((t) => `#${t}`).join(" ")}\n`;
+    if (item.tags && item.tags.length > 0) {
+      output += `Tags: ${item.tags.map((t) => `#${t}`).join(" ")}\n`;
     }
 
     output += "\n";
-    output += data.text || "(No content)";
+    output += item.text || "(No content)";
     output += "\n";
 
-    if (data.note) {
-      output += `\nNotes: ${data.note}\n`;
+    if (item.note) {
+      output += `\nNotes: ${item.note}\n`;
     }
 
     output += "\n" + "═".repeat(50) + "\n";
@@ -62,22 +60,15 @@ export function exportAsJSON(items) {
     version: "1.0",
     exportDate: new Date().toISOString(),
     itemCount: items.length,
-    items: items.map((item) => {
-      const data = item.data;
-      return {
-        id: item.id,
-        text: data.text || "",
-        sourceTitle: data.sourceTitle || "",
-        sourceUrl: data.sourceUrl || "",
-        tags: data.tags || [],
-        note: data.note || "",
-        createdAt: data.createdAt
-          ? data.createdAt.toDate
-            ? data.createdAt.toDate().toISOString()
-            : new Date(data.createdAt).toISOString()
-          : null,
-      };
-    }),
+    items: items.map((item) => ({
+      id: item.id,
+      text: item.text || "",
+      sourceTitle: item.sourceTitle || "",
+      sourceUrl: item.sourceUrl || "",
+      tags: item.tags || [],
+      note: item.note || "",
+      createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : null,
+    })),
   };
 
   return JSON.stringify(exportData, null, 2);
@@ -97,32 +88,29 @@ export function exportAsMarkdown(items) {
   output += "---\n\n";
 
   items.forEach((item, index) => {
-    const data = item.data;
     const num = index + 1;
 
-    output += `## ${num}. ${data.sourceTitle || "Untitled"}\n\n`;
+    output += `## ${num}. ${item.sourceTitle || "Untitled"}\n\n`;
 
-    if (data.sourceUrl) {
-      output += `**Source:** [Link](${data.sourceUrl})\n\n`;
+    if (item.sourceUrl) {
+      output += `**Source:** [Link](${item.sourceUrl})\n\n`;
     }
 
-    if (data.createdAt) {
-      const date = data.createdAt.toDate
-        ? data.createdAt.toDate()
-        : new Date(data.createdAt);
+    if (item.createdAt) {
+      const date = new Date(item.createdAt);
       output += `**Date:** ${date.toLocaleDateString()}\n\n`;
     }
 
-    if (data.tags && data.tags.length > 0) {
-      output += `**Tags:** ${data.tags.map((t) => `\`${t}\``).join(", ")}\n\n`;
+    if (item.tags && item.tags.length > 0) {
+      output += `**Tags:** ${item.tags.map((t) => `\`${t}\``).join(", ")}\n\n`;
     }
 
     output += "### Content\n\n";
-    output += data.text || "*(No content)*";
+    output += item.text || "*(No content)*";
     output += "\n\n";
 
-    if (data.note) {
-      output += `### Notes\n\n${data.note}\n\n`;
+    if (item.note) {
+      output += `### Notes\n\n${item.note}\n\n`;
     }
 
     output += "---\n\n";
