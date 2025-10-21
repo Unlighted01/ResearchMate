@@ -16,7 +16,7 @@ esbuild
     outfile: "dist/scr/UI/popup/popup.js",
     format: "esm",
     platform: "browser",
-    target: "es2020",
+    target: "es2022",
     external: [],
   })
   .then(() => console.log("✅ Bundled popup.js"));

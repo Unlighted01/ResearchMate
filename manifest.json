@@ -1,9 +1,17 @@
 {
   "manifest_version": 3,
   "name": "ResearchMate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Highlight & save research snippets with cloud sync",
-  "permissions": ["storage", "contextMenus", "activeTab", "scripting", "tabs"],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuaAxpKOXCWde+WzFjOd54Z7jPPV4rGTNx5TvKEDKbK5mHfVThNwLy95wfFYlEqqsxsgmiaOUvDo56pwLxkgYwJfGxojKhwSAq00vnj6MW0M38MHBJORQyOAdKofBaND71DCWRhkygFCuTW0N2YRdmg7+n9RMoPWFEF/HOQq4ouTuZOEuS3SzHpTUEJFAZktnnjyDoPkiJzNh9gxvmDZ1UHGILB9S68udHsBfBfIwAZeqiZ3Rl8Y2vkgOs+UOWN/b50zCamgG6kjWF9XmtjDvA2SqNwhyKqZtLUqY+OSeWQlO391nuH4GRzFLHO6m9HY2MQrXGrQmB+BIS2diLfPi0QIDAQAB",
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "identity"
+  ],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "scr/background/background.js",

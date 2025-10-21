@@ -1,735 +1,49 @@
+/* ============================================
+   PART 1: CSS VARIABLES
+   ============================================ */
 :root {
-  --bg: #0b0c0f; /* default to dark; we flip for light */
+  /* Core Colors - Dark Theme */
+  --bg: #0b0c0f;
   --panel: #0f172a;
   --fg: #e5e7eb;
   --muted: #94a3b8;
-  --border: #1f2937;
+  --border: #1e293b;
   --tile: #111827;
-  --accent: #60a5fa; /* will be dynamically set */
-  --accent-fg: #0b0c0f; /* text on accent */
-  --grad-start: #3b82f6; /* dynamic gradient start */
-  --grad-end: #22d3ee; /* dynamic gradient end */
+  --accent: #60a5fa;
+  --accent-fg: #0b0c0f;
   --danger: #ef4444;
-  --radius: 12px;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-}
+  --success: #10b981;
 
-/* change this selector */
-body.light {
-  --bg: #ffffff;
-  --panel: #ffffff;
-  --fg: #0f172a;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --tile: #f8fafc;
-  --accent: #2563eb;
-  --accent-fg: #ffffff;
-  --grad-start: #93c5fd;
-  --grad-end: #a7f3d0;
-  --shadow: 0 12px 18px rgba(0, 0, 0, 0.08);
-}
+  /* Gradients (dynamic - set by JS) */
+  --grad-start: #3b82f6;
+  --grad-end: #22d3ee;
 
-* {
-  box-sizing: border-box;
-}
-html,
-body {
-  width: 100%;
-  min-width: 380px; /* instead of fixed width */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 560px; /* keep your existing height */
-  padding: 16px;
-  box-sizing: border-box;
-}
+  /* Spacing & Layout */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
 
-body {
-  width: 380px;
-  background: radial-gradient(
-      1200px 480px at top right,
-      color-mix(in oklab, var(--grad-start) 22%, transparent),
-      transparent 60%
-    ),
-    var(--bg);
-  color: var(--fg);
-  font: 14px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial,
-    sans-serif;
-}
-button {
-  cursor: pointer;
-}
-.hidden {
-  display: none !important;
-}
-.small {
-  font-size: 12px;
-}
-.muted {
-  color: var(--muted);
-}
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
 
-/* container blocks */
-#auth,
-#app {
-  width: 100%;
-  max-width: 380px; /* Consistent width for both */
-  display: flex;
-  flex-direction: column;
-}
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.2);
 
-/* header + segmented tabs */
-header {
-  border: 1px solid var(--border);
-  background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--grad-start) 32%, transparent),
-      color-mix(in oklab, var(--grad-end) 28%, transparent)
-    ),
-    var(--panel);
-  border-radius: var(--radius);
-  padding: 12px;
-  box-shadow: var(--shadow);
-  margin-bottom: 10px;
-}
-header h1 {
-  margin: 0 0 10px;
-  font-size: 16px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.tabs {
-  display: flex;
-  gap: 8px;
-}
-.tab-btn {
-  flex: 1;
-  border: 1px solid var(--border);
-  background: var(--tile);
-  color: var(--fg);
-  padding: 8px 0;
-  border-radius: 999px;
-  transition: 0.15s ease;
-}
-.tab-btn:hover {
-  transform: translateY(-1px);
-}
-.tab-btn.active {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: transparent;
-}
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 
-/* sections */
-.tab-content {
-  display: none;
-}
-.tab-content.active {
-  display: block;
-}
-
-/* inputs */
-label.lbl {
-  display: block;
-  margin: 10px 0 6px;
-  color: var(--muted);
-}
-input[type="text"],
-input[type="email"],
-input[type="password"],
-select,
-textarea {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--fg);
-  padding: 10px 12px;
-  border-radius: 10px;
-  outline: none;
-}
-input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
-}
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: var(--accent);
-}
-
-/* selection preview box (fixed height + scrollbar) */
-.selection-preview {
-  height: 140px; /* fixed (pick 120–180 if you prefer) */
-  overflow: auto; /* scroll instead of growing */
-  border: 1px dashed var(--border);
-  background: var(--tile);
-  border-radius: 12px;
-  padding: 10px;
-  margin: 6px 0 2px;
-  white-space: pre-wrap;
-  word-break: break-word; /* keeps very long URLs from expanding the box */
-}
-/* optional: pin the save row at the bottom of the tab */
-.sticky-actions {
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(
-    to top,
-    color-mix(in oklab, var(--bg) 92%, transparent),
-    transparent
-  );
-  padding-top: 6px;
-}
-
-/* buttons */
-.primary-btn,
-.secondary-btn,
-.danger-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 10px;
-  padding: 9px 12px;
-  transition: 0.15s ease;
-}
-.primary-btn {
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-.secondary-btn {
-  background: var(--tile);
-  color: var(--fg);
-  border: 1px solid var(--border);
-}
-.danger-btn {
-  background: var(--danger);
-  color: #fff;
-}
-.primary-btn:hover,
-.secondary-btn:hover,
-.danger-btn:hover {
-  transform: translateY(-1px);
-}
-.primary-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.row.center {
-  justify-content: center;
-}
-
-/* center Save + Logout without changing HTML */
-#save-btn {
-  margin-left: auto;
-  margin-right: auto;
-}
-#signout {
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* saved list */
-.saved-items {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-}
-.item {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: var(--shadow);
-}
-.item .title {
-  font-weight: 600;
-  margin-bottom: 4px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.item .domain {
-  font-size: 12px;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  padding: 2px 6px;
-  border-radius: 999px;
-}
-.item .text {
-  color: var(--muted);
-  margin: 6px 0 8px;
-}
-.chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
-}
-.chip {
-  font-size: 12px;
-  color: var(--accent-fg);
-  background: var(--accent);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-.item .actions {
-  display: flex;
-  gap: 6px;
-}
-.item .actions button {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--fg);
-  padding: 6px 8px;
-  border-radius: 8px;
-}
-
-/* search */
-.search-box {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px 12px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  background: var(--panel);
-}
-.search-box input {
-  border: 0;
-  background: transparent;
-  padding: 0;
-}
-
-/* toast */
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  background: var(--panel);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: var(--shadow);
-  opacity: 0;
-  pointer-events: none;
-  transition: 0.2s ease;
-  max-width: 320px;
-  z-index: 10001;
-}
-.toast.show {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(-50%) translateY(-6px);
-}
-
-/* keep popup height consistent so auth == main */
-body {
-  min-height: 560px;
-}
-
-/* generic card we can reuse */
-.card {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: var(--shadow);
-}
-
-/* AUTH page layout */
-#auth .auth-card {
-  width: 100%;
-  text-align: center;
-  margin-top: 0; /* remove your existing margin-top */
-  padding: 24px; /* increased padding for better spacing */
-}
-#auth h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
-}
-#auth .sub {
-  margin: 0 0 10px;
-  color: var(--muted);
-}
-
-#auth .form {
-  margin: 20px 0; /* more vertical spacing */
-}
-
-#auth input[type="email"],
-#auth input[type="password"] {
-  width: 100%; /* ensure full width */
-  height: 42px;
-  font-size: 14px;
-}
-
-#auth .auth-actions {
-  width: 100%;
-  justify-content: space-between; /* better button spacing */
-  margin-top: 20px;
-}
-
-#auth #signup,
-#auth #signin {
-  flex: 1; /* make buttons equal width */
-  min-width: auto; /* remove fixed min-width */
-  max-width: 48%; /* prevent touching */
-}
-
-#auth .log {
-  margin-top: 10px;
-  max-height: 100px;
-  overflow: auto;
-  background: var(--tile);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px;
-  white-space: pre-wrap;
-  color: var(--muted);
-}
-
-/* keep logout & save centered like main */
-#signout {
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
-}
-#save-btn {
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* (optional) make tab sections scroll if tall */
-.tab-content {
-  max-height: 480px;
-  overflow: auto;
-}
-
-/* ===== Unified, centered shell for ALL tabs ===== */
-
-/* 1) Center the whole popup, not a fixed 380px body */
-html,
-body {
-  margin: 0;
-  padding: 0;
-}
-body {
-  width: 100% !important; /* override older fixed width */
-  min-width: 380px;
-  min-height: 560px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-  box-sizing: border-box;
-  /* keep your existing background + colors as-is above this block */
-}
-
-/* 2) Constrain both views (auth + app) to the same width */
-#auth,
-#app {
-  width: 100%;
-  max-width: 380px;
-}
-
-/* 3) Make the app stack nicely and fill width */
-#app {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* 4) Ensure all major blocks fill width */
-#auth .auth-card,
-header,
-.tab-content,
-.card {
-  width: 100%;
-}
-
-/* 5) Same visible area for every tab: fixed panel height + scroll inside */
-.tab-content {
-  min-height: 420px; /* pick a number you like (400–460) */
-  max-height: 420px;
-  overflow: auto; /* content scrolls; the frame stays stable */
-  padding-bottom: 8px; /* a little breathing room for sticky rows */
-}
-
-/* 6) Keep Save / Logout centered without changing layout */
-#save-btn {
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
-}
-#signout {
-  margin-left: auto;
-  margin-right: auto;
-  display: block;
-}
-
-/* (optional) keep the action row visible at the bottom of each tab */
-.sticky-actions {
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(
-    to top,
-    color-mix(in oklab, var(--bg) 92%, transparent),
-    transparent
-  );
-  padding-top: 6px;
-}
-
-.google-auth-row {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
-  display: flex;
-  justify-content: center;
-}
-
-.google-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
-  background: color-mix(in oklab, var(--tile) 60%, transparent);
-  color: var(--fg);
-  font-size: 14px;
-  font-weight: 500;
-  width: 100%;
-  justify-content: center;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
-}
-
-.google-btn:hover {
-  background: color-mix(in oklab, var(--tile) 80%, transparent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.google-btn:active {
-  transform: translateY(0);
-}
-
-/* ===== Auth view: background image + gradient + glass card ===== */
-
-/* The wrapper (#auth) gets the photo */
-#auth {
-  position: relative;
-  width: 100%;
-  max-width: 380px; /* same as your centered width */
-  min-height: 420px; /* matches tab frame height */
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  isolation: isolate; /* so blur/overlays stay inside */
-  padding: 0; /* we’ll pad the card, not the wrapper */
-}
-
-/* Photo layer */
-#auth::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  filter: brightness(0.7) saturate(1.05);
-  z-index: 0;
-}
-
-/* Subtle gradient overlay so text stays readable (adapts to theme vars) */
-#auth::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-      120% 80% at 90% 10%,
-      color-mix(in oklab, var(--grad-end) 28%, transparent),
-      transparent 60%
-    ),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.35));
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* The card itself becomes glassy and centered inside #auth */
-#auth .auth-card {
-  position: relative;
-  z-index: 2;
-  margin: 14px; /* inner margin inside the bg wrapper */
-  padding: 16px 16px 18px;
-  width: calc(100% - 28px);
-  border-radius: var(--radius);
-  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  background: color-mix(in oklab, var(--panel) 35%, transparent);
-  backdrop-filter: blur(10px) saturate(1.1);
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
-}
-
-/* Headings and subtitle pop a bit more on photo */
-#auth h2 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  color: var(--fg);
-}
-#auth .sub {
-  margin: 0 0 12px;
-  color: color-mix(in oklab, var(--fg) 80%, transparent);
-}
-
-/* Inputs: semi-transparent, readable */
-#auth input[type="email"],
-#auth input[type="password"] {
-  height: 42px;
-  font-size: 14px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
-  background: color-mix(in oklab, var(--tile) 40%, transparent);
-  color: var(--fg);
-}
-#auth input::placeholder {
-  color: color-mix(in oklab, var(--muted) 80%, transparent);
-}
-#auth input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
-/* Center the buttons */
-#auth .auth-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-/* Log box stays low-contrast and subtle */
-#auth .log {
-  margin-top: 10px;
-  max-height: 100px;
-  overflow: auto;
-  background: color-mix(in oklab, var(--tile) 35%, transparent);
-  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  border-radius: 8px;
-  padding: 8px;
-  white-space: pre-wrap;
-  color: color-mix(in oklab, var(--fg) 80%, transparent);
-}
-
-/* Keep global shell centered & same size for all tabs (from your previous setup) */
-html,
-body {
-  margin: 0;
-  padding: 0;
-}
-body {
-  width: 100% !important;
-  min-width: 380px;
-  min-height: 560px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-  box-sizing: border-box;
-}
-#auth,
-#app {
-  width: 100%;
-  max-width: 380px;
-}
-#app {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-header,
-.tab-content,
-.card {
-  width: 100%;
-}
-.tab-content {
-  min-height: 420px;
-  max-height: 420px;
-  overflow: auto;
-  padding-bottom: 8px;
-}
-
-/* While booting, hide both views to avoid auth flash */
-body.booting #auth,
-body.booting #app {
-  display: none !important;
-}
-
-/* Boot overlay */
-#boot-splash {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* background: ...  ⬅ remove this line */
-  background: transparent; /* ✅ let the animated bg show through */
-  z-index: 9999;
-}
-
-#boot-splash .boot-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  /* override the mix that trends white in light mode */
-  background: rgba(17, 24, 39, 0.3); /* glassy tint */
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--fg);
-  box-shadow: var(--shadow);
-  font-weight: 600;
-}
-
-#boot-splash .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: ping 1s infinite ease-in-out;
-}
-@keyframes ping {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-}
-
-/* After boot, hide the overlay */
-body.ready #boot-splash {
-  display: none;
-}
-/* ===== Gooey bubbles animated background ===== */
-:root {
+  /* Animated Background */
   --color-bg1: rgb(18, 18, 28);
   --color-bg2: rgb(10, 10, 18);
   --color1: 18, 113, 255;
@@ -740,16 +54,1581 @@ body.ready #boot-splash {
   --color-interactive: 140, 100, 255;
   --circle-size: 80%;
   --blending: hard-light;
+
+  /* Layout Dimensions */
+  --app-padding: 18px;
 }
 
-/* keep UI above the background */
+/* Light Theme Override */
+body.light {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --tile: #f8fafc;
+  --accent: #3b82f6;
+  --accent-fg: #ffffff;
+  --grad-start: #93c5fd;
+  --grad-end: #a7f3d0;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   PART 2: BASE RESET
+   ============================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  width: 100%;
+  min-width: 420px;
+  min-height: 600px;
+}
+
+body {
+  width: 420px !important;
+  height: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--app-padding);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: color-mix(in oklab, var(--accent) 80%, white 20%);
+}
+
+/* ============================================
+   PART 3: SCROLLBAR STYLING
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--muted) 30%, transparent);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+/* ============================================
+   PART 4: UTILITY CLASSES
+   ============================================ */
+.hidden {
+  display: none !important;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.row.center {
+  justify-content: center;
+}
+
+.row.right {
+  justify-content: flex-end;
+}
+
+.row.space-between {
+  justify-content: space-between;
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ============================================
+   PART 5: LAYOUT - MAIN CONTAINERS (FIXED)
+   ============================================ */
 #auth,
 #app {
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-/* full-coverage background (doesn't block clicks) */
+body.booting #auth,
+body.booting #app {
+  display: none !important;
+}
+
+/* FIX: Make entire app scrollable without internal scroll */
+#app {
+  height: calc(100vh - (var(--app-padding) * 2));
+  /* REMOVE internal scroll - let it flow naturally */
+  overflow: visible;
+  padding: 0;
+}
+
+/* ============================================
+   PART 6: CARDS
+   ============================================ */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  transition: all var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* ============================================
+   PART 7: BUTTONS
+   ============================================ */
+.primary-btn,
+.secondary-btn,
+.danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all var(--transition-base);
+  min-height: 40px;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+.primary-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.primary-btn:hover::before {
+  opacity: 1;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+.secondary-btn {
+  background: var(--tile);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.secondary-btn:hover {
+  background: var(--panel);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.danger-btn {
+  background: var(--danger);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--danger) 30%, transparent);
+}
+
+.danger-btn:hover {
+  background: color-mix(in oklab, var(--danger) 90%, black 10%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px color-mix(in oklab, var(--danger) 40%, transparent);
+}
+
+.primary-btn:active,
+.secondary-btn:active,
+.danger-btn:active {
+  transform: translateY(0px) scale(0.98);
+  transition: all 100ms ease;
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled,
+.danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Button Icons */
+button svg {
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+button:hover svg {
+  transform: scale(1.1);
+}
+
+/* ============================================
+   PART 8: FORM ELEMENTS
+   ============================================ */
+label.lbl {
+  display: block;
+  margin: var(--spacing-lg) 0 var(--spacing-sm);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Light mode: Better label visibility */
+body.light label.lbl {
+  color: var(--fg);
+  opacity: 0.8;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--fg);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all var(--transition-base);
+  font-size: 14px;
+}
+
+/* Light mode: Glass effect for form elements */
+body.light input[type="text"],
+body.light input[type="email"],
+body.light input[type="password"],
+body.light input[type="date"],
+body.light select,
+body.light textarea {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: var(--fg);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Light mode: Better placeholder visibility */
+body.light input::placeholder,
+body.light textarea::placeholder {
+  color: var(--fg);
+  opacity: 0.5;
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: color-mix(in oklab, var(--border) 60%, var(--accent) 40%);
+}
+
+body.light input:hover,
+body.light textarea:hover,
+body.light select:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: var(--accent);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
+  background: var(--panel);
+}
+
+body.light input:focus,
+body.light textarea:focus,
+body.light select:focus {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.6;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+input[type="range"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* Select dropdown - better visibility in light mode */
+body.light select {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+body.light select:focus {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* ============================================
+   PART 9: KEYBOARD SHORTCUTS DISPLAY
+   ============================================ */
+kbd {
+  display: inline-block;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+    "Courier New", monospace;
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--border);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ============================================
+   PART 10: AUTH VIEW
+   ============================================ */
+#auth {
+  min-height: 460px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  isolation: isolate;
+  padding: 0;
+}
+
+#auth::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--grad-start) 50%, transparent),
+    color-mix(in oklab, var(--grad-end) 40%, transparent)
+  );
+  filter: brightness(0.6) saturate(1.2);
+  z-index: 0;
+}
+
+/* Light mode: brighter background */
+body.light #auth::before {
+  filter: brightness(1.1) saturate(1.1);
+}
+
+#auth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      circle at 80% 20%,
+      color-mix(in oklab, var(--grad-end) 25%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.4));
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Light mode: lighter overlay */
+body.light #auth::after {
+  background: radial-gradient(
+      circle at 80% 20%,
+      color-mix(in oklab, var(--grad-end) 25%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0.2)
+    );
+}
+
+#auth .auth-card {
+  position: relative;
+  z-index: 2;
+  margin: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  width: calc(100% - 32px);
+  text-align: center;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in oklab, white 15%, transparent);
+  background: color-mix(in oklab, var(--panel) 30%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Light mode: adjust card styling */
+body.light #auth .auth-card {
+  border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+  background: color-mix(in oklab, var(--panel) 85%, transparent);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+#auth h2 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 22px;
+  color: var(--fg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+#auth .sub {
+  margin: 0 0 var(--spacing-xl);
+  color: color-mix(in oklab, var(--fg) 85%, transparent);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#auth .form {
+  margin: var(--spacing-xl) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+#auth input[type="email"],
+#auth input[type="password"] {
+  height: 48px;
+  font-size: 15px;
+  border: 1px solid color-mix(in oklab, white 20%, transparent);
+  background: color-mix(in oklab, var(--tile) 35%, transparent);
+  color: var(--fg);
+}
+
+/* Light mode: better input visibility */
+body.light #auth input[type="email"],
+body.light #auth input[type="password"] {
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--tile) 50%, transparent);
+}
+
+#auth input:focus {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--panel) 50%, transparent);
+}
+
+body.light #auth input:focus {
+  background: color-mix(in oklab, var(--panel) 80%, transparent);
+}
+
+#auth .auth-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: center;
+  margin-top: var(--spacing-md);
+}
+
+#auth #signup,
+#auth #signin {
+  flex: 1;
+  max-width: 48%;
+}
+
+.google-auth-row {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid color-mix(in oklab, white 15%, transparent);
+}
+
+body.light .google-auth-row {
+  border-top: 1px solid var(--border);
+}
+
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: 12px 20px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in oklab, white 20%, transparent);
+  background: color-mix(in oklab, var(--tile) 50%, transparent);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all var(--transition-base);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+body.light .google-btn {
+  border: 1px solid var(--border);
+  background: var(--tile);
+}
+
+.google-btn:hover {
+  background: color-mix(in oklab, var(--tile) 70%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  border-color: color-mix(in oklab, white 30%, transparent);
+}
+
+body.light .google-btn:hover {
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+}
+
+/* ============================================
+   PART 11: APP VIEW - HEADER
+   ============================================ */
+
+/* Auth Status Indicator - Fully scrollable, theme-aware */
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 10px 14px;
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  margin-bottom: var(--spacing-md);
+  /* FIX: Completely remove sticky */
+  position: relative;
+  z-index: 1;
+}
+
+.auth-status:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* FIX: Make signed-in status theme-aware */
+.auth-status.signed-in {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 16px rgba(102, 126, 234, 0.4);
+}
+
+/* Light mode override for signed-in status */
+body.light .auth-status.signed-in {
+  background: linear-gradient(135deg, #93c5fd 0%, #c4b5fd 100%);
+  color: var(--fg);
+  border-color: #93c5fd;
+  box-shadow: 0 2px 16px rgba(147, 197, 253, 0.4);
+}
+
+.auth-status #auth-icon {
+  font-size: 16px;
+}
+
+.auth-status #auth-text {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-action-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all var(--transition-base);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auth-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.auth-status.signed-in .auth-action-btn {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.auth-status.signed-in .auth-action-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Light mode override for signed-in action button */
+body.light .auth-status.signed-in .auth-action-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--fg);
+}
+
+body.light .auth-status.signed-in .auth-action-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* Header - Fully scrollable, theme-aware */
+header {
+  background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--grad-start) 20%, transparent),
+      color-mix(in oklab, var(--grad-end) 15%, transparent)
+    ),
+    var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  flex-shrink: 0;
+  margin-bottom: var(--spacing-md);
+  /* FIX: Completely remove sticky */
+  position: relative;
+  z-index: 1;
+}
+
+header h1 {
+  margin: 0 0 var(--spacing-md);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================
+   PART 12: TABS AND TAB CONTENT (SCROLL FIX)
+   ============================================ */
+
+/* Tab Buttons */
+.tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.tab-btn {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--fg);
+  padding: 11px 0;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  font-weight: 500;
+}
+
+.tab-btn:hover {
+  transform: translateY(-1px);
+  background: color-mix(in oklab, var(--tile) 70%, var(--accent) 30%);
+  border-color: color-mix(in oklab, var(--border) 50%, var(--accent) 50%);
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px color-mix(in oklab, var(--accent) 30%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Tab Content - Natural flow */
+.tab-content {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  /* Remove internal scroll - let parent handle it */
+  overflow: visible;
+}
+
+.tab-content.active {
+  display: flex;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.tab-content h3 {
+  margin: 0 0 var(--spacing-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Form Group */
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Collect Tab Layout */
+#collect-tab {
+  padding: var(--spacing-md);
+}
+
+#capture-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.form-scrollable {
+  /* Remove internal scroll */
+  overflow: visible;
+}
+
+#collect-tab,
+#saved-tab,
+#summary-tab,
+#settings-tab {
+  padding: var(--spacing-md);
+}
+
+/* Light mode: Better section headers */
+body.light .tab-content h3 {
+  color: var(--fg);
+  opacity: 0.8;
+}
+
+/* ============================================
+   PART 13: SAVE BUTTON CONTAINER (FIXED)
+   ============================================ */
+
+/* Make save button always visible and centered */
+.save-button-container {
+  flex-shrink: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  margin-top: var(--spacing-lg);
+  width: 100%;
+}
+
+/* Light mode glass effect */
+body.light .save-button-container {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.save-button-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+#save-btn {
+  width: 100%;
+  max-width: 280px;
+  white-space: nowrap;
+}
+
+#captured-meta {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  width: 100%;
+}
+
+/* ============================================
+   PART 14: SELECTION PREVIEW
+   ============================================ */
+.selection-preview {
+  min-height: 80px;
+  max-height: 120px;
+  overflow: auto;
+  border: 2px dashed var(--border);
+  background: var(--tile);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-md) 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg);
+  transition: all var(--transition-base);
+}
+
+/* Light mode: Glass/transparent effect */
+body.light .selection-preview {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+  color: var(--fg);
+}
+
+.selection-preview:empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.selection-preview:empty::before {
+  content: "Highlight text on any webpage to capture it here...";
+}
+
+.selection-preview:not(:empty) {
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--border) 70%, var(--accent) 30%);
+}
+
+body.light .selection-preview:not(:empty) {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.selection-preview:hover {
+  border-color: var(--accent);
+  background: var(--panel);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+body.light .selection-preview:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* ============================================
+   PART 15: SAVED ITEMS TAB
+   ============================================ */
+
+/* Saved Tab Layout */
+#saved-tab {
+  padding: var(--spacing-md);
+}
+
+/* Search Box */
+.search-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+  background: var(--tile);
+  margin-bottom: var(--spacing-md);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.search-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
+  background: var(--panel);
+}
+
+.search-box input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  flex: 1;
+  outline: none;
+  color: var(--fg);
+}
+
+.search-box svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Saved Items List */
+.saved-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--spacing-xs);
+}
+
+/* Individual Item */
+.item {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  outline: none;
+  animation: slideInUp 0.3s ease-out backwards;
+}
+
+.item:nth-child(1) {
+  animation-delay: 0ms;
+}
+.item:nth-child(2) {
+  animation-delay: 50ms;
+}
+.item:nth-child(3) {
+  animation-delay: 100ms;
+}
+.item:nth-child(4) {
+  animation-delay: 150ms;
+}
+
+.item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in oklab, var(--border) 60%, var(--accent) 40%);
+}
+
+.item:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Delete Button */
+.item .delete-btn {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--tile);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all var(--transition-base);
+  cursor: pointer;
+  z-index: 10;
+}
+
+.item:hover .delete-btn,
+.item:focus .delete-btn {
+  opacity: 1;
+}
+
+.item .delete-btn:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  transform: scale(1.1) rotate(90deg);
+  box-shadow: 0 2px 12px color-mix(in oklab, var(--danger) 40%, transparent);
+}
+
+.item .delete-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Item Content */
+.item .title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  padding-right: 40px;
+  line-height: 1.4;
+}
+
+.item .domain {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--tile);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.item .text {
+  color: var(--muted);
+  margin: var(--spacing-sm) 0 var(--spacing-md);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.item .note {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 12px;
+  color: var(--fg);
+  background: color-mix(in oklab, var(--tile) 50%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+
+/* Tags/Chips */
+.chips {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  box-shadow: 0 2px 6px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+/* ============================================
+   PART 16: ITEM ACTIONS AND DROPDOWNS
+   ============================================ */
+
+/* Item Actions */
+.item .actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.item .actions button {
+  flex: 1;
+  min-width: 80px;
+  border: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--fg);
+  padding: 9px 14px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.item .actions button:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+.item .actions button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* More Menu */
+.item .more-menu {
+  position: relative;
+}
+
+.item .more-btn {
+  min-width: 36px !important;
+  padding: 9px !important;
+}
+
+.item .more-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 140px;
+  z-index: 100;
+  display: none;
+  overflow: hidden;
+  animation: scaleIn 0.15s ease-out;
+}
+
+.item .more-dropdown.show {
+  display: block;
+}
+
+.item .more-dropdown button {
+  width: 100%;
+  min-width: auto !important;
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  padding: 10px 14px;
+  justify-content: flex-start;
+  background: var(--panel);
+  font-size: 13px;
+}
+
+.item .more-dropdown button:hover {
+  background: var(--tile);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ============================================
+   PART 17: EMPTY STATE
+   ============================================ */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-lg);
+  color: var(--muted);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.empty-icon {
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.4;
+}
+
+.empty-state h3 {
+  margin: 0 0 var(--spacing-sm);
+  color: var(--fg);
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.empty-state p {
+  margin: 0 0 var(--spacing-xl);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ============================================
+   PART 18: CITATION OUTPUT AND SUMMARY
+   ============================================ */
+
+/* Citation Output */
+.cite-output {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--tile);
+  min-height: 80px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.8;
+  font-size: 13px;
+  transition: all var(--transition-base);
+}
+
+.cite-output:hover {
+  border-color: var(--accent);
+  background: var(--panel);
+}
+
+.cite-output em {
+  font-style: italic;
+}
+
+.cite-output:empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.cite-output:empty::before {
+  content: "Fill in the fields above to generate a citation...";
+}
+
+/* Summary Tab Specific */
+#summary-tab {
+  padding: var(--spacing-md);
+}
+
+.summary-content {
+  padding: var(--spacing-lg);
+  background: var(--tile);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  margin-top: var(--spacing-md);
+  line-height: 1.8;
+  font-size: 14px;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ============================================
+   PART 19: OVERLAYS (EDIT & CITATION)
+   ============================================ */
+.overlay-page {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.overlay-page.hidden {
+  display: none;
+}
+
+.overlay-page.closing {
+  animation: slideOutRight 0.25s cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+.overlay-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  animation: fadeInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.overlay-header h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.back-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-base);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+  transform: translateX(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.overlay-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+}
+
+.overlay-content .card {
+  max-width: 600px;
+  margin: 0 auto;
+  animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+}
+
+body.overlay-active #app {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+/* ============================================
+   PART 20: TOAST NOTIFICATION
+   ============================================ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--spacing-lg);
+  transform: translateX(-50%);
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  box-shadow: var(--shadow-xl);
+  opacity: 0;
+  pointer-events: none;
+  transition: all var(--transition-base);
+  max-width: 340px;
+  z-index: 10001;
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.toast.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(-8px);
+}
+
+/* ============================================
+   PART 21: BOOT SPLASH
+   ============================================ */
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  z-index: 9999;
+}
+
+#boot-splash .boot-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--panel) 25%, transparent);
+  border: 1px solid color-mix(in oklab, white 15%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--fg);
+  box-shadow: var(--shadow-xl);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+#boot-splash .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  animation: ping 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+body.ready #boot-splash {
+  display: none;
+}
+
+/* ============================================
+   PART 22: ANIMATIONS
+   ============================================ */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ping {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   PART 23: ANIMATED GRADIENT BACKGROUND
+   ============================================ */
 .gradient-bg {
   position: fixed;
   inset: 0;
@@ -760,50 +1639,17 @@ body.ready #boot-splash {
   overflow: hidden;
   background: linear-gradient(40deg, var(--color-bg1), var(--color-bg2));
 }
+
 .gradient-bg svg {
   position: absolute;
   width: 0;
   height: 0;
 }
+
 .gradient-bg .gradients-container {
-  filter: url(#goo) blur(24px);
+  filter: url(#goo) blur(28px);
   width: 100%;
   height: 100%;
-}
-
-/* motion */
-@keyframes moveInCircle {
-  0% {
-    transform: rotate(0);
-  }
-  50% {
-    transform: rotate(180deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-@keyframes moveVertical {
-  0% {
-    transform: translateY(-50%);
-  }
-  50% {
-    transform: translateY(50%);
-  }
-  100% {
-    transform: translateY(-50%);
-  }
-}
-@keyframes moveHorizontal {
-  0% {
-    transform: translateX(-50%) translateY(-10%);
-  }
-  50% {
-    transform: translateX(50%) translateY(10%);
-  }
-  100% {
-    transform: translateX(-50%) translateY(-10%);
-  }
 }
 
 .gradient-bg .g1,
@@ -818,52 +1664,56 @@ body.ready #boot-splash {
   top: calc(50% - var(--circle-size) / 2);
   left: calc(50% - var(--circle-size) / 2);
 }
+
 .gradient-bg .g1 {
   background: radial-gradient(
       circle at center,
-      rgba(var(--color1), 0.8) 0,
+      rgba(var(--color1), 0.9) 0,
       rgba(var(--color1), 0) 50%
     )
     no-repeat;
-  transform-origin: center center;
-  animation: moveVertical 30s ease infinite;
+  animation: moveVertical 32s ease infinite;
   opacity: 1;
 }
+
 .gradient-bg .g2 {
   background: radial-gradient(
       circle at center,
-      rgba(var(--color2), 0.8) 0,
+      rgba(var(--color2), 0.85) 0,
       rgba(var(--color2), 0) 50%
     )
     no-repeat;
   transform-origin: calc(50% - 400px);
-  animation: moveInCircle 20s reverse infinite;
+  animation: moveInCircle 22s reverse infinite;
   opacity: 1;
 }
+
 .gradient-bg .g3 {
   background: radial-gradient(
       circle at center,
-      rgba(var(--color3), 0.8) 0,
+      rgba(var(--color3), 0.85) 0,
       rgba(var(--color3), 0) 50%
     )
     no-repeat;
   top: calc(50% - var(--circle-size) / 2 + 200px);
   left: calc(50% - var(--circle-size) / 2 - 500px);
   transform-origin: calc(50% + 400px);
-  animation: moveInCircle 40s linear infinite;
+  animation: moveInCircle 42s linear infinite;
   opacity: 1;
 }
+
 .gradient-bg .g4 {
   background: radial-gradient(
       circle at center,
-      rgba(var(--color4), 0.8) 0,
+      rgba(var(--color4), 0.75) 0,
       rgba(var(--color4), 0) 50%
     )
     no-repeat;
   transform-origin: calc(50% - 200px);
-  animation: moveHorizontal 40s ease infinite;
-  opacity: 0.7;
+  animation: moveHorizontal 44s ease infinite;
+  opacity: 0.8;
 }
+
 .gradient-bg .g5 {
   background: radial-gradient(
       circle at center,
@@ -876,408 +1726,148 @@ body.ready #boot-splash {
   top: calc(50% - var(--circle-size));
   left: calc(50% - var(--circle-size));
   transform-origin: calc(50% - 800px) calc(50% + 200px);
-  animation: moveInCircle 20s ease infinite;
+  animation: moveInCircle 24s ease infinite;
   opacity: 1;
 }
 
-/* pointer-reactive light (uses --mx/--my that we set from JS) */
 .gradient-bg .interactive {
   position: absolute;
   width: 100%;
   height: 100%;
   background: radial-gradient(
       circle at var(--mx, 50%) var(--my, 50%),
-      rgba(var(--color-interactive), 0.8) 0,
+      rgba(var(--color-interactive), 0.85) 0,
       rgba(var(--color-interactive), 0) 50%
     )
     no-repeat;
   top: 0;
   left: 0;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
-/* respectful to users who prefer less motion */
+/* Gradient Animations */
+@keyframes moveInCircle {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes moveVertical {
+  0% {
+    transform: translateY(-55%);
+  }
+  50% {
+    transform: translateY(55%);
+  }
+  100% {
+    transform: translateY(-55%);
+  }
+}
+
+@keyframes moveHorizontal {
+  0% {
+    transform: translateX(-55%) translateY(-15%);
+  }
+  50% {
+    transform: translateX(55%) translateY(15%);
+  }
+  100% {
+    transform: translateX(-55%) translateY(-15%);
+  }
+}
+
+/* ============================================
+   PART 24: ACCESSIBILITY & FOCUS
+   ============================================ */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+button:focus-visible {
+  outline-offset: 4px;
+}
+
+/* Ensure keyboard navigation is visible */
+.tab-btn:focus-visible,
+.item:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   PART 25: MEDIA QUERIES & RESPONSIVE
+   ============================================ */
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  :root {
+    --border: #000000;
+    --fg: #000000;
+    --bg: #ffffff;
+  }
+
+  body.light {
+    color: #0f172a;
+  }
+
+  body.light .muted {
+    color: #475569;
+  }
+
+  * {
+    outline-width: 3px;
+  }
+}
+
+/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .gradient-bg .g1,
   .gradient-bg .g2,
   .gradient-bg .g3,
   .gradient-bg .g4,
-  .gradient-bg .g5 {
-    animation: none;
+  .gradient-bg .g5,
+  .gradient-bg .interactive {
+    animation: none !important;
   }
+
   .gradient-bg .gradients-container {
-    filter: none;
-  }
-}
-@keyframes shake {
-  10%,
-  90% {
-    transform: translateX(-1px);
-  }
-  20%,
-  80% {
-    transform: translateX(2px);
-  }
-  30%,
-  50%,
-  70% {
-    transform: translateX(-4px);
-  }
-  40%,
-  60% {
-    transform: translateX(4px);
-  }
-}
-.shake {
-  animation: shake 0.35s;
-}
-.input-error {
-  border-color: #ef4444 !important;
-}
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--tile) 25%,
-    color-mix(in oklab, var(--tile) 50%, transparent) 50%,
-    var(--tile) 75%
-  );
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 8px;
-}
-
-@keyframes loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
+    filter: none !important;
   }
 }
 
-.skeleton-text {
-  height: 16px;
-  margin: 4px 0;
-}
-
-.skeleton-title {
-  height: 20px;
-  width: 60%;
-  margin: 8px 0;
-}
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--muted);
-}
-
-.empty-icon {
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-
-.empty-state h3 {
-  margin: 0 0 8px;
-  color: var(--fg);
-  font-size: 16px;
-}
-
-.empty-state p {
-  margin: 0 0 20px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.empty-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-/* Button press feedback */
-.primary-btn:active,
-.secondary-btn:active {
-  transform: translateY(1px) scale(0.98);
-}
-
-/* Success states */
-.success-flash {
-  animation: successPulse 0.6s ease-out;
-}
-
-@keyframes successPulse {
-  0% {
-    background-color: var(--accent);
-    transform: scale(1);
-  }
-  50% {
-    background-color: color-mix(in oklab, var(--accent) 80%, #22c55e 20%);
-    transform: scale(1.02);
-  }
-  100% {
-    background-color: var(--accent);
-    transform: scale(1);
-  }
-}
-
-/* Input focus glow */
-input:focus,
-textarea:focus {
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent);
-}
-
-/* Card hover effects */
-.item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-.tag-input-container {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px;
-  min-height: 42px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  background: var(--tile);
-}
-
-.tag-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.tag-input-container input {
-  border: none;
-  background: transparent;
-  flex: 1;
-  min-width: 120px;
-  padding: 4px;
-}
-
-.tag-chip {
-  background: var(--accent);
-  color: var(--accent-fg);
-  padding: 4px 8px;
-  border-radius: 16px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tag-chip .remove {
-  cursor: pointer;
-  opacity: 0.7;
-  hover {
-    opacity: 1;
-  }
-}
-/* Stagger animations for lists */
-.item {
-  animation: slideInUp 0.3s ease-out;
-  animation-fill-mode: both;
-}
-
-.item:nth-child(1) {
-  animation-delay: 0ms;
-}
-.item:nth-child(2) {
-  animation-delay: 50ms;
-}
-.item:nth-child(3) {
-  animation-delay: 100ms;
-}
-
-/* ===== Improved Item Card Layout ===== */
-.item {
-  position: relative;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: var(--shadow);
-  transition: all 0.2s ease;
-  outline: none; /* Remove default outline */
-  cursor: pointer;
-}
-
-.item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-.item:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-/* Delete button as X in top-right corner */
-.item .delete-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--tile);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: all 0.2s ease;
-  padding: 0;
-}
-
-.item:hover .delete-btn {
-  opacity: 1;
-}
-
-.item .delete-btn:hover {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-  transform: scale(1.1);
-}
-
-.item .delete-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* Title with proper spacing for delete button */
-.item .title {
-  font-weight: 600;
-  margin-bottom: 4px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  padding-right: 32px; /* Space for delete button */
-}
-
-/* Compact action buttons - combine edit/cite into one menu */
-.item .actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.item .actions button {
-  flex: 1;
-  min-width: 70px;
-  border: 1px solid var(--border);
-  background: var(--tile);
-  color: var(--fg);
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  transition: all 0.15s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.item .actions button:hover {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.item .actions button svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* More options dropdown */
-.item .more-menu {
-  position: relative;
-}
-
-.item .more-btn {
-  min-width: 32px !important;
-  padding: 6px !important;
-}
-
-.item .more-dropdown {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 4px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  min-width: 120px;
-  z-index: 100;
-  display: none;
-}
-
-.item .more-dropdown.show {
-  display: block;
-}
-
-.item .more-dropdown button {
-  width: 100%;
-  min-width: auto !important;
-  text-align: left;
-  border: none;
-  border-radius: 0;
-  padding: 8px 12px;
-  justify-content: flex-start;
-}
-
-.item .more-dropdown button:first-child {
-  border-radius: 8px 8px 0 0;
-}
-
-.item .more-dropdown button:last-child {
-  border-radius: 0 0 8px 8px;
-}
-
-.item .more-dropdown button:hover {
-  transform: none;
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-/* Forced Colors / High Contrast support */
+/* Forced Colors (Windows High Contrast) */
 @media (forced-colors: active) {
-  /* Hide the fancy background and rely on system colors */
   .gradient-bg {
     display: none;
   }
 
-  /* Use system color keywords for good contrast */
   body {
     background: Canvas;
     color: CanvasText;
   }
 
-  header,
   .card,
-  .tab-content,
   .item,
   .search-box,
+  .selection-preview,
   .toast,
-  .selection-preview {
+  header {
     background: Canvas;
     color: CanvasText;
     border-color: GrayText;
@@ -1288,339 +1878,42 @@ textarea:focus {
     background: Highlight;
     color: HighlightText;
   }
+
   .secondary-btn,
   .danger-btn {
-    background: Canvas;
+    background: ButtonFace;
     color: ButtonText;
     border-color: ButtonText;
   }
+
   .tab-btn.active {
     background: Highlight;
     color: HighlightText;
-    border-color: Highlight;
   }
+
   input,
   select,
   textarea {
-    background: Canvas;
-    color: CanvasText;
+    background: Field;
+    color: FieldText;
     border-color: GrayText;
   }
 }
-.note {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  background: color-mix(in oklab, var(--panel) 70%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 8px;
-}
-#edit-tab .form-group {
-  margin: 10px 0;
-}
-#edit-tab textarea {
-  resize: vertical;
-}
-/* Edit tab card: match the toast clarity + a touch of glass */
-#edit-tab .editor-card {
-  background: color-mix(in oklab, var(--panel) 40%, transparent);
-  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(8px) saturate(1.05);
-  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+
+/* Settings Tab Specific */
+#settings-tab {
+  padding: var(--spacing-md);
 }
 
-/* Make the fields readable on any theme */
-#edit-tab .lbl {
-  color: var(--muted);
-}
-#edit-tab input,
-#edit-tab textarea {
-  background: color-mix(in oklab, var(--tile) 45%, transparent);
-  border: 1px solid var(--border);
-  color: var(--fg);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-#edit-tab textarea {
-  resize: vertical;
-}
-/* ===== Accessibility Improvements ===== */
-
-/* Focus visible for keyboard navigation */
-*:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
+/* Summary Result */
+#summary-result {
+  margin-top: var(--spacing-md);
 }
 
-button:focus-visible {
-  outline-offset: 3px;
+#summary-result h3 {
+  margin-bottom: var(--spacing-sm);
 }
 
-/* Skip to main content link */
-.skip-to-main {
-  position: absolute;
-  top: -40px;
-  left: 0;
-  background: var(--accent);
-  color: var(--accent-fg);
-  padding: 8px 16px;
-  text-decoration: none;
-  z-index: 100;
-  border-radius: 0 0 8px 0;
-}
-
-.skip-to-main:focus {
-  top: 0;
-}
-
-/* Ensure minimum touch target sizes (44x44px) */
-button,
-.tab-btn {
-  min-width: 44px;
-  min-height: 44px;
-}
-
-input[type="checkbox"],
-input[type="radio"] {
-  width: 18px;
-  height: 18px;
-  min-width: 18px;
-  min-height: 18px;
-  cursor: pointer;
-  accent-color: var(--accent);
-}
-
-input[type="checkbox"] + label,
-input[type="radio"] + label {
-  cursor: pointer;
-  padding: 8px;
-  margin: -8px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  :root {
-    --border: #000;
-    --fg: #000;
-    --bg: #fff;
-  }
-
-  body.light {
-    --border: #000;
-  }
-}
-
-/* Reduced motion support (already present, but ensure it's complete) */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-/* ===== Citation Builder ===== */
-.cite-output {
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--tile);
-  min-height: 60px;
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.6;
-  font-size: 13px;
-}
-
-.cite-output em {
-  font-style: italic;
-}
-
-.cite-output:empty::before {
-  content: "Fill in the fields above to generate a citation...";
-  color: var(--muted);
-  font-style: italic;
-}
-
-/* Compact form layout for citation */
-#citation-tab .lbl {
-  display: block;
-  margin: 8px 0 4px;
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-#citation-tab input,
-#citation-tab textarea,
-#citation-tab select {
-  width: 100%;
-  margin: 0;
-}
-
-#citation-tab textarea {
-  resize: vertical;
-  min-height: 50px;
-}
-
-/* ===== Full-Screen Overlay Pages (Edit & Citation) ===== */
-
-.overlay-page {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.overlay-page.hidden {
-  display: none;
-}
-
-/* Improved slide-in animation with smooth easing */
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Add fade-out animation when closing */
-.overlay-page.closing {
-  animation: slideOutRight 0.3s cubic-bezier(0.7, 0, 0.84, 0);
-}
-
-@keyframes slideOutRight {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-.overlay-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  animation: fadeInDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  animation-delay: 0.1s;
-  animation-fill-mode: backwards;
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.overlay-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--tile);
-  color: var(--fg);
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.back-btn:hover {
-  background: var(--accent);
-  color: var(--accent-fg);
-  transform: translateX(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.back-btn:active {
-  transform: translateX(-1px);
-}
-
-.overlay-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  animation-delay: 0.2s;
-  animation-fill-mode: backwards;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.overlay-content .card {
-  max-width: 600px;
-  margin: 0 auto;
-  animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  animation-delay: 0.25s;
-  animation-fill-mode: backwards;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Smooth transition when switching between main app and overlay */
-#app {
-  transition: opacity 0.2s ease;
-}
-
-body.overlay-active #app {
-  opacity: 0;
-  pointer-events: none;
-}
-
-kbd {
-  display: inline-block;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-family: monospace;
-  background: var(--border);
-  border-radius: 4px;
-  margin-right: 4px;
-  color: var(--fg);
-}
+/* ============================================
+   END OF STYLESHEET
+   ============================================ */

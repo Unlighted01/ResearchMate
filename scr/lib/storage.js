@@ -1,85 +1,219 @@
+// scr/lib/storage.js - Hybrid storage (local + cloud)
 import { supabase } from "./supabase.js";
 
-export async function getAllItems() {
-  const { data, error } = await supabase
-    .from("items")
-    .select("*")
-    .order("created_at", { ascending: false });
+// ============================================
+// HELPER: Check if authenticated
+// ============================================
 
-  if (error) {
-    console.error("❌ Fetch error:", error);
-    throw error;
+async function isAuthenticated() {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return !!session;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================
+// LOCAL STORAGE HELPERS
+// ============================================
+
+async function getLocalItems() {
+  const { researchMateItems = [] } = await chrome.storage.local.get(
+    "researchMateItems"
+  );
+  return researchMateItems;
+}
+
+async function setLocalItems(items) {
+  await chrome.storage.local.set({ researchMateItems: items });
+}
+
+// ============================================
+// MAIN FUNCTIONS (Keep same signatures!)
+// ============================================
+
+export async function getAllItems() {
+  const authenticated = await isAuthenticated();
+
+  // If logged in, get from cloud
+  if (authenticated) {
+    try {
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((item) => ({
+        id: item.id,
+        text: item.text,
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        note: item.note || "",
+        sourceUrl: item.source_url || "",
+        sourceTitle: item.source_title || "",
+        createdAt: item.created_at,
+      }));
+    } catch (error) {
+      console.error("☁️ Cloud fetch failed, using local:", error);
+      return await getLocalItems();
+    }
   }
 
-  console.log("📦 Raw data from Supabase:", data);
-
-  return (data || []).map((item) => ({
-    id: item.id,
-    text: item.text,
-    tags: Array.isArray(item.tags) ? item.tags : [],
-    note: item.note || "",
-    sourceUrl: item.source_url || "",
-    sourceTitle: item.source_title || "",
-    createdAt: item.created_at,
-  }));
+  // Guest mode: use local storage
+  return await getLocalItems();
 }
 
 export async function addItem(item) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
+  const authenticated = await isAuthenticated();
 
-  console.log("💾 Saving item:", item);
+  // If logged in, save to cloud
+  if (authenticated) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-  const { data, error } = await supabase
-    .from("items")
-    .insert([
-      {
-        user_id: user.id,
-        text: item.text,
-        tags: item.tags || [],
-        note: item.note || "",
-        source_url: item.sourceUrl || "",
-        source_title: item.sourceTitle || "",
-      },
-    ])
-    .select()
-    .single();
+      const { data, error } = await supabase
+        .from("items")
+        .insert([
+          {
+            user_id: user.id,
+            text: item.text,
+            tags: item.tags || [],
+            note: item.note || "",
+            source_url: item.sourceUrl || "",
+            source_title: item.sourceTitle || "",
+          },
+        ])
+        .select()
+        .single();
 
-  if (error) {
-    console.error("❌ Save error:", error);
-    throw error;
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        text: data.text,
+        tags: data.tags,
+        note: data.note,
+        sourceUrl: data.source_url,
+        sourceTitle: data.source_title,
+        createdAt: data.created_at,
+      };
+    } catch (error) {
+      console.error("☁️ Cloud save failed, saving locally:", error);
+      // Fall through to local save
+    }
   }
 
-  console.log("✅ Saved:", data);
-
-  return {
-    id: data.id,
-    text: data.text,
-    tags: data.tags,
-    note: data.note,
-    sourceUrl: data.source_url,
-    sourceTitle: data.source_title,
-    createdAt: data.created_at,
+  // Guest mode: save locally
+  const items = await getLocalItems();
+  const newItem = {
+    id: `local_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    text: item.text,
+    tags: item.tags || [],
+    note: item.note || "",
+    sourceUrl: item.sourceUrl || "",
+    sourceTitle: item.sourceTitle || "",
+    createdAt: new Date().toISOString(),
   };
+
+  items.unshift(newItem);
+  await setLocalItems(items);
+  return newItem;
 }
 
 export async function updateItem(id, updates) {
-  const updateData = {};
-  if (updates.tags !== undefined) updateData.tags = updates.tags;
-  if (updates.note !== undefined) updateData.note = updates.note;
-  updateData.updated_at = new Date().toISOString();
+  const authenticated = await isAuthenticated();
 
-  const { error } = await supabase
-    .from("items")
-    .update(updateData)
-    .eq("id", id);
+  // If it's a local item (ID starts with "local_")
+  if (id.startsWith("local_")) {
+    const items = await getLocalItems();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) throw new Error("Item not found");
 
-  if (error) throw error;
+    items[index] = { ...items[index], ...updates };
+    await setLocalItems(items);
+    return;
+  }
+
+  // Cloud item
+  if (authenticated) {
+    const updateData = {};
+    if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.note !== undefined) updateData.note = updates.note;
+    updateData.updated_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("items")
+      .update(updateData)
+      .eq("id", id);
+
+    if (error) throw error;
+  }
 }
 
 export async function deleteItem(id) {
+  // If it's a local item
+  if (id.startsWith("local_")) {
+    const items = await getLocalItems();
+    const filtered = items.filter((item) => item.id !== id);
+    await setLocalItems(filtered);
+    return;
+  }
+
+  // Cloud item
   const { error } = await supabase.from("items").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ============================================
+// NEW: Migration function
+// ============================================
+
+export async function migrateLocalToCloud() {
+  const localItems = await getLocalItems();
+  const authenticated = await isAuthenticated();
+
+  if (!authenticated) {
+    throw new Error("Must be signed in to migrate");
+  }
+
+  if (localItems.length === 0) {
+    return { success: 0, failed: 0 };
+  }
+
+  const results = { success: 0, failed: 0 };
+
+  for (const item of localItems) {
+    try {
+      await addItem({
+        text: item.text,
+        tags: item.tags,
+        note: item.note,
+        sourceUrl: item.sourceUrl,
+        sourceTitle: item.sourceTitle,
+      });
+      results.success++;
+    } catch (error) {
+      console.error(`Failed to migrate item ${item.id}:`, error);
+      results.failed++;
+    }
+  }
+
+  // Clear local items if all succeeded
+  if (results.failed === 0) {
+    await chrome.storage.local.remove("researchMateItems");
+  }
+
+  return results;
+}
+
+export async function getLocalItemsCount() {
+  const items = await getLocalItems();
+  return items.length;
 }

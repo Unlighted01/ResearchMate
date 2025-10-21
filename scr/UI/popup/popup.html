@@ -1,11 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ResearchMate - Your research companion" />
     <title>ResearchMate</title>
     <link rel="stylesheet" href="../popup/popup.css" />
   </head>
+
   <body class="booting">
+    <!-- ============================================
+         ANIMATED BACKGROUND
+         ============================================ -->
     <div class="gradient-bg" aria-hidden="true">
       <svg xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -35,42 +41,74 @@
       </div>
     </div>
 
-    <!-- Boot splash -->
-    <div id="boot-splash">
+    <!-- ============================================
+         BOOT SPLASH SCREEN
+         ============================================ -->
+    <div id="boot-splash" role="status" aria-live="polite">
       <div class="boot-card">
-        <span class="dot"></span>
+        <span class="dot" aria-hidden="true"></span>
         <div>ResearchMate</div>
       </div>
     </div>
 
-    <!-- AUTH -->
-    <div id="auth" style="display: none">
+    <!-- ============================================
+         AUTHENTICATION VIEW
+         ============================================ -->
+    <div id="auth" style="display: none" role="main">
       <div class="card auth-card">
         <h2>Welcome to ResearchMate</h2>
         <p class="sub">Sign in to sync your highlights across devices.</p>
-        <div class="form">
+
+        <!-- Email/Password Form -->
+        <form class="form" onsubmit="return false;">
           <input
             id="email"
             type="email"
             placeholder="Email"
             autocomplete="username"
+            aria-label="Email address"
+            required
           />
           <input
             id="password"
             type="password"
             placeholder="Password (min 6 chars)"
             autocomplete="new-password"
+            aria-label="Password"
+            minlength="6"
+            required
           />
-        </div>
+        </form>
+
+        <!-- Auth Action Buttons -->
         <div class="auth-actions">
-          <button id="signup" class="secondary-btn">Sign up</button>
-          <button id="signin" class="primary-btn">Sign in</button>
+          <button
+            id="signup"
+            class="secondary-btn"
+            type="button"
+            aria-label="Sign up for new account"
+          >
+            Sign up
+          </button>
+          <button
+            id="signin"
+            class="primary-btn"
+            type="button"
+            aria-label="Sign in to existing account"
+          >
+            Sign in
+          </button>
         </div>
 
-        <!-- ✅ ADD THIS: Google Auth -->
+        <!-- Google Sign-in -->
         <div class="google-auth-row">
-          <button id="google-signin" class="google-btn" type="button">
-            <svg width="18" height="18" viewBox="0 0 18 18">
+          <button
+            id="google-signin"
+            class="google-btn"
+            type="button"
+            aria-label="Sign in with Google"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
               <path
                 fill="#4285F4"
                 d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
@@ -91,13 +129,32 @@
             Continue with Google
           </button>
         </div>
-
-        <pre id="auth-log" class="log hidden"></pre>
       </div>
     </div>
 
-    <!-- APP -->
-    <div id="app" style="display: none">
+    <!-- ============================================
+         MAIN APPLICATION VIEW
+         ============================================ -->
+    <div id="app" style="display: none" role="main">
+      <!-- Auth Status Bar -->
+      <div
+        id="auth-status"
+        class="auth-status"
+        role="status"
+        aria-live="polite"
+      >
+        <span id="auth-icon" aria-hidden="true">💾</span>
+        <span id="auth-text">Offline Mode</span>
+        <button
+          id="auth-action"
+          class="auth-action-btn"
+          aria-label="Sign in or sign out"
+        >
+          Sign In
+        </button>
+      </div>
+
+      <!-- Header with Navigation Tabs -->
       <header>
         <h1>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -108,91 +165,192 @@
           </svg>
           ResearchMate
         </h1>
-        <div class="tabs">
-          <button class="tab-btn active" data-tab="collect" title="Highlight">
-            <svg viewBox="0 0 24 24" width="16" height="16">
+
+        <nav class="tabs" role="tablist" aria-label="Main navigation">
+          <button
+            class="tab-btn active"
+            data-tab="collect"
+            role="tab"
+            aria-selected="true"
+            aria-controls="collect-tab"
+            title="Collect highlights"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path
                 d="M3 16l5 5 3-3-5-5-3 3zm6-6l5 5 6-6-5-5-6 6z"
                 fill="currentColor"
               />
             </svg>
+            <span class="sr-only">Collect</span>
           </button>
-          <button class="tab-btn" data-tab="saved" title="Saved">
-            <svg viewBox="0 0 24 24" width="16" height="16">
+
+          <button
+            class="tab-btn"
+            data-tab="saved"
+            role="tab"
+            aria-selected="false"
+            aria-controls="saved-tab"
+            title="View saved items"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M6 2h12v20l-6-4-6 4V2z" fill="currentColor" />
             </svg>
+            <span class="sr-only">Saved</span>
           </button>
-          <button class="tab-btn" data-tab="summary" title="AI">
-            <svg viewBox="0 0 24 24" width="16" height="16">
+
+          <button
+            class="tab-btn"
+            data-tab="summary"
+            role="tab"
+            aria-selected="false"
+            aria-controls="summary-tab"
+            title="AI Summary"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path
                 d="M9 2h6v2h3a2 2 0 012 2v8a4 4 0 01-4 4h-8a4 4 0 01-4-4V6a2 2 0 012-2h3V2h2zM7 10h2v2H7v-2zm8 0h2v2h-2v-2z"
                 fill="currentColor"
               />
             </svg>
+            <span class="sr-only">AI Summary</span>
           </button>
-          <button class="tab-btn" data-tab="settings" title="Settings">
-            <svg viewBox="0 0 24 24" width="16" height="16">
+
+          <button
+            class="tab-btn"
+            data-tab="settings"
+            role="tab"
+            aria-selected="false"
+            aria-controls="settings-tab"
+            title="Settings"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path
                 d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4a7.9 7.9 0 00-.2-1.8l2.1-1.6-2-3.5-2.6 1a8 8 0 00-3.1-1.8L14.8 2h-5.6l-.4 3.3A8 8 0 005.7 7l-2.6-1-2 3.5 2.1 1.6A8 8 0 003 12c0 .6.1 1.2.2 1.8L1.1 15.4l2 3.5 2.6-1a8 8 0 003.1 1.8l.4 3.3h5.6l.4-3.3a8 8 0 003.1-1.8l2.6 1 2-3.5-2.1-1.6c.1-.6.2-1.2.2-1.8z"
                 fill="currentColor"
               />
             </svg>
+            <span class="sr-only">Settings</span>
           </button>
-        </div>
+        </nav>
       </header>
 
-      <!-- Collect Tab -->
-      <div class="tab-content active" id="collect-tab">
-        <h3>Current Selection</h3>
-        <div id="selected-text" class="selection-preview"></div>
-        <div class="form-group">
-          <label class="lbl">Tags (comma separated):</label>
-          <div class="tag-input-container">
-            <div class="tag-chips" id="tag-chips"></div>
-            <input type="text" id="tags-input" placeholder="Add tags..." />
+      <!-- ============================================
+           TAB 1: COLLECT/HIGHLIGHT
+           ============================================ -->
+      <div
+        id="collect-tab"
+        class="tab-content active"
+        role="tabpanel"
+        aria-labelledby="collect"
+      >
+        <form id="capture-form" onsubmit="return false;">
+          <div class="form-scrollable">
+            <!-- Selection Preview -->
+            <label class="lbl" for="selected-text">Selection Preview</label>
+            <div
+              class="selection-preview"
+              id="selected-text"
+              role="status"
+              aria-live="polite"
+              aria-label="Selected text preview"
+            ></div>
+
+            <!-- Notes Input -->
+            <label class="lbl" for="notes-input">Add Note (Optional)</label>
+            <textarea
+              id="notes-input"
+              placeholder="Add your notes here..."
+              aria-label="Add optional notes"
+              rows="3"
+            ></textarea>
+
+            <!-- Tags Input -->
+            <label class="lbl" for="tags-input">Tags (comma-separated)</label>
+            <input
+              type="text"
+              id="tags-input"
+              placeholder="research, important, todo"
+              aria-label="Add tags separated by commas"
+            />
+
+            <!-- Category Select -->
+            <label class="lbl" for="category">Category</label>
+            <select id="category" aria-label="Select category">
+              <option value="article">Article</option>
+              <option value="book">Book</option>
+              <option value="paper">Paper</option>
+              <option value="webpage">Webpage</option>
+              <option value="other">Other</option>
+            </select>
           </div>
-        </div>
-        <div class="form-group">
-          <label class="lbl">Notes:</label>
-          <textarea
-            id="notes-input"
-            rows="2"
-            placeholder="Optional notes..."
-          ></textarea>
-        </div>
-        <div class="row">
-          <button id="save-btn" class="primary-btn" type="button">
-            <svg viewBox="0 0 24 24" width="16" height="16">
-              <path d="M5 20h14v-9H5v9zm14-11V4H5v5h14z" fill="currentColor" />
-            </svg>
-            Save Selection
-          </button>
-          <span
-            id="captured-meta"
-            class="muted small"
-            style="margin-left: auto"
-          ></span>
-        </div>
+
+          <!-- Save Button (Sticky at bottom) -->
+          <div class="save-button-container">
+            <div class="save-button-row">
+              <button
+                type="button"
+                class="primary-btn"
+                id="save-btn"
+                aria-label="Save selected text"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M17 3H5c-1.1 0-2 .9-2 2v14l7-3 7 3V5c0-1.1-.9-2-2-2z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Save Selection
+              </button>
+              <span
+                id="captured-meta"
+                class="muted small"
+                aria-live="polite"
+              ></span>
+            </div>
+          </div>
+        </form>
       </div>
 
-      <!-- Saved Tab -->
-      <div class="tab-content" id="saved-tab">
-        <div class="search-box">
+      <!-- ============================================
+           TAB 2: SAVED ITEMS
+           ============================================ -->
+      <div
+        class="tab-content"
+        id="saved-tab"
+        role="tabpanel"
+        aria-labelledby="saved"
+      >
+        <!-- Search Box -->
+        <div class="search-box" role="search">
           <input
             id="search-input"
             type="text"
             placeholder="Search saved items..."
+            aria-label="Search through saved items"
           />
-          <svg viewBox="0 0 24 24" width="16" height="16">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path
               d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1015.5 14l4.5 4.5-1.5 1.5L15.5 14zM10 15a5 5 0 110-10 5 5 0 010 10z"
               fill="currentColor"
             />
           </svg>
         </div>
-        <div id="saved-items-list" class="saved-items">
+
+        <!-- Saved Items List -->
+        <div
+          id="saved-items-list"
+          class="saved-items"
+          role="list"
+          aria-label="Saved research items"
+        >
+          <!-- Empty State -->
           <div class="empty-state" id="empty-state">
-            <div class="empty-icon">
+            <div class="empty-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="48" height="48">
                 <path
                   d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
@@ -211,33 +369,62 @@
         </div>
       </div>
 
-      <!-- AI Summary Tab -->
-      <div class="tab-content" id="summary-tab">
+      <!-- ============================================
+           TAB 3: AI SUMMARY
+           ============================================ -->
+      <div
+        class="tab-content"
+        id="summary-tab"
+        role="tabpanel"
+        aria-labelledby="summary"
+      >
+        <!-- API Key Input -->
         <div class="row" style="gap: 8px; margin-bottom: 8px">
           <input
             id="aiKey"
             type="password"
             style="flex: 1"
             placeholder="OpenAI API Key"
+            aria-label="OpenAI API Key"
           />
-          <button id="saveAIKey" class="secondary-btn" type="button">
+          <button
+            id="saveAIKey"
+            class="secondary-btn"
+            type="button"
+            aria-label="Save API key"
+          >
             Save Key
           </button>
         </div>
+
+        <!-- Summary Input -->
+        <label class="lbl" for="summary-input">Text to Summarize</label>
         <textarea
           id="summary-input"
           rows="6"
           placeholder="Paste text to summarize..."
+          aria-label="Paste text for AI summary"
         ></textarea>
+
+        <!-- Generate Button -->
         <div class="row center" style="margin-top: 8px">
-          <button id="summarize-btn" class="primary-btn" type="button">
+          <button
+            id="summarize-btn"
+            class="primary-btn"
+            type="button"
+            aria-label="Generate AI summary"
+          >
             Generate Summary
           </button>
         </div>
+
+        <!-- Summary Result -->
         <div id="summary-result" class="hidden" style="margin-top: 12px">
           <h3>AI Summary</h3>
           <div
             class="summary-content"
+            role="status"
+            aria-live="polite"
             style="
               padding: 10px;
               background: var(--tile);
@@ -248,13 +435,22 @@
         </div>
       </div>
 
-      <!-- Settings Tab -->
-      <div class="tab-content" id="settings-tab">
+      <!-- ============================================
+           TAB 4: SETTINGS
+           ============================================ -->
+      <div
+        class="tab-content"
+        id="settings-tab"
+        role="tabpanel"
+        aria-labelledby="settings"
+      >
+        <!-- Action Buttons -->
         <div class="row" style="gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
           <button
             id="exportData"
             class="secondary-btn"
             style="flex: 1; min-width: 100px"
+            aria-label="Export all data"
           >
             📤 Export
           </button>
@@ -262,6 +458,7 @@
             id="importData"
             class="secondary-btn"
             style="flex: 1; min-width: 100px"
+            aria-label="Import data"
           >
             📥 Import
           </button>
@@ -269,20 +466,27 @@
             id="shuffleTheme"
             class="secondary-btn"
             style="flex: 1; min-width: 100px"
+            aria-label="Shuffle theme colors"
           >
             🎨 Theme
           </button>
         </div>
 
+        <!-- Export Format -->
         <div style="margin-bottom: 16px">
-          <label class="lbl">Export Format</label>
-          <select id="exportFormat" style="width: 100%">
+          <label class="lbl" for="exportFormat">Export Format</label>
+          <select
+            id="exportFormat"
+            style="width: 100%"
+            aria-label="Choose export format"
+          >
             <option value="txt">Plain Text (.txt)</option>
             <option value="json">JSON (.json)</option>
             <option value="md">Markdown (.md)</option>
           </select>
         </div>
 
+        <!-- Dark Mode Toggle -->
         <div style="margin-bottom: 16px">
           <label
             style="
@@ -293,24 +497,34 @@
               padding: 8px 0;
             "
           >
-            <input type="checkbox" id="darkMode" />
+            <input
+              type="checkbox"
+              id="darkMode"
+              aria-label="Enable dark mode"
+            />
             <span>Dark mode</span>
           </label>
         </div>
 
+        <!-- Font Family -->
         <div style="margin-bottom: 16px">
-          <label class="lbl">Font Family</label>
-          <select id="fontFamily" style="width: 100%">
+          <label class="lbl" for="fontFamily">Font Family</label>
+          <select
+            id="fontFamily"
+            style="width: 100%"
+            aria-label="Choose font family"
+          >
             <option value="system-ui">System</option>
             <option value="serif">Serif</option>
             <option value="monospace">Monospace</option>
           </select>
         </div>
 
+        <!-- Font Size -->
         <div style="margin-bottom: 20px">
-          <label class="lbl"
-            >Font Size: <span id="fontSize-value">14</span>px</label
-          >
+          <label class="lbl" for="fontSize">
+            Font Size: <span id="fontSize-value" aria-live="polite">14</span>px
+          </label>
           <input
             id="fontSize"
             type="range"
@@ -318,14 +532,11 @@
             max="18"
             value="14"
             style="width: 100%"
+            aria-label="Adjust font size"
           />
         </div>
 
-        <div class="row right">
-          <button id="signout" class="danger-btn" type="button">Logout</button>
-        </div>
-
-        <!-- ✅ KEYBOARD SHORTCUTS - ONLY IN SETTINGS TAB -->
+        <!-- Keyboard Shortcuts Info -->
         <div
           style="
             margin-top: 20px;
@@ -334,6 +545,8 @@
             border-radius: 8px;
             border: 1px solid var(--border);
           "
+          role="region"
+          aria-label="Keyboard shortcuts"
         >
           <h4
             style="
@@ -358,19 +571,34 @@
       </div>
     </div>
 
-    <!-- Edit Overlay -->
-    <div class="overlay-page hidden" id="edit-overlay">
+    <!-- ============================================
+         EDIT OVERLAY
+         ============================================ -->
+    <div
+      class="overlay-page hidden"
+      id="edit-overlay"
+      role="dialog"
+      aria-labelledby="edit-title"
+    >
+      <!-- Overlay Header -->
       <div class="overlay-header">
-        <button id="edit-back" class="back-btn" title="Back">
-          <svg viewBox="0 0 24 24" width="20" height="20">
+        <button
+          id="edit-back"
+          class="back-btn"
+          title="Go back"
+          aria-label="Go back to saved items"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path
               d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
               fill="currentColor"
             />
           </svg>
         </button>
-        <h2>Edit Item</h2>
+        <h2 id="edit-title">Edit Item</h2>
       </div>
+
+      <!-- Overlay Content -->
       <div class="overlay-content">
         <div class="card">
           <div
@@ -378,19 +606,41 @@
             id="edit-meta"
             style="margin-bottom: 12px"
           ></div>
-          <label class="lbl">Tags (comma separated)</label>
-          <input id="edit-tags" type="text" placeholder="tag1, tag2, ..." />
-          <label class="lbl" style="margin-top: 8px">Notes</label>
+
+          <label class="lbl" for="edit-tags">Tags (comma separated)</label>
+          <input
+            id="edit-tags"
+            type="text"
+            placeholder="tag1, tag2, ..."
+            aria-label="Edit tags"
+          />
+
+          <label class="lbl" for="edit-notes" style="margin-top: 8px"
+            >Notes</label
+          >
           <textarea
             id="edit-notes"
             rows="4"
             placeholder="Add your note..."
+            aria-label="Edit notes"
           ></textarea>
+
+          <!-- Action Buttons -->
           <div class="row right" style="gap: 8px; margin-top: 12px">
-            <button id="edit-cancel" class="secondary-btn" type="button">
+            <button
+              id="edit-cancel"
+              class="secondary-btn"
+              type="button"
+              aria-label="Cancel editing"
+            >
               Cancel
             </button>
-            <button id="edit-save" class="primary-btn" type="button">
+            <button
+              id="edit-save"
+              class="primary-btn"
+              type="button"
+              aria-label="Save changes"
+            >
               Save changes
             </button>
           </div>
@@ -398,19 +648,34 @@
       </div>
     </div>
 
-    <!-- Citation Overlay -->
-    <div class="overlay-page hidden" id="citation-overlay">
+    <!-- ============================================
+         CITATION OVERLAY
+         ============================================ -->
+    <div
+      class="overlay-page hidden"
+      id="citation-overlay"
+      role="dialog"
+      aria-labelledby="citation-title"
+    >
+      <!-- Overlay Header -->
       <div class="overlay-header">
-        <button id="citation-back" class="back-btn" title="Back">
-          <svg viewBox="0 0 24 24" width="20" height="20">
+        <button
+          id="citation-back"
+          class="back-btn"
+          title="Go back"
+          aria-label="Go back to saved items"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path
               d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
               fill="currentColor"
             />
           </svg>
         </button>
-        <h2>Citation Builder</h2>
+        <h2 id="citation-title">Citation Builder</h2>
       </div>
+
+      <!-- Overlay Content -->
       <div class="overlay-content">
         <div class="card">
           <p
@@ -418,76 +683,176 @@
             id="citation-meta"
             style="margin-bottom: 12px"
           ></p>
+
+          <!-- Citation Style and Type -->
           <div class="row" style="gap: 8px; margin-bottom: 12px">
-            <label class="lbl" style="flex: 1"
-              >Style
-              <select id="cite-style">
+            <label class="lbl" style="flex: 1">
+              Style
+              <select id="cite-style" aria-label="Citation style">
                 <option value="apa">APA 7</option>
                 <option value="mla">MLA 9</option>
                 <option value="chicago">Chicago (author-date)</option>
                 <option value="ieee">IEEE</option>
               </select>
             </label>
-            <label class="lbl" style="flex: 1"
-              >Type
-              <select id="cite-type">
+            <label class="lbl" style="flex: 1">
+              Type
+              <select id="cite-type" aria-label="Source type">
                 <option value="web">Web page</option>
                 <option value="article">Journal article</option>
                 <option value="book">Book</option>
               </select>
             </label>
           </div>
-          <label class="lbl">Authors (one per line, "First Last")</label>
+
+          <!-- Authors -->
+          <label class="lbl" for="cite-authors"
+            >Authors (one per line, "First Last")</label
+          >
           <textarea
             id="cite-authors"
             rows="2"
             placeholder="Ada Lovelace&#10;Alan Turing"
+            aria-label="Authors, one per line"
           ></textarea>
-          <label class="lbl">Title</label>
+
+          <!-- Title -->
+          <label class="lbl" for="cite-title">Title</label>
           <input
             id="cite-title"
             type="text"
             placeholder="Article or page title"
+            aria-label="Title of source"
           />
-          <label class="lbl">Website / Journal</label>
+
+          <!-- Container (Website/Journal) -->
+          <label class="lbl" for="cite-container">Website / Journal</label>
           <input
             id="cite-container"
             type="text"
             placeholder="Website or journal name"
+            aria-label="Website or journal name"
           />
-          <label class="lbl">Edition (for books, e.g., "2nd")</label>
-          <input id="cite-edition" type="text" placeholder="2nd, 3rd, etc." />
+
+          <!-- Edition (for books) -->
+          <label class="lbl" for="cite-edition"
+            >Edition (for books, e.g., "2nd")</label
+          >
+          <input
+            id="cite-edition"
+            type="text"
+            placeholder="2nd, 3rd, etc."
+            aria-label="Edition for books"
+          />
+
+          <!-- Date (Year, Month, Day) -->
           <div class="row" style="gap: 8px">
-            <label class="lbl" style="flex: 1"
-              >Year<input id="cite-year" type="text" placeholder="YYYY"
-            /></label>
-            <label class="lbl" style="flex: 1"
-              >Month<input id="cite-month" type="text" placeholder="MM"
-            /></label>
-            <label class="lbl" style="flex: 1"
-              >Day<input id="cite-day" type="text" placeholder="DD"
-            /></label>
+            <label class="lbl" style="flex: 1">
+              Year
+              <input
+                id="cite-year"
+                type="text"
+                placeholder="YYYY"
+                aria-label="Publication year"
+              />
+            </label>
+            <label class="lbl" style="flex: 1">
+              Month
+              <input
+                id="cite-month"
+                type="text"
+                placeholder="MM"
+                aria-label="Publication month"
+              />
+            </label>
+            <label class="lbl" style="flex: 1">
+              Day
+              <input
+                id="cite-day"
+                type="text"
+                placeholder="DD"
+                aria-label="Publication day"
+              />
+            </label>
           </div>
-          <label class="lbl">URL</label>
-          <input id="cite-url" type="text" placeholder="https://..." />
-          <label class="lbl">Accessed Date (for web sources)</label>
-          <input id="cite-accessed" type="date" placeholder="YYYY-MM-DD" />
+
+          <!-- URL -->
+          <label class="lbl" for="cite-url">URL</label>
+          <input
+            id="cite-url"
+            type="text"
+            placeholder="https://..."
+            aria-label="URL of source"
+          />
+
+          <!-- Accessed Date -->
+          <label class="lbl" for="cite-accessed"
+            >Accessed Date (for web sources)</label
+          >
+          <input
+            id="cite-accessed"
+            type="date"
+            placeholder="YYYY-MM-DD"
+            aria-label="Date you accessed the source"
+          />
+
+          <!-- Citation Output -->
           <div
             id="cite-output"
             class="cite-output"
             style="margin-top: 12px"
+            role="status"
+            aria-live="polite"
+            aria-label="Generated citation"
           ></div>
+
+          <!-- Action Buttons -->
           <div class="row" style="gap: 8px; margin-top: 12px">
-            <button id="cite-copy" class="primary-btn" style="flex: 1">
+            <button
+              id="cite-copy"
+              class="primary-btn"
+              style="flex: 1"
+              aria-label="Copy citation to clipboard"
+            >
               Copy Citation
             </button>
-            <button id="cite-cancel" class="secondary-btn">Cancel</button>
+            <button
+              id="cite-cancel"
+              class="secondary-btn"
+              aria-label="Cancel citation builder"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- ============================================
+         TOAST NOTIFICATION
+         ============================================ -->
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- ============================================
+         SCREEN READER ONLY UTILITY CLASS
+         ============================================ -->
+    <style>
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+    </style>
+
+    <!-- ============================================
+         JAVASCRIPT MODULE
+         ============================================ -->
     <script type="module" src="popup.js"></script>
   </body>
 </html>

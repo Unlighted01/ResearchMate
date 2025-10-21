@@ -1,4 +1,7 @@
-// popup.js - Clean version with Supabase auth
+// ============================================
+// PART 1: IMPORTS AND CONSTANTS
+// ============================================
+
 import { validateItemData, sanitizeText } from "../../lib/validation.js";
 import { aiRateLimiter } from "../../lib/rateLimiter.js";
 import { summarizeText, setApiKey, getApiKey } from "../../lib/ai.js";
@@ -10,6 +13,8 @@ import {
   addItem,
   updateItem,
   deleteItem,
+  migrateLocalToCloud,
+  getLocalItemsCount,
 } from "../../lib/storage.js";
 import {
   signInWithEmail,
@@ -17,481 +22,633 @@ import {
   signOut as supabaseSignOut,
   onAuthStateChange,
   getCurrentUser,
-  processOAuthCallback, // ✅ Add this
-  supabase, // ✅ Add this
+  processOAuthCallback,
+  supabase,
 } from "../../lib/supabase.js";
 
-/* ---------- DOM helpers ---------- */
-const byId = (id) => document.getElementById(id);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
+// Constants
+const TOAST_DURATION = 1800;
+const DRAFT_EXPIRY = 3600000; // 1 hour
+const PENDING_SAVE_TIMEOUT = 60000; // 1 minute
+const OAUTH_CALLBACK_TIMEOUT = 60000; // 1 minute
+const SESSION_STABILIZE_DELAY = 150;
 
-// Views
-const authView = byId("auth");
-const appView = byId("app");
+// ============================================
+// PART 2: DOM REFERENCES
+// ============================================
 
-// Main UI
-const tagsInput = byId("tags-input");
-const notesInput = byId("notes-input");
-const saveBtn = byId("save-btn");
-const savedList = byId("saved-items-list");
-const emptyState = byId("empty-state");
-const searchInput = byId("search-input");
-const sortSelect = byId("sort-select");
+class DOMRefs {
+  constructor() {
+    // Helper functions
+    this.byId = (id) => document.getElementById(id);
+    this.$$ = (s) => Array.from(document.querySelectorAll(s));
 
-// Edit overlay
-const editOverlay = byId("edit-overlay");
-const editBack = byId("edit-back");
-const editTags = byId("edit-tags");
-const editNotes = byId("edit-notes");
-const editMeta = byId("edit-meta");
-const editSave = byId("edit-save");
-const editCancel = byId("edit-cancel");
-let editItemId = null;
+    // Views
+    this.authView = this.byId("auth");
+    this.appView = this.byId("app");
 
-// Citation overlay
-const citationOverlay = byId("citation-overlay");
-const citationBack = byId("citation-back");
-const citeStyle = byId("cite-style");
-const citeType = byId("cite-type");
-const citeAuthors = byId("cite-authors");
-const citeTitle = byId("cite-title");
-const citeContainer = byId("cite-container");
-const citeYear = byId("cite-year");
-const citeMonth = byId("cite-month");
-const citeDay = byId("cite-day");
-const citeUrl = byId("cite-url");
-const citeAccessed = byId("cite-accessed");
-const citeEdition = byId("cite-edition");
-const citeOutput = byId("cite-output");
-const citeCopy = byId("cite-copy");
-const citeCancel = byId("cite-cancel");
-const citationMeta = byId("citation-meta");
+    // Main UI
+    this.tagsInput = this.byId("tags-input");
+    this.notesInput = this.byId("notes-input");
+    this.saveBtn = this.byId("save-btn");
+    this.savedList = this.byId("saved-items-list");
+    this.emptyState = this.byId("empty-state");
+    this.searchInput = this.byId("search-input");
+    this.sortSelect = this.byId("sort-select");
+    this.selectedText = this.byId("selected-text");
+    this.capturedMeta = this.byId("captured-meta");
 
-// Summary
-const summaryInput = byId("summary-input");
-const summarizeBtn = byId("summarize-btn");
-const summaryResult = byId("summary-result");
-const aiKeyInput = byId("aiKey");
-const saveAIKeyBtn = byId("saveAIKey");
+    // Edit overlay
+    this.editOverlay = this.byId("edit-overlay");
+    this.editBack = this.byId("edit-back");
+    this.editTags = this.byId("edit-tags");
+    this.editNotes = this.byId("edit-notes");
+    this.editMeta = this.byId("edit-meta");
+    this.editSave = this.byId("edit-save");
+    this.editCancel = this.byId("edit-cancel");
 
-// Settings
-const shuffleThemeBtn = byId("shuffleTheme");
-const exportBtn = byId("exportData");
-const importBtn = byId("importData");
-const exportFormat = byId("exportFormat");
-const darkMode = byId("darkMode");
-const fontFamily = byId("fontFamily");
-const fontSize = byId("fontSize");
-const signupBtn = byId("signup");
-const signinBtn = byId("signin");
-const signoutBtn = byId("signout");
-const email = byId("email");
-const password = byId("password");
+    // Citation overlay
+    this.citationOverlay = this.byId("citation-overlay");
+    this.citationBack = this.byId("citation-back");
+    this.citeStyle = this.byId("cite-style");
+    this.citeType = this.byId("cite-type");
+    this.citeAuthors = this.byId("cite-authors");
+    this.citeTitle = this.byId("cite-title");
+    this.citeContainer = this.byId("cite-container");
+    this.citeYear = this.byId("cite-year");
+    this.citeMonth = this.byId("cite-month");
+    this.citeDay = this.byId("cite-day");
+    this.citeUrl = this.byId("cite-url");
+    this.citeAccessed = this.byId("cite-accessed");
+    this.citeEdition = this.byId("cite-edition");
+    this.citeOutput = this.byId("cite-output");
+    this.citeCopy = this.byId("cite-copy");
+    this.citeCancel = this.byId("cite-cancel");
+    this.citationMeta = this.byId("citation-meta");
 
-/* ---------- State ---------- */
-let itemsCache = [];
-let triggerFileImport = null;
-let currentUser = null;
+    // Summary
+    this.summaryInput = this.byId("summary-input");
+    this.summarizeBtn = this.byId("summarize-btn");
+    this.summaryResult = this.byId("summary-result");
+    this.aiKeyInput = this.byId("aiKey");
+    this.saveAIKeyBtn = this.byId("saveAIKey");
 
-/* ---------- Utils ---------- */
-function toast(msg) {
-  const t = byId("toast");
-  if (!t) return alert(msg);
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove("show"), 1800);
+    // Settings
+    this.shuffleThemeBtn = this.byId("shuffleTheme");
+    this.exportBtn = this.byId("exportData");
+    this.importBtn = this.byId("importData");
+    this.exportFormat = this.byId("exportFormat");
+    this.darkMode = this.byId("darkMode");
+    this.fontFamily = this.byId("fontFamily");
+    this.fontSize = this.byId("fontSize");
+
+    // Auth
+    this.signupBtn = this.byId("signup");
+    this.signinBtn = this.byId("signin");
+    this.googleSigninBtn = this.byId("google-signin");
+    this.email = this.byId("email");
+    this.password = this.byId("password");
+    this.authStatus = this.byId("auth-status");
+    this.authIcon = this.byId("auth-icon");
+    this.authText = this.byId("auth-text");
+    this.authAction = this.byId("auth-action");
+
+    // Toast
+    this.toast = this.byId("toast");
+  }
 }
 
-function clearPreview() {
-  const st = byId("selected-text");
-  const cm = byId("captured-meta");
-  if (st) st.textContent = "";
-  if (cm) cm.textContent = "";
+const dom = new DOMRefs();
+
+// ============================================
+// PART 3: STATE MANAGEMENT
+// ============================================
+
+class AppState {
+  constructor() {
+    this.itemsCache = [];
+    this.currentUser = null;
+    this.editItemId = null;
+    this.triggerFileImport = null;
+  }
+
+  setItems(items) {
+    this.itemsCache = items;
+  }
+
+  getItems() {
+    return this.itemsCache;
+  }
+
+  setUser(user) {
+    this.currentUser = user;
+  }
+
+  getUser() {
+    return this.currentUser;
+  }
+
+  setEditItemId(id) {
+    this.editItemId = id;
+  }
+
+  getEditItemId() {
+    return this.editItemId;
+  }
+
+  clearEditItemId() {
+    this.editItemId = null;
+  }
+
+  setFileImporter(fn) {
+    this.triggerFileImport = fn;
+  }
+
+  getFileImporter() {
+    return this.triggerFileImport;
+  }
 }
 
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
+const state = new AppState();
+
+// ============================================
+// PART 4: UI UTILITIES
+// ============================================
+
+class UIUtils {
+  static toast(msg) {
+    if (!dom.toast) return alert(msg);
+    dom.toast.textContent = msg;
+    dom.toast.classList.add("show");
+    clearTimeout(dom.toast._h);
+    dom.toast._h = setTimeout(
+      () => dom.toast.classList.remove("show"),
+      TOAST_DURATION
+    );
+  }
+
+  static debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
       clearTimeout(timeout);
-      func(...args);
+      timeout = setTimeout(later, wait);
     };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
+  }
 
-/* ---------- Overlays ---------- */
-function showOverlay(overlayId) {
-  document.body.classList.add("overlay-active");
-  const overlay = byId(overlayId);
-  if (overlay) overlay.classList.remove("hidden", "closing");
-}
+  static showOverlay(overlayId) {
+    document.body.classList.add("overlay-active");
+    const overlay = dom.byId(overlayId);
+    if (overlay) overlay.classList.remove("hidden", "closing");
+  }
 
-function hideOverlay(overlayId) {
-  const overlay = byId(overlayId);
-  if (overlay) {
-    overlay.classList.add("closing");
-    setTimeout(() => {
-      overlay.classList.add("hidden");
-      overlay.classList.remove("closing");
-      document.body.classList.remove("overlay-active");
-    }, 300);
+  static hideOverlay(overlayId) {
+    const overlay = dom.byId(overlayId);
+    if (overlay) {
+      overlay.classList.add("closing");
+      setTimeout(() => {
+        overlay.classList.add("hidden");
+        overlay.classList.remove("closing");
+        document.body.classList.remove("overlay-active");
+      }, 300);
+    }
+  }
+
+  static showSection(id) {
+    document
+      .querySelectorAll(".tab-content")
+      .forEach((s) => s.classList.remove("active"));
+    dom.byId(id)?.classList.add("active");
+  }
+
+  static getDomainFromUrl(url) {
+    try {
+      return url ? new URL(url).hostname : "";
+    } catch {
+      return "";
+    }
   }
 }
 
-function showSection(id) {
-  document
-    .querySelectorAll(".tab-content")
-    .forEach((s) => s.classList.remove("active"));
-  byId(id)?.classList.add("active");
-}
+// ============================================
+// PART 5: PREVIEW MANAGEMENT
+// ============================================
 
-/* ---------- Citations ---------- */
-function getCitationData() {
-  return {
-    style: citeStyle?.value || "apa",
-    type: citeType?.value || "web",
-    authors: (citeAuthors?.value || "")
-      .split(/\n+/)
-      .map((s) => s.trim())
-      .filter(Boolean),
-    title: citeTitle?.value?.trim() || "",
-    container: citeContainer?.value?.trim() || "",
-    year: citeYear?.value?.trim() || "",
-    month: citeMonth?.value?.trim() || "",
-    day: citeDay?.value?.trim() || "",
-    url: citeUrl?.value?.trim() || "",
-    accessed: citeAccessed?.value?.trim() || "",
-    edition: citeEdition?.value?.trim() || "",
-  };
-}
+class PreviewManager {
+  static clear() {
+    if (dom.selectedText) dom.selectedText.textContent = "";
+    if (dom.capturedMeta) dom.capturedMeta.textContent = "";
+  }
 
-function refreshCitation() {
-  if (!citeOutput) return;
-  try {
-    const citation = buildCitation(getCitationData());
-    citeOutput.innerHTML = citation || "";
-  } catch (error) {
-    console.error("Citation error:", error);
-    citeOutput.textContent = "Error generating citation";
+  static apply(text, url, title) {
+    if (!dom.selectedText || !dom.capturedMeta) return;
+
+    dom.selectedText.textContent = text || "";
+    dom.capturedMeta.textContent = UIUtils.getDomainFromUrl(url);
+
+    chrome.storage.local.set({
+      latestHighlight: {
+        text: text || "",
+        sourceUrl: url || "",
+        sourceTitle: title || "",
+        createdAt: Date.now(),
+      },
+    });
+  }
+
+  static async tryFetchSelection() {
+    try {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (!tab?.id) return false;
+
+      // Try content script first
+      try {
+        const res = await chrome.tabs.sendMessage(tab.id, {
+          type: "getSelection",
+        });
+        const txt = (res?.text || "").trim();
+        if (txt) {
+          this.apply(txt, res?.url || "", res?.title || "");
+          return true;
+        }
+      } catch {}
+
+      // Fallback to scripting API
+      try {
+        const [{ result }] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const text =
+              (window.getSelection && window.getSelection().toString()) || "";
+            return { text, url: location.href, title: document.title };
+          },
+        });
+        const txt = (result?.text || "").trim();
+        if (txt) {
+          this.apply(txt, result?.url || "", result?.title || "");
+          return true;
+        }
+      } catch {}
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  static updateSaveEnabled() {
+    if (dom.saveBtn) {
+      const hasText =
+        dom.selectedText && (dom.selectedText.textContent || "").trim();
+      dom.saveBtn.disabled = !hasText;
+    }
   }
 }
 
-function clearCitationForm() {
-  if (citeAuthors) citeAuthors.value = "";
-  if (citeTitle) citeTitle.value = "";
-  if (citeContainer) citeContainer.value = "";
-  if (citeYear) citeYear.value = "";
-  if (citeMonth) citeMonth.value = "";
-  if (citeDay) citeDay.value = "";
-  if (citeUrl) citeUrl.value = "";
-  if (citeAccessed) citeAccessed.value = "";
-  if (citeEdition) citeEdition.value = "";
-  if (citeOutput) citeOutput.innerHTML = "";
-  if (citationMeta) citationMeta.textContent = "";
+// ============================================
+// PART 6: DRAFT MANAGEMENT
+// ============================================
+
+class DraftManager {
+  static save() {
+    chrome.storage.local.set({
+      researchDraft: {
+        tags: dom.tagsInput?.value || "",
+        notes: dom.notesInput?.value || "",
+        timestamp: Date.now(),
+      },
+    });
+  }
+
+  static async load() {
+    const { researchDraft } = await chrome.storage.local.get("researchDraft");
+    if (researchDraft && Date.now() - researchDraft.timestamp < DRAFT_EXPIRY) {
+      if (dom.tagsInput) dom.tagsInput.value = researchDraft.tags;
+      if (dom.notesInput) dom.notesInput.value = researchDraft.notes;
+    }
+  }
 }
 
-/* ---------- Theme ---------- */
-function hslToRgb(h, s, l) {
-  s /= 100;
-  l /= 100;
-  const k = (n) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n) =>
-    l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return [
-    Math.round(255 * f(0)),
-    Math.round(255 * f(8)),
-    Math.round(255 * f(4)),
-  ];
+// ============================================
+// PART 7: THEME MANAGEMENT
+// ============================================
+
+class ThemeManager {
+  static hslToRgb(h, s, l) {
+    s /= 100;
+    l /= 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) =>
+      l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [
+      Math.round(255 * f(0)),
+      Math.round(255 * f(8)),
+      Math.round(255 * f(4)),
+    ];
+  }
+
+  static setRgbVar(name, h, s, l) {
+    const [r, g, b] = this.hslToRgb(h, s, l);
+    document.documentElement.style.setProperty(name, `${r}, ${g}, ${b}`);
+  }
+
+  static async apply() {
+    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+    const dark = !!rmSettings.dark;
+    let seed = rmSettings.themeSeed;
+
+    if (typeof seed !== "number") {
+      seed = Math.floor(Date.now() / 86400000) % 360;
+      rmSettings.themeSeed = seed;
+      await chrome.storage.local.set({ rmSettings });
+    }
+
+    const root = document.documentElement.style;
+    const accentH = seed % 360;
+
+    root.setProperty("--accent", `hsl(${accentH} 70% ${dark ? 55 : 45}%)`);
+    root.setProperty(
+      "--grad-start",
+      `hsl(${(accentH + 10) % 360} 80% ${dark ? 24 : 84}%)`
+    );
+    root.setProperty(
+      "--grad-end",
+      `hsl(${(accentH + 60) % 360} 80% ${dark ? 28 : 78}%)`
+    );
+
+    this.setRgbVar("--color1", accentH, 85, dark ? 60 : 55);
+    this.setRgbVar("--color2", (accentH + 40) % 360, 85, dark ? 62 : 58);
+    this.setRgbVar("--color3", (accentH + 80) % 360, 85, dark ? 64 : 60);
+    this.setRgbVar("--color4", (accentH + 160) % 360, 78, dark ? 58 : 50);
+    this.setRgbVar("--color5", (accentH + 200) % 360, 78, dark ? 52 : 48);
+    this.setRgbVar(
+      "--color-interactive",
+      (accentH + 300) % 360,
+      85,
+      dark ? 65 : 55
+    );
+
+    root.setProperty(
+      "--color-bg1",
+      `hsl(${(accentH + 335) % 360} 32% ${dark ? 10 : 98}%)`
+    );
+    root.setProperty(
+      "--color-bg2",
+      `hsl(${(accentH + 30) % 360} 32% ${dark ? 14 : 96}%)`
+    );
+  }
+
+  static async shuffle() {
+    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+    rmSettings.themeSeed = Math.floor(Math.random() * 360);
+    await chrome.storage.local.set({ rmSettings });
+    await this.apply();
+    UIUtils.toast("Theme updated");
+  }
 }
 
-function setRgbVar(name, h, s, l) {
-  const [r, g, b] = hslToRgb(h, s, l);
-  document.documentElement.style.setProperty(name, `${r}, ${g}, ${b}`);
-}
+// ============================================
+// PART 8: SETTINGS MANAGEMENT
+// ============================================
 
-async function applyDynamicTheme() {
-  const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-  const dark = !!rmSettings.dark;
-  let seed = rmSettings.themeSeed;
-  if (typeof seed !== "number") {
-    seed = Math.floor(Date.now() / 86400000) % 360;
-    rmSettings.themeSeed = seed;
+class SettingsManager {
+  static async load() {
+    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+    const {
+      dark = false,
+      ff = "system-ui",
+      fs = 14,
+      sortBy = "date-desc",
+    } = rmSettings;
+
+    if (dom.darkMode) dom.darkMode.checked = dark;
+    if (dom.fontFamily) dom.fontFamily.value = ff;
+    if (dom.fontSize) {
+      dom.fontSize.value = fs;
+      const display = document.getElementById("fontSize-value");
+      if (display) display.textContent = fs;
+    }
+    if (dom.sortSelect) dom.sortSelect.value = sortBy;
+
+    document.body.classList.toggle("dark", !!dark);
+    document.body.style.fontFamily = ff;
+    document.body.style.fontSize = fs + "px";
+
+    return { dark, ff, fs, sortBy };
+  }
+
+  static async save() {
+    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+    rmSettings.dark = !!dom.darkMode?.checked;
+    rmSettings.ff = dom.fontFamily?.value || "system-ui";
+    rmSettings.fs = Number(dom.fontSize?.value) || 14;
+
+    await chrome.storage.local.set({ rmSettings });
+
+    document.body.classList.toggle("dark", rmSettings.dark);
+    document.body.style.fontFamily = rmSettings.ff;
+    document.body.style.fontSize = rmSettings.fs + "px";
+
+    await ThemeManager.apply();
+  }
+
+  static async getSortPreference() {
+    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+    return rmSettings.sortBy || "date-desc";
+  }
+
+  static async saveSortPreference(sortBy) {
+    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+    rmSettings.sortBy = sortBy;
     await chrome.storage.local.set({ rmSettings });
   }
-
-  const root = document.documentElement.style;
-  const accentH = seed % 360;
-  root.setProperty("--accent", `hsl(${accentH} 70% ${dark ? 55 : 45}%)`);
-  root.setProperty(
-    "--grad-start",
-    `hsl(${(accentH + 10) % 360} 80% ${dark ? 24 : 84}%)`
-  );
-  root.setProperty(
-    "--grad-end",
-    `hsl(${(accentH + 60) % 360} 80% ${dark ? 28 : 78}%)`
-  );
-
-  setRgbVar("--color1", accentH, 85, dark ? 60 : 55);
-  setRgbVar("--color2", (accentH + 40) % 360, 85, dark ? 62 : 58);
-  setRgbVar("--color3", (accentH + 80) % 360, 85, dark ? 64 : 60);
-  setRgbVar("--color4", (accentH + 160) % 360, 78, dark ? 58 : 50);
-  setRgbVar("--color5", (accentH + 200) % 360, 78, dark ? 52 : 48);
-  setRgbVar("--color-interactive", (accentH + 300) % 360, 85, dark ? 65 : 55);
-  root.setProperty(
-    "--color-bg1",
-    `hsl(${(accentH + 335) % 360} 32% ${dark ? 10 : 98}%)`
-  );
-  root.setProperty(
-    "--color-bg2",
-    `hsl(${(accentH + 30) % 360} 32% ${dark ? 14 : 96}%)`
-  );
 }
 
-async function loadSettings() {
-  const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-  const { dark = false, ff = "system-ui", fs = 14 } = rmSettings;
-  if (darkMode) darkMode.checked = dark;
-  if (fontFamily) fontFamily.value = ff;
-  if (fontSize) {
-    fontSize.value = fs;
-    const display = document.getElementById("fontSize-value");
-    if (display) display.textContent = fs;
+// ============================================
+// PART 9: CITATION MANAGEMENT
+// ============================================
+
+class CitationManager {
+  static getData() {
+    return {
+      style: dom.citeStyle?.value || "apa",
+      type: dom.citeType?.value || "web",
+      authors: (dom.citeAuthors?.value || "")
+        .split(/\n+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+      title: dom.citeTitle?.value?.trim() || "",
+      container: dom.citeContainer?.value?.trim() || "",
+      year: dom.citeYear?.value?.trim() || "",
+      month: dom.citeMonth?.value?.trim() || "",
+      day: dom.citeDay?.value?.trim() || "",
+      url: dom.citeUrl?.value?.trim() || "",
+      accessed: dom.citeAccessed?.value?.trim() || "",
+      edition: dom.citeEdition?.value?.trim() || "",
+    };
   }
-  document.body.classList.toggle("dark", !!dark);
-  document.body.style.fontFamily = ff;
-  document.body.style.fontSize = fs + "px";
-}
 
-async function saveSettings() {
-  const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-  rmSettings.dark = !!darkMode?.checked;
-  rmSettings.ff = fontFamily?.value || "system-ui";
-  rmSettings.fs = Number(fontSize?.value) || 14;
-  await chrome.storage.local.set({ rmSettings });
-  document.body.classList.toggle("dark", rmSettings.dark);
-  document.body.style.fontFamily = rmSettings.ff;
-  document.body.style.fontSize = rmSettings.fs + "px";
-  await applyDynamicTheme();
-}
-
-/* ---------- Sorting ---------- */
-function sortItems(items, sortBy) {
-  const sorted = [...items];
-  switch (sortBy) {
-    case "date-desc":
-      return sorted.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    case "date-asc":
-      return sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    case "title-asc":
-      return sorted.sort((a, b) => {
-        const titleA = (a.sourceTitle || a.sourceUrl || "").toLowerCase();
-        const titleB = (b.sourceTitle || b.sourceUrl || "").toLowerCase();
-        return titleA.localeCompare(titleB);
-      });
-    case "title-desc":
-      return sorted.sort((a, b) => {
-        const titleA = (a.sourceTitle || a.sourceUrl || "").toLowerCase();
-        const titleB = (b.sourceTitle || b.sourceUrl || "").toLowerCase();
-        return titleB.localeCompare(titleA);
-      });
-    default:
-      return sorted;
-  }
-}
-
-async function loadSortPreference() {
-  const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-  const sortBy = rmSettings.sortBy || "date-desc";
-  if (sortSelect) sortSelect.value = sortBy;
-  return sortBy;
-}
-
-async function saveSortPreference(sortBy) {
-  const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-  rmSettings.sortBy = sortBy;
-  await chrome.storage.local.set({ rmSettings });
-}
-
-/* ---------- Selection ---------- */
-function applyPreview(text, url, title) {
-  const st = byId("selected-text");
-  const cm = byId("captured-meta");
-  if (!st || !cm) return;
-  st.textContent = text || "";
-  try {
-    cm.textContent = url ? new URL(url).hostname : "";
-  } catch {
-    cm.textContent = "";
-  }
-  chrome.storage.local.set({
-    latestHighlight: {
-      text: text || "",
-      sourceUrl: url || "",
-      sourceTitle: title || "",
-      createdAt: Date.now(),
-    },
-  });
-}
-
-async function tryFetchSelection() {
-  try {
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (!tab?.id) return false;
-
+  static refresh() {
+    if (!dom.citeOutput) return;
     try {
-      const res = await chrome.tabs.sendMessage(tab.id, {
-        type: "getSelection",
-      });
-      const txt = (res?.text || "").trim();
-      if (txt) {
-        applyPreview(txt, res?.url || "", res?.title || "");
-        return true;
-      }
-    } catch {}
-
-    try {
-      const [{ result }] = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => {
-          const text =
-            (window.getSelection && window.getSelection().toString()) || "";
-          return { text, url: location.href, title: document.title };
-        },
-      });
-      const txt = (result?.text || "").trim();
-      if (txt) {
-        applyPreview(txt, result?.url || "", result?.title || "");
-        return true;
-      }
-    } catch {}
-
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-function updateSaveEnabled() {
-  const st = byId("selected-text");
-  if (saveBtn) saveBtn.disabled = !(st && (st.textContent || "").trim());
-}
-
-function saveDraft() {
-  chrome.storage.local.set({
-    researchDraft: {
-      tags: tagsInput?.value || "",
-      notes: notesInput?.value || "",
-      timestamp: Date.now(),
-    },
-  });
-}
-
-function loadDraft() {
-  chrome.storage.local.get("researchDraft").then(({ researchDraft }) => {
-    if (researchDraft && Date.now() - researchDraft.timestamp < 3600000) {
-      if (tagsInput) tagsInput.value = researchDraft.tags;
-      if (notesInput) notesInput.value = researchDraft.notes;
-    }
-  });
-}
-
-/* ---------- Messaging ---------- */
-chrome.runtime.onMessage.addListener(async (msg) => {
-  console.log("📨 Message:", msg.type);
-
-  if (msg?.type === "latestHighlight") {
-    const p = msg.payload || {};
-    applyPreview(p.text || "", p.sourceUrl || "", p.sourceTitle || "");
-  }
-
-  if (msg?.type === "latestHighlightCleared") {
-    clearPreview();
-  }
-
-  if (msg?.type === "itemSaved") {
-    if (byId("saved-tab")?.classList.contains("active")) loadItems();
-  }
-
-  if (msg?.type === "contextMenuSave") {
-    const { pendingSave } = await chrome.storage.local.get("pendingSave");
-    if (pendingSave && Date.now() - pendingSave.timestamp < 60000) {
-      try {
-        await addItem({
-          text: pendingSave.text,
-          sourceUrl: pendingSave.sourceUrl,
-          sourceTitle: pendingSave.sourceTitle,
-          tags: [],
-          note: "",
-        });
-        await chrome.storage.local.remove("pendingSave");
-        toast("Saved from context menu!");
-        await loadItems();
-      } catch (e) {
-        console.error("Context save failed:", e);
-        toast("Save failed");
-      }
+      const citation = buildCitation(this.getData());
+      dom.citeOutput.innerHTML = citation || "";
+    } catch (error) {
+      console.error("Citation error:", error);
+      dom.citeOutput.textContent = "Error generating citation";
     }
   }
-});
 
-/* ---------- Load & Render ---------- */
-async function loadItems() {
-  try {
-    itemsCache = await getAllItems();
-    console.log("✅ Loaded", itemsCache.length, "items");
+  static clear() {
+    if (dom.citeAuthors) dom.citeAuthors.value = "";
+    if (dom.citeTitle) dom.citeTitle.value = "";
+    if (dom.citeContainer) dom.citeContainer.value = "";
+    if (dom.citeYear) dom.citeYear.value = "";
+    if (dom.citeMonth) dom.citeMonth.value = "";
+    if (dom.citeDay) dom.citeDay.value = "";
+    if (dom.citeUrl) dom.citeUrl.value = "";
+    if (dom.citeAccessed) dom.citeAccessed.value = "";
+    if (dom.citeEdition) dom.citeEdition.value = "";
+    if (dom.citeOutput) dom.citeOutput.innerHTML = "";
+    if (dom.citationMeta) dom.citationMeta.textContent = "";
+  }
 
-    if (!itemsCache.length) {
-      if (savedList) savedList.innerHTML = "";
-      emptyState?.classList.remove("hidden");
+  static async copy() {
+    const html = dom.citeOutput?.innerHTML?.trim() || "";
+    const text = dom.citeOutput?.textContent?.trim() || "";
+
+    if (!text) {
+      UIUtils.toast("Fill citation fields first");
       return;
     }
 
-    emptyState?.classList.add("hidden");
-    const sortBy = await loadSortPreference();
-    const sorted = sortItems(itemsCache, sortBy);
-    renderFiltered(sorted);
-  } catch (e) {
-    console.error("❌ Load error:", e);
-    itemsCache = [];
-    if (savedList) savedList.innerHTML = "";
-    emptyState?.classList.remove("hidden");
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      UIUtils.toast("Citation copied!");
+    } catch (error) {
+      console.error("Copy failed:", error);
+      UIUtils.toast("Copy failed");
+    }
+  }
+
+  static populateFromItem(item) {
+    this.clear();
+    if (dom.citeTitle) dom.citeTitle.value = item.sourceTitle || "";
+    if (dom.citeUrl) dom.citeUrl.value = item.sourceUrl || "";
+
+    if (item.sourceUrl && dom.citeContainer) {
+      try {
+        dom.citeContainer.value = new URL(item.sourceUrl).hostname.replace(
+          /^www\./,
+          ""
+        );
+      } catch {}
+    }
+
+    if (item.createdAt && dom.citeYear) {
+      try {
+        const date = new Date(item.createdAt);
+        dom.citeYear.value = date.getFullYear().toString();
+        dom.citeMonth.value = (date.getMonth() + 1).toString();
+        dom.citeDay.value = date.getDate().toString();
+      } catch {}
+    }
+
+    if (dom.citationMeta) {
+      dom.citationMeta.textContent = `Citing: ${
+        item.sourceTitle || item.sourceUrl || "Untitled"
+      }`;
+    }
+
+    this.refresh();
   }
 }
 
-function renderFiltered(list) {
-  if (!savedList) return;
-  savedList.innerHTML = "";
+// ============================================
+// PART 10: SORTING UTILITIES
+// ============================================
 
-  if (!list.length) {
-    emptyState?.classList.remove("hidden");
-    return;
+class SortUtils {
+  static sortItems(items, sortBy) {
+    const sorted = [...items];
+
+    switch (sortBy) {
+      case "date-desc":
+        return sorted.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      case "date-asc":
+        return sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      case "title-asc":
+        return sorted.sort((a, b) => {
+          const titleA = (a.sourceTitle || a.sourceUrl || "").toLowerCase();
+          const titleB = (b.sourceTitle || b.sourceUrl || "").toLowerCase();
+          return titleA.localeCompare(titleB);
+        });
+
+      case "title-desc":
+        return sorted.sort((a, b) => {
+          const titleA = (a.sourceTitle || a.sourceUrl || "").toLowerCase();
+          const titleB = (b.sourceTitle || b.sourceUrl || "").toLowerCase();
+          return titleB.localeCompare(titleA);
+        });
+
+      default:
+        return sorted;
+    }
+  }
+}
+
+// ============================================
+// PART 11: ITEM RENDERING
+// ============================================
+
+class ItemRenderer {
+  static renderList(list) {
+    if (!dom.savedList) return;
+
+    dom.savedList.innerHTML = "";
+
+    if (!list.length) {
+      dom.emptyState?.classList.remove("hidden");
+      return;
+    }
+
+    dom.emptyState?.classList.add("hidden");
+
+    list.forEach((item) => {
+      if (!item || !item.id) return;
+      const itemEl = this.createItemElement(item);
+      dom.savedList.appendChild(itemEl);
+    });
   }
 
-  emptyState?.classList.add("hidden");
-
-  list.forEach((item) => {
-    if (!item || !item.id) return;
-
+  static createItemElement(item) {
     const div = document.createElement("div");
     div.className = "item";
     div.tabIndex = 0;
 
     const title = item.sourceTitle || item.sourceUrl || "Untitled";
     const text = (item.text || "").slice(0, 240).replace(/\s+/g, " ");
-
-    let domain = "";
-    try {
-      domain = item.sourceUrl ? new URL(item.sourceUrl).hostname : "";
-    } catch {}
-
+    const domain = UIUtils.getDomainFromUrl(item.sourceUrl);
     const tags = Array.isArray(item.tags) ? item.tags : [];
+
     const chips = tags.length
       ? `<div class="chips">${tags
           .map((t) => `<span class="chip">#${t}</span>`)
@@ -525,12 +682,14 @@ function renderFiltered(list) {
         </button>
         ${
           item.sourceUrl
-            ? `<button data-act="open" data-id="${item.id}">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-          </svg>
-          Open
-        </button>`
+            ? `
+          <button data-act="open" data-id="${item.id}">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+            Open
+          </button>
+        `
             : ""
         }
         <div class="more-menu">
@@ -547,116 +706,100 @@ function renderFiltered(list) {
       </div>
     `;
 
-    savedList.appendChild(div);
-  });
+    return div;
+  }
 }
 
-/* ---------- Event Listeners ---------- */
+// ============================================
+// PART 12: ITEM MANAGEMENT
+// ============================================
 
-// Tab switching
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".tab-btn");
-  if (!btn) return;
-  $$(".tab-btn").forEach((b) => b.classList.remove("active"));
-  btn.classList.add("active");
-  showSection(btn.dataset.tab + "-tab");
-});
+class ItemManager {
+  static async load() {
+    try {
+      const items = await getAllItems();
+      state.setItems(items);
+      console.log("✅ Loaded", items.length, "items");
 
-// Save button
-saveBtn?.addEventListener("click", async () => {
-  let st = byId("selected-text");
-  if (!st || !(st.textContent || "").trim()) {
-    const ok = await tryFetchSelection();
-    st = byId("selected-text");
-    if (!ok || !st || !(st.textContent || "").trim()) {
-      return toast("No selection found");
+      if (!items.length) {
+        if (dom.savedList) dom.savedList.innerHTML = "";
+        dom.emptyState?.classList.remove("hidden");
+        return;
+      }
+
+      dom.emptyState?.classList.add("hidden");
+      const sortBy = await SettingsManager.getSortPreference();
+      const sorted = SortUtils.sortItems(items, sortBy);
+      ItemRenderer.renderList(sorted);
+    } catch (e) {
+      console.error("❌ Load error:", e);
+      state.setItems([]);
+      if (dom.savedList) dom.savedList.innerHTML = "";
+      dom.emptyState?.classList.remove("hidden");
     }
   }
 
-  const text = sanitizeText(st.textContent);
-  const tags = (tagsInput.value || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  const { latestHighlight } = await chrome.storage.local.get("latestHighlight");
+  static async save() {
+    if (!dom.selectedText || !(dom.selectedText.textContent || "").trim()) {
+      const ok = await PreviewManager.tryFetchSelection();
+      if (
+        !ok ||
+        !dom.selectedText ||
+        !(dom.selectedText.textContent || "").trim()
+      ) {
+        UIUtils.toast("No selection found");
+        return;
+      }
+    }
 
-  const payload = {
-    text,
-    tags,
-    note: (notesInput.value || "").trim().slice(0, 1000),
-    sourceUrl: latestHighlight?.sourceUrl || "",
-    sourceTitle: latestHighlight?.sourceTitle || "",
-  };
+    const text = sanitizeText(dom.selectedText.textContent);
+    const tags = (dom.tagsInput?.value || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20);
 
-  const validation = validateItemData(payload);
-  if (!validation.valid) return toast(validation.errors[0]);
+    const { latestHighlight } = await chrome.storage.local.get(
+      "latestHighlight"
+    );
 
-  try {
-    await addItem(payload);
-    tagsInput.value = "";
-    notesInput.value = "";
-    await chrome.storage.local.remove("latestHighlight");
-    clearPreview();
-    updateSaveEnabled();
-    toast("Saved!");
-    await loadItems();
-  } catch (e) {
-    console.error(e);
-    toast("Save failed: " + (e.message || "Unknown error"));
-  }
-});
+    const payload = {
+      text,
+      tags,
+      note: (dom.notesInput?.value || "").trim().slice(0, 1000),
+      sourceUrl: latestHighlight?.sourceUrl || "",
+      sourceTitle: latestHighlight?.sourceTitle || "",
+    };
 
-// Search
-searchInput?.addEventListener("input", async () => {
-  const q = (searchInput.value || "").toLowerCase();
-  const filtered = itemsCache.filter(
-    (x) =>
-      (x.text || "").toLowerCase().includes(q) ||
-      (x.sourceTitle || "").toLowerCase().includes(q) ||
-      (x.sourceUrl || "").toLowerCase().includes(q) ||
-      (Array.isArray(x.tags) ? x.tags.join(" ") : "").toLowerCase().includes(q)
-  );
-  const sortBy = sortSelect?.value || "date-desc";
-  renderFiltered(sortItems(filtered, sortBy));
-});
+    const validation = validateItemData(payload);
+    if (!validation.valid) {
+      UIUtils.toast(validation.errors[0]);
+      return;
+    }
 
-// Sort
-sortSelect?.addEventListener("change", async () => {
-  await saveSortPreference(sortSelect.value);
-  renderFiltered(sortItems(itemsCache, sortSelect.value));
-  toast(`Sorted by ${sortSelect.options[sortSelect.selectedIndex].text}`);
-});
-
-// Item actions
-savedList?.addEventListener("click", async (e) => {
-  const moreBtn = e.target.closest("[data-act='more']");
-  if (moreBtn) {
-    e.stopPropagation();
-    const id = moreBtn.dataset.id;
-    const dropdown = savedList.querySelector(`.more-dropdown[data-id="${id}"]`);
-    savedList.querySelectorAll(".more-dropdown").forEach((d) => {
-      if (d !== dropdown) d.classList.remove("show");
-    });
-    dropdown?.classList.toggle("show");
-    return;
+    try {
+      await addItem(payload);
+      if (dom.tagsInput) dom.tagsInput.value = "";
+      if (dom.notesInput) dom.notesInput.value = "";
+      await chrome.storage.local.remove("latestHighlight");
+      PreviewManager.clear();
+      PreviewManager.updateSaveEnabled();
+      UIUtils.toast("Saved!");
+      await this.load();
+    } catch (e) {
+      console.error(e);
+      UIUtils.toast("Save failed: " + (e.message || "Unknown error"));
+    }
   }
 
-  const btn = e.target.closest("button[data-act]:not([data-act='more'])");
-  if (!btn) return;
+  static async copy(itemId) {
+    const item = state.getItems().find((x) => String(x.id) === String(itemId));
+    if (!item) {
+      UIUtils.toast("Item not found");
+      await this.load();
+      return;
+    }
 
-  const action = btn.dataset.act;
-  const itemId = btn.dataset.id;
-  const item = itemsCache.find((x) => String(x.id) === String(itemId));
-
-  if (!item) {
-    console.error("Item not found:", itemId);
-    toast("Item not found - refreshing");
-    await loadItems();
-    return;
-  }
-
-  if (action === "copy") {
     const tags = Array.isArray(item.tags) ? item.tags : [];
     const blob = [
       item.text || "",
@@ -668,501 +811,1153 @@ savedList?.addEventListener("click", async (e) => {
         : "",
       item.note ? `\nNote: ${item.note}` : "",
     ].join("");
+
     try {
       await navigator.clipboard.writeText(blob.trim());
-      toast("Copied!");
+      UIUtils.toast("Copied!");
     } catch {
-      toast("Copy failed");
+      UIUtils.toast("Copy failed");
     }
-    return;
   }
 
-  if (action === "open" && item.sourceUrl) {
-    chrome.tabs.create({ url: item.sourceUrl });
-    return;
-  }
-
-  if (action === "edit") {
-    editItemId = itemId;
-    const title = item.sourceTitle || item.sourceUrl || "Untitled";
-    let domain = "";
-    try {
-      domain = item.sourceUrl ? new URL(item.sourceUrl).hostname : "";
-    } catch {}
-    editMeta.textContent = domain ? `${title} — ${domain}` : title;
-    editTags.value = Array.isArray(item.tags) ? item.tags.join(", ") : "";
-    editNotes.value = item.note || "";
-    savedList
-      .querySelectorAll(".more-dropdown")
-      .forEach((d) => d.classList.remove("show"));
-    showOverlay("edit-overlay");
-    return;
-  }
-
-  if (action === "cite") {
-    clearCitationForm();
-    if (citeTitle) citeTitle.value = item.sourceTitle || "";
-    if (citeUrl) citeUrl.value = item.sourceUrl || "";
-    if (item.sourceUrl && citeContainer) {
-      try {
-        citeContainer.value = new URL(item.sourceUrl).hostname.replace(
-          /^www\./,
-          ""
-        );
-      } catch {}
-    }
-    if (item.createdAt && citeYear) {
-      try {
-        const date = new Date(item.createdAt);
-        citeYear.value = date.getFullYear().toString();
-        citeMonth.value = (date.getMonth() + 1).toString();
-        citeDay.value = date.getDate().toString();
-      } catch {}
-    }
-    if (citationMeta)
-      citationMeta.textContent = `Citing: ${
-        item.sourceTitle || item.sourceUrl || "Untitled"
-      }`;
-    refreshCitation();
-    savedList
-      .querySelectorAll(".more-dropdown")
-      .forEach((d) => d.classList.remove("show"));
-    showOverlay("citation-overlay");
-    return;
-  }
-
-  if (action === "delete") {
+  static async delete(itemId) {
     if (!confirm("Delete permanently?")) return;
+
     try {
       await deleteItem(itemId);
-      toast("Deleted");
-      await loadItems();
+      UIUtils.toast("Deleted");
+      await this.load();
     } catch (e) {
       console.error(e);
-      toast("Delete failed");
+      UIUtils.toast("Delete failed");
     }
   }
-});
 
-// Close dropdowns
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".more-menu")) {
-    document
-      .querySelectorAll(".more-dropdown")
+  static async update(itemId, updates) {
+    try {
+      await updateItem(itemId, updates);
+      UIUtils.toast("Saved");
+      await this.load();
+    } catch (e) {
+      console.error(e);
+      UIUtils.toast("Update failed");
+    }
+  }
+
+  static async search(query) {
+    const q = query.toLowerCase();
+    const filtered = state
+      .getItems()
+      .filter(
+        (x) =>
+          (x.text || "").toLowerCase().includes(q) ||
+          (x.sourceTitle || "").toLowerCase().includes(q) ||
+          (x.sourceUrl || "").toLowerCase().includes(q) ||
+          (Array.isArray(x.tags) ? x.tags.join(" ") : "")
+            .toLowerCase()
+            .includes(q)
+      );
+    const sortBy = dom.sortSelect?.value || "date-desc";
+    ItemRenderer.renderList(SortUtils.sortItems(filtered, sortBy));
+  }
+}
+
+// ============================================
+// PART 13: AUTH MANAGEMENT
+// ============================================
+
+class AuthManager {
+  static updateStatus() {
+    const user = state.getUser();
+
+    if (!dom.authStatus) {
+      console.warn("⚠️ Auth status div not found");
+      return;
+    }
+
+    console.log("🎨 Updating auth status, user:", user?.email || "none");
+
+    if (user) {
+      dom.authStatus.classList.add("signed-in");
+      if (dom.authIcon) dom.authIcon.textContent = "☁️";
+      if (dom.authText) dom.authText.textContent = `Signed in as ${user.email}`;
+      if (dom.authAction) {
+        dom.authAction.textContent = "Sign Out";
+        dom.authAction.onclick = async () => {
+          await this.signOut();
+        };
+      }
+    } else {
+      dom.authStatus.classList.remove("signed-in");
+      if (dom.authIcon) dom.authIcon.textContent = "💾";
+      if (dom.authText) dom.authText.textContent = "Offline Mode";
+      if (dom.authAction) {
+        dom.authAction.textContent = "Sign In";
+        dom.authAction.onclick = () => {
+          if (dom.appView) dom.appView.style.display = "none";
+          if (dom.authView) dom.authView.style.display = "flex";
+        };
+      }
+    }
+  }
+
+  static async signOut() {
+    console.log("🚪 Sign-out clicked");
+    const { error } = await supabaseSignOut();
+
+    if (error) {
+      console.error("❌ Sign-out error:", error);
+      UIUtils.toast("Sign-out failed");
+      return;
+    }
+
+    state.setUser(null);
+    state.setItems([]);
+    this.updateStatus();
+    await ItemManager.load();
+
+    if (dom.authView) dom.authView.style.display = "none";
+    if (dom.appView) dom.appView.style.display = "flex";
+
+    UIUtils.toast("Signed out - now in offline mode");
+  }
+
+  static async checkForMigration() {
+    const localCount = await getLocalItemsCount();
+
+    if (localCount > 0) {
+      const migrate = confirm(
+        `You have ${localCount} saved items in offline mode.\n\n` +
+          `Upload them to your cloud account for sync across devices?`
+      );
+
+      if (migrate) {
+        try {
+          const result = await migrateLocalToCloud();
+          UIUtils.toast(`✅ Uploaded ${result.success} items!`);
+          await ItemManager.load();
+        } catch (error) {
+          console.error("Migration failed:", error);
+          UIUtils.toast("❌ Upload failed. Your local data is safe.");
+        }
+      }
+    }
+  }
+
+  static setupListener() {
+    onAuthStateChange(async (event, session) => {
+      console.log("🔐 Auth event:", event);
+      console.log("👤 Session user:", session?.user?.email || "none");
+
+      if (event === "INITIAL_SESSION") {
+        if (state.getUser()) {
+          console.log("ℹ️ INITIAL_SESSION ignored - already have user");
+          return;
+        }
+        if (session?.user) {
+          console.log("🔄 INITIAL_SESSION - restoring user");
+          state.setUser(session.user);
+          this.updateStatus();
+          if (state.getItems().length === 0) await ItemManager.load();
+        }
+        return;
+      }
+
+      if (event === "SIGNED_IN") {
+        console.log("✅ SIGNED_IN event");
+        if (session?.user) {
+          state.setUser(session.user);
+          if (dom.authView) dom.authView.style.display = "none";
+          if (dom.appView) {
+            dom.appView.style.display = "flex";
+            dom.appView.classList.remove("hidden");
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          this.updateStatus();
+          await ItemManager.load();
+          await this.checkForMigration();
+          UIUtils.toast("Signed in! Data syncs across devices");
+        }
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        console.log("🚪 SIGNED_OUT event");
+        state.setUser(null);
+        state.setItems([]);
+        this.updateStatus();
+        await ItemManager.load();
+        if (dom.authView) dom.authView.style.display = "none";
+        if (dom.appView) dom.appView.style.display = "flex";
+        UIUtils.toast("Signed out. Using offline mode");
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED" && session?.user) {
+        if (state.getUser()?.id !== session.user.id) {
+          state.setUser(session.user);
+          this.updateStatus();
+        }
+      }
+    });
+  }
+}
+
+// ============================================
+// PART 14: MESSAGE HANDLER
+// ============================================
+
+class MessageHandler {
+  static setup() {
+    chrome.runtime.onMessage.addListener(async (msg) => {
+      console.log("📨 Message:", msg.type);
+
+      if (msg?.type === "latestHighlight") {
+        const p = msg.payload || {};
+        PreviewManager.apply(
+          p.text || "",
+          p.sourceUrl || "",
+          p.sourceTitle || ""
+        );
+      }
+
+      if (msg?.type === "latestHighlightCleared") {
+        PreviewManager.clear();
+      }
+
+      if (msg?.type === "itemSaved") {
+        if (dom.byId("saved-tab")?.classList.contains("active")) {
+          await ItemManager.load();
+        }
+      }
+
+      if (msg?.type === "contextMenuSave") {
+        const { pendingSave } = await chrome.storage.local.get("pendingSave");
+        if (
+          pendingSave &&
+          Date.now() - pendingSave.timestamp < PENDING_SAVE_TIMEOUT
+        ) {
+          try {
+            await addItem({
+              text: pendingSave.text,
+              sourceUrl: pendingSave.sourceUrl,
+              sourceTitle: pendingSave.sourceTitle,
+              tags: [],
+              note: "",
+            });
+            await chrome.storage.local.remove("pendingSave");
+            UIUtils.toast("Saved from context menu!");
+            await ItemManager.load();
+          } catch (e) {
+            console.error("Context save failed:", e);
+            UIUtils.toast("Save failed");
+          }
+        }
+      }
+    });
+  }
+}
+
+// ============================================
+// PART 15: TAB AND NAVIGATION HANDLERS
+// ============================================
+
+class NavigationHandlers {
+  static setupTabSwitching() {
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab-btn");
+      if (!btn) return;
+
+      dom.$$(".tab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      UIUtils.showSection(btn.dataset.tab + "-tab");
+    });
+  }
+
+  static setupDropdownClosing() {
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".more-menu")) {
+        document
+          .querySelectorAll(".more-dropdown")
+          .forEach((d) => d.classList.remove("show"));
+      }
+    });
+  }
+}
+
+// ============================================
+// PART 16: ITEM ACTION HANDLERS
+// ============================================
+
+class ItemActionHandlers {
+  static setup() {
+    dom.savedList?.addEventListener("click", async (e) => {
+      // Handle "more" button
+      const moreBtn = e.target.closest("[data-act='more']");
+      if (moreBtn) {
+        e.stopPropagation();
+        const id = moreBtn.dataset.id;
+        const dropdown = dom.savedList.querySelector(
+          `.more-dropdown[data-id="${id}"]`
+        );
+        dom.savedList.querySelectorAll(".more-dropdown").forEach((d) => {
+          if (d !== dropdown) d.classList.remove("show");
+        });
+        dropdown?.classList.toggle("show");
+        return;
+      }
+
+      // Handle other actions
+      const btn = e.target.closest("button[data-act]:not([data-act='more'])");
+      if (!btn) return;
+
+      const action = btn.dataset.act;
+      const itemId = btn.dataset.id;
+      const item = state
+        .getItems()
+        .find((x) => String(x.id) === String(itemId));
+
+      if (!item) {
+        console.error("Item not found:", itemId);
+        UIUtils.toast("Item not found - refreshing");
+        await ItemManager.load();
+        return;
+      }
+
+      switch (action) {
+        case "copy":
+          await ItemManager.copy(itemId);
+          break;
+
+        case "open":
+          if (item.sourceUrl) {
+            chrome.tabs.create({ url: item.sourceUrl });
+          }
+          break;
+
+        case "edit":
+          this.openEditOverlay(item, itemId);
+          break;
+
+        case "cite":
+          this.openCitationOverlay(item);
+          break;
+
+        case "delete":
+          await ItemManager.delete(itemId);
+          break;
+      }
+    });
+  }
+
+  static openEditOverlay(item, itemId) {
+    state.setEditItemId(itemId);
+    const title = item.sourceTitle || item.sourceUrl || "Untitled";
+    const domain = UIUtils.getDomainFromUrl(item.sourceUrl);
+
+    if (dom.editMeta) {
+      dom.editMeta.textContent = domain ? `${title} — ${domain}` : title;
+    }
+    if (dom.editTags) {
+      dom.editTags.value = Array.isArray(item.tags) ? item.tags.join(", ") : "";
+    }
+    if (dom.editNotes) {
+      dom.editNotes.value = item.note || "";
+    }
+
+    dom.savedList
+      ?.querySelectorAll(".more-dropdown")
       .forEach((d) => d.classList.remove("show"));
+    UIUtils.showOverlay("edit-overlay");
   }
-});
 
-// Edit overlay
-editSave?.addEventListener("click", async () => {
-  if (!editItemId) return toast("No item selected");
-  const tags = (editTags.value || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const note = (editNotes.value || "").trim();
-  try {
-    await updateItem(editItemId, { tags, note });
-    toast("Saved");
-    await loadItems();
-    hideOverlay("edit-overlay");
-    editItemId = null;
-  } catch (e) {
-    console.error(e);
-    toast("Update failed");
+  static openCitationOverlay(item) {
+    CitationManager.populateFromItem(item);
+    dom.savedList
+      ?.querySelectorAll(".more-dropdown")
+      .forEach((d) => d.classList.remove("show"));
+    UIUtils.showOverlay("citation-overlay");
   }
-});
+}
 
-editCancel?.addEventListener("click", () => {
-  hideOverlay("edit-overlay");
-  editItemId = null;
-});
+// ============================================
+// PART 17: EDIT OVERLAY HANDLERS
+// ============================================
 
-editBack?.addEventListener("click", () => {
-  hideOverlay("edit-overlay");
-  editItemId = null;
-});
+class EditOverlayHandlers {
+  static setup() {
+    dom.editSave?.addEventListener("click", async () => {
+      const itemId = state.getEditItemId();
+      if (!itemId) {
+        UIUtils.toast("No item selected");
+        return;
+      }
 
-// Citation overlay
-[
-  citeStyle,
-  citeType,
-  citeAuthors,
-  citeTitle,
-  citeContainer,
-  citeYear,
-  citeMonth,
-  citeDay,
-  citeUrl,
-  citeAccessed,
-  citeEdition,
-].forEach((el) => {
-  el?.addEventListener("input", refreshCitation);
-  el?.addEventListener("change", refreshCitation);
-});
+      const tags = (dom.editTags?.value || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const note = (dom.editNotes?.value || "").trim();
 
-citeCopy?.addEventListener("click", async () => {
-  const html = citeOutput?.innerHTML?.trim() || "";
-  const text = citeOutput?.textContent?.trim() || "";
-  if (!text) return toast("Fill citation fields first");
-  try {
-    if (navigator.clipboard && window.ClipboardItem) {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          "text/html": new Blob([html], { type: "text/html" }),
-          "text/plain": new Blob([text], { type: "text/plain" }),
-        }),
+      await ItemManager.update(itemId, { tags, note });
+      UIUtils.hideOverlay("edit-overlay");
+      state.clearEditItemId();
+    });
+
+    dom.editCancel?.addEventListener("click", () => {
+      UIUtils.hideOverlay("edit-overlay");
+      state.clearEditItemId();
+    });
+
+    dom.editBack?.addEventListener("click", () => {
+      UIUtils.hideOverlay("edit-overlay");
+      state.clearEditItemId();
+    });
+  }
+}
+
+// ============================================
+// PART 18: CITATION OVERLAY HANDLERS
+// ============================================
+
+class CitationOverlayHandlers {
+  static setup() {
+    // Setup input listeners for live citation updates
+    const citationInputs = [
+      dom.citeStyle,
+      dom.citeType,
+      dom.citeAuthors,
+      dom.citeTitle,
+      dom.citeContainer,
+      dom.citeYear,
+      dom.citeMonth,
+      dom.citeDay,
+      dom.citeUrl,
+      dom.citeAccessed,
+      dom.citeEdition,
+    ];
+
+    citationInputs.forEach((el) => {
+      el?.addEventListener("input", () => CitationManager.refresh());
+      el?.addEventListener("change", () => CitationManager.refresh());
+    });
+
+    // Copy button
+    dom.citeCopy?.addEventListener("click", async () => {
+      await CitationManager.copy();
+    });
+
+    // Cancel button
+    dom.citeCancel?.addEventListener("click", () => {
+      UIUtils.hideOverlay("citation-overlay");
+      CitationManager.clear();
+    });
+
+    // Back button
+    dom.citationBack?.addEventListener("click", () => {
+      UIUtils.hideOverlay("citation-overlay");
+      CitationManager.clear();
+    });
+  }
+}
+
+// ============================================
+// PART 19: AI SUMMARY HANDLERS
+// ============================================
+
+class AISummaryHandlers {
+  static setup() {
+    // Summarize button
+    dom.summarizeBtn?.addEventListener("click", async () => {
+      const text = (dom.summaryInput?.value || "").trim();
+
+      if (!text) {
+        UIUtils.toast("Paste text to summarize");
+        return;
+      }
+
+      dom.summarizeBtn.disabled = true;
+      dom.summarizeBtn.textContent = "Summarizing…";
+
+      try {
+        await aiRateLimiter.throttle();
+        const out = await summarizeText(text);
+
+        if (!out.ok) {
+          if (out.reason === "missing_api_key") {
+            UIUtils.toast("Add API key first");
+            return;
+          }
+          if (out.reason === "network_error") {
+            UIUtils.toast("Network error");
+            return;
+          }
+          UIUtils.toast(`Failed: ${out.error || out.reason}`);
+          return;
+        }
+
+        const box = dom.summaryResult?.querySelector(".summary-content");
+        if (dom.summaryResult) dom.summaryResult.classList.remove("hidden");
+        if (box) box.textContent = out.summary;
+        UIUtils.toast("Summary ready");
+      } catch (error) {
+        console.error(error);
+        UIUtils.toast("Unexpected error");
+      } finally {
+        dom.summarizeBtn.disabled = false;
+        dom.summarizeBtn.textContent = "Generate Summary";
+      }
+    });
+
+    // Save API key button
+    dom.saveAIKeyBtn?.addEventListener("click", async () => {
+      const value = (dom.aiKeyInput?.value || "").trim();
+
+      if (value === "••••••••••") {
+        UIUtils.toast("Key unchanged");
+        return;
+      }
+
+      await setApiKey(value);
+      if (dom.aiKeyInput) {
+        dom.aiKeyInput.value = value ? "••••••••••" : "";
+      }
+      UIUtils.toast(value ? "API key saved" : "API key cleared");
+    });
+  }
+}
+
+// ============================================
+// PART 20: SETTINGS HANDLERS
+// ============================================
+
+class SettingsHandlers {
+  static setup() {
+    // Shuffle theme button
+    dom.shuffleThemeBtn?.addEventListener("click", async () => {
+      await ThemeManager.shuffle();
+    });
+
+    // Export button
+    dom.exportBtn?.addEventListener("click", async () => {
+      const items = state.getItems();
+      if (items.length === 0) {
+        UIUtils.toast("No items to export");
+        return;
+      }
+
+      try {
+        const filename = exportItems(items, dom.exportFormat?.value || "txt");
+        UIUtils.toast(`Exported ${items.length} items`);
+      } catch (error) {
+        console.error(error);
+        UIUtils.toast("Export failed");
+      }
+    });
+
+    // Import button
+    dom.importBtn?.addEventListener("click", () => {
+      const triggerImport = state.getFileImporter();
+      if (triggerImport) {
+        triggerImport();
+      } else {
+        UIUtils.toast("Import not ready");
+      }
+    });
+
+    // Dark mode, font family, and font size changes
+    [dom.darkMode, dom.fontFamily, dom.fontSize].forEach((el) => {
+      el?.addEventListener("change", async () => {
+        await SettingsManager.save();
+      });
+    });
+
+    // Font size display update
+    dom.fontSize?.addEventListener("input", (e) => {
+      const display = document.getElementById("fontSize-value");
+      if (display) display.textContent = e.target.value;
+    });
+  }
+}
+
+// ============================================
+// PART 21: AUTH HANDLERS
+// ============================================
+
+class AuthHandlers {
+  static setup() {
+    // Sign up button
+    dom.signupBtn?.addEventListener("click", async () => {
+      const em = (dom.email?.value || "").trim();
+      const pw = dom.password?.value || "";
+
+      if (!em || !pw) {
+        UIUtils.toast("Enter email and password");
+        return;
+      }
+
+      if (pw.length < 6) {
+        UIUtils.toast("Password min 6 chars");
+        return;
+      }
+
+      const { error } = await signUpWithEmail(em, pw);
+      if (error) {
+        UIUtils.toast(error.message);
+        return;
+      }
+
+      UIUtils.toast("Check email to verify!");
+    });
+
+    // Sign in button
+    dom.signinBtn?.addEventListener("click", async () => {
+      const em = (dom.email?.value || "").trim();
+      const pw = dom.password?.value || "";
+
+      if (!em || !pw) {
+        UIUtils.toast("Enter email and password");
+        return;
+      }
+
+      console.log("🔐 Attempting sign-in with:", em);
+
+      dom.signinBtn.disabled = true;
+      dom.signinBtn.textContent = "Signing in...";
+
+      const { user, error } = await signInWithEmail(em, pw);
+
+      if (error) {
+        console.error("❌ Sign-in error:", error.message);
+        UIUtils.toast(error.message);
+        dom.signinBtn.disabled = false;
+        dom.signinBtn.textContent = "Sign in";
+        return;
+      }
+
+      if (!user) {
+        console.error("❌ No user returned from sign-in");
+        UIUtils.toast("Sign-in failed - no user returned");
+        dom.signinBtn.disabled = false;
+        dom.signinBtn.textContent = "Sign in";
+        return;
+      }
+
+      console.log("✅ Sign-in successful!");
+      console.log("👤 User ID:", user.id);
+      console.log("📧 Email:", user.email);
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, SESSION_STABILIZE_DELAY)
+      );
+
+      state.setUser(user);
+      AuthManager.updateStatus();
+
+      if (dom.authView) dom.authView.style.display = "none";
+      if (dom.appView) {
+        dom.appView.style.display = "block";
+        dom.appView.classList.remove("hidden");
+      }
+
+      dom.signinBtn.disabled = false;
+      dom.signinBtn.textContent = "Sign in";
+
+      UIUtils.toast("Signed in!");
+
+      await ItemManager.load();
+      await AuthManager.checkForMigration();
+    });
+
+    // Google Sign-in button
+    dom.googleSigninBtn?.addEventListener("click", async () => {
+      this.handleGoogleSignIn();
+    });
+  }
+
+  static async handleGoogleSignIn() {
+    try {
+      console.log("🔵 Google button clicked");
+
+      dom.googleSigninBtn.disabled = true;
+      dom.googleSigninBtn.textContent = "Opening Google...";
+
+      console.log("🌐 Using tab-based OAuth...");
+
+      const { signInWithGoogle } = await import("../../lib/oauth-simple.js");
+      const result = await signInWithGoogle();
+
+      if (!result.success) {
+        console.error("❌ OAuth initialization failed:", result.error);
+        UIUtils.toast(
+          "Google sign-in failed: " + (result.error?.message || "Unknown error")
+        );
+        this.resetGoogleButton();
+        return;
+      }
+
+      console.log("✅ OAuth tab opened");
+      UIUtils.toast("Complete sign-in in Google tab, then reopen this popup");
+
+      // Reset button
+      this.resetGoogleButton();
+
+      // Close popup - user will reopen after OAuth completes
+      window.close();
+    } catch (error) {
+      console.error("❌ Unexpected error:", error);
+      UIUtils.toast("Sign-in failed: " + error.message);
+      this.resetGoogleButton();
+    }
+  }
+
+  static resetGoogleButton() {
+    dom.googleSigninBtn.disabled = false;
+    dom.googleSigninBtn.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+      </svg>
+      Continue with Google
+    `;
+  }
+}
+
+// ============================================
+// PART 22: SEARCH AND SORT HANDLERS
+// ============================================
+
+class SearchSortHandlers {
+  static setup() {
+    // Search input
+    dom.searchInput?.addEventListener("input", async () => {
+      const query = dom.searchInput.value || "";
+      await ItemManager.search(query);
+    });
+
+    // Sort select
+    dom.sortSelect?.addEventListener("change", async () => {
+      const sortBy = dom.sortSelect.value;
+      await SettingsManager.saveSortPreference(sortBy);
+      const sorted = SortUtils.sortItems(state.getItems(), sortBy);
+      ItemRenderer.renderList(sorted);
+      UIUtils.toast(
+        `Sorted by ${dom.sortSelect.options[dom.sortSelect.selectedIndex].text}`
+      );
+    });
+  }
+}
+
+// ============================================
+// PART 23: KEYBOARD SHORTCUTS
+// ============================================
+
+class KeyboardHandlers {
+  static setup() {
+    document.addEventListener("keydown", (e) => {
+      // Ctrl/Cmd + S: Save
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        if (!dom.editOverlay?.classList.contains("hidden")) {
+          dom.editSave?.click();
+        } else {
+          dom.saveBtn?.click();
+        }
+        return;
+      }
+
+      // Escape: Close overlays or clear
+      if (e.key === "Escape") {
+        if (!dom.editOverlay?.classList.contains("hidden")) {
+          UIUtils.hideOverlay("edit-overlay");
+          state.clearEditItemId();
+          return;
+        }
+        if (!dom.citationOverlay?.classList.contains("hidden")) {
+          UIUtils.hideOverlay("citation-overlay");
+          CitationManager.clear();
+          return;
+        }
+        const openDropdown = document.querySelector(".more-dropdown.show");
+        if (openDropdown) {
+          openDropdown.classList.remove("show");
+          return;
+        }
+        PreviewManager.clear();
+      }
+
+      // Alt + 1-4: Switch tabs
+      if (e.altKey && e.key >= "1" && e.key <= "4") {
+        e.preventDefault();
+        const tabs = ["collect", "saved", "summary", "settings"];
+        const tabIndex = parseInt(e.key) - 1;
+        if (tabs[tabIndex]) {
+          const btn = document.querySelector(
+            `.tab-btn[data-tab="${tabs[tabIndex]}"]`
+          );
+          btn?.click();
+        }
+      }
+
+      // Ctrl/Cmd + F: Focus search (in saved tab)
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        const savedTab = dom.byId("saved-tab");
+        if (savedTab?.classList.contains("active")) {
+          e.preventDefault();
+          dom.searchInput?.focus();
+        }
+      }
+    });
+  }
+}
+
+// ============================================
+// PART 24: MISCELLANEOUS HANDLERS
+// ============================================
+
+class MiscHandlers {
+  static setupAnimatedBackground() {
+    window.addEventListener(
+      "pointermove",
+      (e) => {
+        const r = document.body.getBoundingClientRect();
+        const x = Math.max(
+          0,
+          Math.min(100, ((e.clientX - r.left) / r.width) * 100)
+        );
+        const y = Math.max(
+          0,
+          Math.min(100, ((e.clientY - r.top) / r.height) * 100)
+        );
+        const root = document.documentElement.style;
+        root.setProperty("--mx", x + "%");
+        root.setProperty("--my", y + "%");
+      },
+      { passive: true }
+    );
+  }
+
+  static setupSaveButtonObserver() {
+    new MutationObserver(() => {
+      PreviewManager.updateSaveEnabled();
+    }).observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  }
+
+  static setupDraftAutoSave() {
+    dom.tagsInput?.addEventListener(
+      "input",
+      UIUtils.debounce(() => DraftManager.save(), 500)
+    );
+    dom.notesInput?.addEventListener(
+      "input",
+      UIUtils.debounce(() => DraftManager.save(), 500)
+    );
+  }
+
+  static setupFileImporter() {
+    const triggerImport = initFileImporter({
+      onPreview: (text, fileName) => {
+        PreviewManager.apply(text, "", fileName);
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document
+          .querySelector('.tab-btn[data-tab="collect"]')
+          ?.classList.add("active");
+        UIUtils.showSection("collect-tab");
+      },
+      onToast: UIUtils.toast,
+      onAutoSave: async (text, fileName) => {
+        await addItem({
+          text,
+          sourceTitle: fileName,
+          sourceUrl: "",
+          tags: ["imported"],
+          note: `Imported from ${fileName}`,
+        });
+        await ItemManager.load();
+        UIUtils.toast("Imported!");
+      },
+    });
+    state.setFileImporter(triggerImport);
+  }
+}
+
+// ============================================
+// PART 25: OAUTH CALLBACK PROCESSING
+// ============================================
+
+class OAuthProcessor {
+  static async process() {
+    const { oauthCallback, oauthTimestamp, oauthInProgress } =
+      await chrome.storage.local.get([
+        "oauthCallback",
+        "oauthTimestamp",
+        "oauthInProgress",
       ]);
-    } else {
-      await navigator.clipboard.writeText(text);
-    }
-    toast("Citation copied!");
-  } catch (error) {
-    console.error("Copy failed:", error);
-    toast("Copy failed");
-  }
-});
 
-citeCancel?.addEventListener("click", () => {
-  hideOverlay("citation-overlay");
-  clearCitationForm();
-});
+    // Check if we have a fresh OAuth callback
+    if (
+      oauthCallback &&
+      Date.now() - (oauthTimestamp || 0) < OAUTH_CALLBACK_TIMEOUT
+    ) {
+      console.log("🔐 Processing OAuth callback...");
 
-citationBack?.addEventListener("click", () => {
-  hideOverlay("citation-overlay");
-  clearCitationForm();
-});
+      try {
+        const { success, error } = await processOAuthCallback(oauthCallback);
 
-// AI Summary
-summarizeBtn?.addEventListener("click", async () => {
-  const text = (summaryInput?.value || "").trim();
-  if (!text) return toast("Paste text to summarize");
-  summarizeBtn.disabled = true;
-  summarizeBtn.textContent = "Summarizing…";
-  try {
-    await aiRateLimiter.throttle();
-    const out = await summarizeText(text);
-    if (!out.ok) {
-      if (out.reason === "missing_api_key") return toast("Add API key first");
-      if (out.reason === "network_error") return toast("Network error");
-      return toast(`Failed: ${out.error || out.reason}`);
-    }
-    const box = summaryResult?.querySelector(".summary-content");
-    if (summaryResult) summaryResult.classList.remove("hidden");
-    if (box) box.textContent = out.summary;
-    toast("Summary ready");
-  } catch (error) {
-    console.error(error);
-    toast("Unexpected error");
-  } finally {
-    summarizeBtn.disabled = false;
-    summarizeBtn.textContent = "Generate Summary";
-  }
-});
+        if (success) {
+          console.log("✅ OAuth callback processed");
 
-saveAIKeyBtn?.addEventListener("click", async () => {
-  const value = (aiKeyInput?.value || "").trim();
-  if (value === "••••••••••") return toast("Key unchanged");
-  await setApiKey(value);
-  if (aiKeyInput) aiKeyInput.value = value ? "••••••••••" : "";
-  toast(value ? "API key saved" : "API key cleared");
-});
+          // Wait for Supabase session to establish
+          await new Promise((resolve) => setTimeout(resolve, 1000));
 
-// Settings
-shuffleThemeBtn?.addEventListener("click", async () => {
-  const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-  rmSettings.themeSeed = Math.floor(Math.random() * 360);
-  await chrome.storage.local.set({ rmSettings });
-  await applyDynamicTheme();
-  toast("Theme updated");
-});
+          // Get session
+          const {
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession();
 
-[darkMode, fontFamily, fontSize].forEach((el) =>
-  el?.addEventListener("change", saveSettings)
-);
+          if (sessionError || !session?.user) {
+            throw new Error("No session after OAuth");
+          }
 
-fontSize?.addEventListener("input", (e) => {
-  const display = document.getElementById("fontSize-value");
-  if (display) display.textContent = e.target.value;
-});
+          console.log("✅ Session confirmed:", session.user.email);
+          state.setUser(session.user);
 
-// Export
-exportBtn?.addEventListener("click", async () => {
-  if (itemsCache.length === 0) return toast("No items to export");
-  try {
-    const filename = exportItems(itemsCache, exportFormat?.value || "txt");
-    toast(`Exported ${itemsCache.length} items`);
-  } catch (error) {
-    console.error(error);
-    toast("Export failed");
-  }
-});
+          // Clean up OAuth storage
+          await chrome.storage.local.remove([
+            "oauthCallback",
+            "oauthTimestamp",
+            "oauthInProgress",
+            "oauthStartTime",
+          ]);
 
-// Import
-importBtn?.addEventListener("click", () => {
-  if (triggerFileImport) {
-    triggerFileImport();
-  } else {
-    toast("Import not ready");
-  }
-});
+          // Remove boot splash and show app
+          document.body.classList.remove("booting");
+          document.body.classList.add("ready");
 
-// Auto-save drafts
-tagsInput?.addEventListener("input", debounce(saveDraft, 500));
-notesInput?.addEventListener("input", debounce(saveDraft, 500));
+          if (dom.authView) dom.authView.style.display = "none";
+          if (dom.appView) {
+            dom.appView.style.display = "flex";
+            dom.appView.classList.remove("hidden");
+          }
 
-// Save button observer
-new MutationObserver(updateSaveEnabled).observe(document.body, {
-  subtree: true,
-  childList: true,
-  characterData: true,
-});
+          // Force reflow
+          void dom.appView?.offsetHeight;
 
-// Keyboard shortcuts
-document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-    e.preventDefault();
-    if (!editOverlay?.classList.contains("hidden")) {
-      editSave?.click();
-    } else {
-      saveBtn?.click();
-    }
-    return;
-  }
-  if (e.key === "Escape") {
-    if (!editOverlay?.classList.contains("hidden")) {
-      hideOverlay("edit-overlay");
-      editItemId = null;
-      return;
-    }
-    if (!citationOverlay?.classList.contains("hidden")) {
-      hideOverlay("citation-overlay");
-      clearCitationForm();
-      return;
-    }
-    const openDropdown = document.querySelector(".more-dropdown.show");
-    if (openDropdown) {
-      openDropdown.classList.remove("show");
-      return;
-    }
-    clearPreview();
-  }
-});
+          // Wait for browser to paint
+          await new Promise((resolve) => {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(resolve);
+            });
+          });
 
-// Animated background
-window.addEventListener(
-  "pointermove",
-  (e) => {
-    const r = document.body.getBoundingClientRect();
-    const x = Math.max(
-      0,
-      Math.min(100, ((e.clientX - r.left) / r.width) * 100)
-    );
-    const y = Math.max(
-      0,
-      Math.min(100, ((e.clientY - r.top) / r.height) * 100)
-    );
-    const root = document.documentElement.style;
-    root.setProperty("--mx", x + "%");
-    root.setProperty("--my", y + "%");
-  },
-  { passive: true }
-);
+          // Update auth status
+          console.log("🎨 Updating auth status...");
+          this.updateAuthStatusDirectly();
 
-// Auth buttons
-signupBtn?.addEventListener("click", async () => {
-  const em = (email.value || "").trim();
-  const pw = password.value || "";
-  if (!em || !pw) return toast("Enter email and password");
-  if (pw.length < 6) return toast("Password min 6 chars");
-  const { error } = await signUpWithEmail(em, pw);
-  if (error) return toast(error.message);
-  toast("Check email to verify!");
-});
+          // Load items and check migration
+          await ItemManager.load();
+          await AuthManager.checkForMigration();
 
-signinBtn?.addEventListener("click", async () => {
-  const em = (email.value || "").trim();
-  const pw = password.value || "";
-  if (!em || !pw) return toast("Enter email and password");
-  const { error } = await signInWithEmail(em, pw);
-  if (error) return toast(error.message);
-  toast("Signed in!");
-});
+          UIUtils.toast("Signed in with Google!");
+          console.log("✅ Google OAuth complete!");
 
-signoutBtn?.addEventListener("click", async () => {
-  const { error } = await supabaseSignOut();
-  if (error) console.error(error);
-  toast("Signed out");
-});
-
-// Google Sign-in button
-const googleSigninBtn = byId("google-signin");
-
-googleSigninBtn?.addEventListener("click", async () => {
-  try {
-    console.log("🔵 Google button clicked");
-
-    googleSigninBtn.disabled = true;
-    googleSigninBtn.textContent = "Opening Google...";
-
-    const { signInWithGoogle } = await import("../../lib/oauth-simple.js");
-    const result = await signInWithGoogle();
-
-    if (!result.success) {
-      toast("Failed to start Google sign-in");
-      googleSigninBtn.disabled = false;
-      googleSigninBtn.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 18 18">
-          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
-          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
-          <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/>
-          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
-        </svg>
-        Continue with Google
-      `;
-    } else {
-      // Tab opened, button will re-enable when user returns
-      toast("Complete sign-in in the new tab");
-    }
-  } catch (error) {
-    console.error("❌ Error:", error);
-    toast("Sign-in failed");
-    googleSigninBtn.disabled = false;
-  }
-});
-
-/* ---------- Initialization ---------- */
-(async function init() {
-  console.log("🚀 Init starting...");
-
-  await applyDynamicTheme();
-  await loadSettings();
-
-  // ✅ Check for OAuth callback FIRST
-  const { oauthCallback, oauthTimestamp } = await chrome.storage.local.get([
-    "oauthCallback",
-    "oauthTimestamp",
-  ]);
-
-  if (oauthCallback && Date.now() - (oauthTimestamp || 0) < 60000) {
-    console.log("🔑 Processing OAuth callback...");
-
-    const { success, error } = await processOAuthCallback(oauthCallback);
-
-    if (success) {
-      toast("Signed in with Google!");
-    } else {
-      console.error("❌ OAuth processing failed:", error);
-      toast("Google sign-in failed");
+          return true; // OAuth was processed
+        } else {
+          console.error("❌ OAuth failed:", error);
+          UIUtils.toast("Google sign-in failed");
+          await chrome.storage.local.remove([
+            "oauthCallback",
+            "oauthTimestamp",
+            "oauthInProgress",
+            "oauthStartTime",
+          ]);
+        }
+      } catch (error) {
+        console.error("❌ OAuth exception:", error);
+        UIUtils.toast("Sign-in error: " + error.message);
+        await chrome.storage.local.remove([
+          "oauthCallback",
+          "oauthTimestamp",
+          "oauthInProgress",
+          "oauthStartTime",
+        ]);
+      }
     }
 
-    // Clear the callback data
-    await chrome.storage.local.remove(["oauthCallback", "oauthTimestamp"]);
+    // Clean up stale OAuth attempts (older than 5 minutes)
+    if (oauthInProgress) {
+      const { oauthStartTime } = await chrome.storage.local.get(
+        "oauthStartTime"
+      );
+      if (Date.now() - (oauthStartTime || 0) > 300000) {
+        console.log("🧹 Cleaning up stale OAuth attempt");
+        await chrome.storage.local.remove([
+          "oauthInProgress",
+          "oauthStartTime",
+        ]);
+      }
+    }
+
+    return false; // OAuth was not processed
   }
 
-  // Check current user
-  currentUser = await getCurrentUser();
-  console.log("👤 Current user on init:", currentUser?.id || "none");
+  static updateAuthStatusDirectly() {
+    const user = state.getUser();
 
-  // Remove booting state and show correct view
-  document.body.classList.remove("booting");
-  document.body.classList.add("ready");
-
-  if (currentUser) {
-    // User is logged in - show app immediately
-    if (authView) authView.style.display = "none";
-    if (appView) {
-      appView.style.display = "block";
-      appView.classList.remove("hidden");
+    if (dom.authStatus) dom.authStatus.classList.add("signed-in");
+    if (dom.authIcon) {
+      dom.authIcon.textContent = "☁️";
+      console.log("✅ Icon updated to:", dom.authIcon.textContent);
     }
+    if (dom.authText) {
+      dom.authText.textContent = `Signed in as ${user.email}`;
+      console.log("✅ Text updated to:", dom.authText.textContent);
+    }
+    if (dom.authAction) {
+      dom.authAction.textContent = "Sign Out";
+      dom.authAction.onclick = async () => {
+        await AuthManager.signOut();
+      };
+      console.log("✅ Button updated to:", dom.authAction.textContent);
+    }
+  }
+}
+
+// ============================================
+// PART 26: MAIN INITIALIZATION
+// ============================================
+
+class AppInitializer {
+  static async init() {
+    console.log("🚀 Init starting...");
+
+    // Apply theme and settings
+    await ThemeManager.apply();
+    await SettingsManager.load();
+
+    // Check for OAuth callback first
+    // Check for OAuth callback first
+    const oauthProcessed = await OAuthProcessor.process();
+
+    if (oauthProcessed) {
+      console.log("✅ OAuth processed - setting up all handlers...");
+
+      // ✅ FIX: Setup ALL handlers, not just a few!
+      this.setupAllHandlers();
+
+      // Setup auth listener and file importer
+      AuthManager.setupListener();
+      MiscHandlers.setupFileImporter();
+
+      // Load AI key
+      const existingKey = await getApiKey();
+      if (dom.aiKeyInput) {
+        dom.aiKeyInput.value = existingKey ? "••••••••••" : "";
+      }
+
+      // Try to fetch live selection
+      const gotLive = await PreviewManager.tryFetchSelection();
+      if (!gotLive) {
+        await chrome.storage.local.remove("latestHighlight");
+        PreviewManager.clear();
+      }
+
+      console.log("✅ Init complete (OAuth path)!");
+      return; // NOW we can return
+    }
+
+    // Normal initialization flow
+    const currentUser = await getCurrentUser();
+    state.setUser(currentUser);
+    console.log("👤 Current user on init:", currentUser?.id || "none");
+
+    // Remove boot splash and show app
+    document.body.classList.remove("booting");
+    document.body.classList.add("ready");
+
+    if (dom.authView) dom.authView.style.display = "none";
+    if (dom.appView) {
+      dom.appView.style.display = "flex";
+      dom.appView.classList.remove("hidden");
+    }
+
+    // Update auth status
+    AuthManager.updateStatus();
 
     // Load items
     try {
       console.log("📚 Loading items...");
-      await loadItems();
-      console.log("✅ Items loaded, count:", itemsCache.length);
-
-      if (itemsCache.length > 0) {
-        const sortBy = await loadSortPreference();
-        const sorted = sortItems(itemsCache, sortBy);
-        renderFiltered(sorted);
-        console.log("🎨 Rendered", sorted.length, "items");
+      await ItemManager.load();
+      if (state.getItems().length > 0) {
+        const sortBy = await SettingsManager.getSortPreference();
+        ItemRenderer.renderList(SortUtils.sortItems(state.getItems(), sortBy));
       }
     } catch (e) {
       console.error("❌ Load error:", e);
     }
 
-    loadDraft();
-    updateSaveEnabled();
-  } else {
-    // No user - show auth
-    console.log("❌ No user, showing auth");
-    itemsCache = [];
-    if (appView) appView.style.display = "none";
-    if (authView) authView.style.display = "flex";
-  }
+    // Setup all handlers
+    this.setupAllHandlers();
 
-  // Set up auth listener for future changes
-  onAuthStateChange(async (event, session) => {
-    console.log(
-      "🔑 Auth changed:",
-      event,
-      "User:",
-      session?.user?.id || "none"
-    );
-    currentUser = session?.user || null;
+    // Load draft and update save button
+    DraftManager.load();
+    PreviewManager.updateSaveEnabled();
 
-    if (currentUser && event === "SIGNED_IN") {
-      if (authView) authView.style.display = "none";
-      if (appView) {
-        appView.style.display = "block";
-        appView.classList.remove("hidden");
-      }
-      await loadItems();
-      console.log("✅ Loaded after sign in");
-    } else if (!currentUser) {
-      itemsCache = [];
-      if (savedList) savedList.innerHTML = "";
-      if (appView) appView.style.display = "none";
-      if (authView) authView.style.display = "flex";
+    // Setup auth listener and file importer
+    AuthManager.setupListener();
+    MiscHandlers.setupFileImporter();
+
+    // Load AI key
+    const existingKey = await getApiKey();
+    if (dom.aiKeyInput) {
+      dom.aiKeyInput.value = existingKey ? "••••••••••" : "";
     }
-  });
 
-  // File importer
-  triggerFileImport = initFileImporter({
-    onPreview: (text, fileName) => {
-      applyPreview(text, "", fileName);
-      document
-        .querySelectorAll(".tab-btn")
-        .forEach((b) => b.classList.remove("active"));
-      document
-        .querySelector('.tab-btn[data-tab="collect"]')
-        ?.classList.add("active");
-      showSection("collect-tab");
-    },
-    onToast: toast,
-    onAutoSave: async (text, fileName) => {
-      if (!currentUser) return toast("Sign in first");
-      await addItem({
-        text,
-        sourceTitle: fileName,
-        sourceUrl: "",
-        tags: ["imported"],
-        note: `Imported from ${fileName}`,
-      });
-      await loadItems();
-      toast("Imported!");
-    },
-  });
+    // Try to fetch live selection
+    const gotLive = await PreviewManager.tryFetchSelection();
+    if (!gotLive) {
+      await chrome.storage.local.remove("latestHighlight");
+      PreviewManager.clear();
+    }
 
-  const existingKey = await getApiKey();
-  if (aiKeyInput) aiKeyInput.value = existingKey ? "••••••••••" : "";
-
-  const gotLive = await tryFetchSelection();
-  if (!gotLive) {
-    await chrome.storage.local.remove("latestHighlight");
-    clearPreview();
+    console.log("✅ Init complete!");
   }
 
-  console.log("✅ Init complete!");
-})();
+  static setupAllHandlers() {
+    // Save button
+    dom.saveBtn?.addEventListener("click", async () => {
+      await ItemManager.save();
+    });
+
+    // Setup all handler classes
+    NavigationHandlers.setupTabSwitching();
+    NavigationHandlers.setupDropdownClosing();
+    ItemActionHandlers.setup();
+    EditOverlayHandlers.setup();
+    CitationOverlayHandlers.setup();
+    AISummaryHandlers.setup();
+    SettingsHandlers.setup();
+    AuthHandlers.setup();
+    SearchSortHandlers.setup();
+    KeyboardHandlers.setup();
+    MessageHandler.setup();
+    MiscHandlers.setupAnimatedBackground();
+    MiscHandlers.setupSaveButtonObserver();
+    MiscHandlers.setupDraftAutoSave();
+  }
+}
+
+// ============================================
+// START THE APPLICATION
+// ============================================
+
+AppInitializer.init();
