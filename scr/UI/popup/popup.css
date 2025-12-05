@@ -1,7 +1,9 @@
 /* ============================================
-   PART 1: CSS VARIABLES
+   PART 1: CSS VARIABLES - MULTI-THEME SYSTEM
    ============================================ */
-:root {
+
+/* THEME 1: GRADIENT BUBBLE */
+:root[data-theme="gradient-bubble"] {
   /* Core Colors - Dark Theme */
   --bg: #0b0c0f;
   --panel: #0f172a;
@@ -17,6 +19,23 @@
   /* Gradients (dynamic - set by JS) */
   --grad-start: #3b82f6;
   --grad-end: #22d3ee;
+
+  /* Animated Background */
+  --color-bg1: rgb(18, 18, 28);
+  --color-bg2: rgb(10, 10, 18);
+  --color1: 18, 113, 255;
+  --color2: 221, 74, 255;
+  --color3: 100, 220, 255;
+  --color4: 200, 50, 50;
+  --color5: 180, 180, 50;
+  --color-interactive: 140, 100, 255;
+  --circle-size: 80%;
+  --blending: hard-light;
+
+  /* Theme-specific effects */
+  --glass-opacity: 0;
+  --glass-blur: 0px;
+  --neon-glow: none;
 
   /* Spacing & Layout */
   --spacing-xs: 4px;
@@ -43,38 +62,201 @@
   --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Animated Background */
-  --color-bg1: rgb(18, 18, 28);
-  --color-bg2: rgb(10, 10, 18);
-  --color1: 18, 113, 255;
-  --color2: 221, 74, 255;
-  --color3: 100, 220, 255;
-  --color4: 200, 50, 50;
-  --color5: 180, 180, 50;
-  --color-interactive: 140, 100, 255;
-  --circle-size: 80%;
-  --blending: hard-light;
-
   /* Layout Dimensions */
   --app-padding: 18px;
 }
 
-/* Light Theme Override */
-body.light {
-  --bg: #ffffff;
-  --panel: #ffffff;
-  --fg: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --tile: #f8fafc;
-  --accent: #3b82f6;
+/* THEME 2: LIQUID GLASS - Light Mode (Default) */
+:root[data-theme="liquid-glass"] {
+  /* Backgrounds - Light with transparency */
+  --bg: rgba(249, 250, 251, 0.95);
+  --panel: rgba(255, 255, 255, 0.7);
+  --tile: rgba(255, 255, 255, 0.5);
+
+  /* Text - Dark for contrast */
+  --fg: #1a1a2e;
+  --muted: #4a5568;
+
+  /* Borders - Subtle borders */
+  --border: rgba(0, 0, 0, 0.1);
+  --accent: #667eea;
   --accent-fg: #ffffff;
-  --grad-start: #93c5fd;
-  --grad-end: #a7f3d0;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
-  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.1);
+  --danger: #ef4444;
+  --success: #10b981;
+
+  /* Gradients - Soft pastels */
+  --grad-start: #a8dadc;
+  --grad-end: #f1faee;
+
+  /* NO animated colors - use neutral background */
+  --color-bg1: rgb(249, 250, 251);
+  --color-bg2: rgb(255, 255, 255);
+  --color1: 0, 0, 0;
+  --color2: 0, 0, 0;
+  --color3: 0, 0, 0;
+  --color4: 0, 0, 0;
+  --color5: 0, 0, 0;
+  --color-interactive: 0, 0, 0;
+  --circle-size: 0%;
+  --blending: normal;
+
+  /* Glass effect enabled */
+  --glass-opacity: 0.7;
+  --glass-blur: 20px;
+  --neon-glow: none;
+
+  /* Shadows - Lighter for light theme */
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.12);
+
+  /* Keep other variables */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --app-padding: 18px;
+}
+
+/* THEME 3: NEON CYBER */
+:root[data-theme="neon-cyber"] {
+  /* Backgrounds - Very dark */
+  --bg: #050510;
+  --panel: #0a0a1a;
+  --tile: #12121f;
+
+  /* Text - Bright cyan/magenta */
+  --fg: #00ffff;
+  --muted: #ff00ff;
+
+  /* Borders - Neon glow */
+  --border: #00ffff;
+  --accent: #00ffff;
+  --accent-fg: #050510;
+  --danger: #ff0055;
+  --success: #00ff88;
+
+  /* Gradients - Neon */
+  --grad-start: #00ffff;
+  --grad-end: #ff00ff;
+
+  /* Grid background */
+  --color-bg1: rgb(5, 5, 16);
+  --color-bg2: rgb(10, 10, 26);
+  --color1: 0, 255, 255;
+  --color2: 255, 0, 255;
+  --color3: 255, 0, 127;
+  --color4: 0, 255, 127;
+  --color5: 127, 0, 255;
+  --color-interactive: 255, 255, 0;
+  --circle-size: 60%;
+  --blending: screen;
+
+  /* Neon glow enabled */
+  --glass-opacity: 0;
+  --glass-blur: 0px;
+  --neon-glow: 0 0 10px currentColor, 0 0 20px currentColor,
+    0 0 30px currentColor;
+
+  /* Shadows - Neon glows */
+  --shadow-sm: 0 0 10px rgba(0, 255, 255, 0.3);
+  --shadow-md: 0 0 20px rgba(0, 255, 255, 0.4);
+  --shadow-lg: 0 0 30px rgba(0, 255, 255, 0.5);
+  --shadow-xl: 0 0 40px rgba(0, 255, 255, 0.6);
+
+  /* Keep other variables */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --app-padding: 18px;
+}
+
+/* THEME 4: MINIMAL CLEAN - Light Mode (Default) */
+:root[data-theme="minimal-clean"],
+:root:not([data-theme]) {
+  /* Backgrounds - Pure white/gray */
+  --bg: #ffffff;
+  --panel: #f9fafb;
+  --tile: #f3f4f6;
+
+  /* Text - Pure black */
+  --fg: #111827;
+  --muted: #6b7280;
+
+  /* Borders - Subtle gray */
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --danger: #dc2626;
+  --success: #059669;
+
+  /* Gradients - Subtle */
+  --grad-start: #3b82f6;
+  --grad-end: #60a5fa;
+
+  /* NO animated background - neutral colors */
+  --color-bg1: rgb(255, 255, 255);
+  --color-bg2: rgb(249, 250, 251);
+  --color1: 0, 0, 0;
+  --color2: 0, 0, 0;
+  --color3: 0, 0, 0;
+  --color4: 0, 0, 0;
+  --color5: 0, 0, 0;
+  --color-interactive: 0, 0, 0;
+  --circle-size: 0%;
+  --blending: normal;
+
+  /* No effects */
+  --glass-opacity: 0;
+  --glass-blur: 0px;
+  --neon-glow: none;
+
+  /* Shadows - Subtle */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.1);
+
+  /* Keep other variables */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --app-padding: 18px;
+}
+
+/* Light Theme Override - NOT USED, handled per-theme */
+body.light {
+  /* This is kept for backward compatibility but not used */
 }
 
 /* ============================================
@@ -102,7 +284,8 @@ body {
 
 body {
   width: 420px !important;
-  height: 600px;
+  min-height: 600px;
+  max-height: 600px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -113,7 +296,19 @@ body {
     "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
+  /* ✅ FIXED: Hide scrollbar on body entirely */
   overflow: hidden;
+}
+
+/* ✅ Hide body scrollbar in all browsers */
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+}
+
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 button {
@@ -165,6 +360,16 @@ a:hover {
 
 ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+/* ✅ NEW: Hide body scrollbar when auth view is visible */
+body:has(#auth[style*="flex"]) {
+  overflow: hidden !important;
+}
+
+/* ✅ Fallback for browsers without :has() support */
+body.auth-visible {
+  overflow: hidden !important;
 }
 
 /* ============================================
@@ -235,8 +440,8 @@ body.booting #app {
 /* FIX: Make entire app scrollable without internal scroll */
 #app {
   height: calc(100vh - (var(--app-padding) * 2));
-  /* REMOVE internal scroll - let it flow naturally */
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 0;
 }
 
@@ -497,12 +702,34 @@ kbd {
    PART 10: AUTH VIEW
    ============================================ */
 #auth {
-  min-height: 460px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-xl);
+  /* ✅ FIXED: Fill entire extension viewport */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  overflow: hidden !important; /* ✅ Force hide scrollbar */
+  box-shadow: none;
   isolation: isolate;
-  padding: 0;
+  padding: var(--app-padding);
+  z-index: 100;
+  -ms-overflow-style: none; /* ✅ Hide scrollbar IE/Edge */
+  scrollbar-width: none; /* ✅ Hide scrollbar Firefox */
+}
+
+/* ✅ Hide scrollbar Chrome/Safari */
+#auth::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 #auth::before {
@@ -554,9 +781,10 @@ body.light #auth::after {
 #auth .auth-card {
   position: relative;
   z-index: 2;
-  margin: var(--spacing-lg);
+  margin: 0;
   padding: var(--spacing-xl);
-  width: calc(100% - 32px);
+  width: 100%;
+  max-width: 380px;
   text-align: center;
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in oklab, white 15%, transparent);
@@ -668,15 +896,16 @@ body.light .google-btn {
 
 .google-btn:hover {
   background: color-mix(in oklab, var(--tile) 70%, transparent);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
-  border-color: color-mix(in oklab, white 30%, transparent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 body.light .google-btn:hover {
   background: var(--panel);
-  box-shadow: var(--shadow-md);
-  border-color: var(--accent);
+}
+
+.google-btn svg {
+  flex-shrink: 0;
 }
 
 /* ============================================
@@ -807,7 +1036,7 @@ header h1 {
 }
 
 /* ============================================
-   PART 12: TABS AND TAB CONTENT (SCROLL FIX)
+   PART 12: TABS AND TAB CONTENT
    ============================================ */
 
 /* Tab Buttons */
@@ -845,18 +1074,16 @@ header h1 {
   transform: translateY(-1px);
 }
 
-/* Tab Content - Natural flow */
+/* CRITICAL FIX: Tab Content - Must be display: none when not active */
 .tab-content {
-  display: none;
+  display: none !important;
   flex-direction: column;
-  flex: 1;
   width: 100%;
-  /* Remove internal scroll - let parent handle it */
-  overflow: visible;
+  min-height: 0;
 }
 
 .tab-content.active {
-  display: flex;
+  display: flex !important;
   animation: fadeInUp 0.3s ease-out;
 }
 
@@ -886,11 +1113,12 @@ header h1 {
 }
 
 .form-scrollable {
-  /* Remove internal scroll */
-  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
-#collect-tab,
+/* Other tabs */
 #saved-tab,
 #summary-tab,
 #settings-tab {
@@ -1012,12 +1240,14 @@ body.light .selection-preview:hover {
    PART 15: SAVED ITEMS TAB
    ============================================ */
 
-/* Saved Tab Layout */
+/* CRITICAL: Saved Tab Layout - Contained within tab */
 #saved-tab {
-  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
-/* Search Box */
+/* Search Box - ONLY visible in saved tab */
 .search-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -1026,7 +1256,6 @@ body.light .selection-preview:hover {
   gap: var(--spacing-md);
   align-items: center;
   background: var(--tile);
-  margin-bottom: var(--spacing-md);
   transition: all var(--transition-base);
   flex-shrink: 0;
 }
@@ -1051,20 +1280,16 @@ body.light .selection-preview:hover {
   flex-shrink: 0;
 }
 
-/* Saved Items List */
-.saved-items {
+/* CRITICAL: Saved Items List - Must be inside #saved-tab only */
+#saved-tab .saved-items {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
-  margin-top: var(--spacing-sm);
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: var(--spacing-xs);
+  width: 100%;
 }
 
-/* Individual Item */
-.item {
+/* Individual Item - Scoped to saved-tab only */
+#saved-tab .item {
   position: relative;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -1075,28 +1300,29 @@ body.light .selection-preview:hover {
   cursor: pointer;
   outline: none;
   animation: slideInUp 0.3s ease-out backwards;
+  flex-shrink: 0;
 }
 
-.item:nth-child(1) {
+#saved-tab .item:nth-child(1) {
   animation-delay: 0ms;
 }
-.item:nth-child(2) {
+#saved-tab .item:nth-child(2) {
   animation-delay: 50ms;
 }
-.item:nth-child(3) {
+#saved-tab .item:nth-child(3) {
   animation-delay: 100ms;
 }
-.item:nth-child(4) {
+#saved-tab .item:nth-child(4) {
   animation-delay: 150ms;
 }
 
-.item:hover {
+#saved-tab .item:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
   border-color: color-mix(in oklab, var(--border) 60%, var(--accent) 40%);
 }
 
-.item:focus {
+#saved-tab .item:focus {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   transform: translateY(-3px);
@@ -1104,7 +1330,7 @@ body.light .selection-preview:hover {
 }
 
 /* Delete Button */
-.item .delete-btn {
+#saved-tab .item .delete-btn {
   position: absolute;
   top: var(--spacing-md);
   right: var(--spacing-md);
@@ -1123,12 +1349,12 @@ body.light .selection-preview:hover {
   z-index: 10;
 }
 
-.item:hover .delete-btn,
-.item:focus .delete-btn {
+#saved-tab .item:hover .delete-btn,
+#saved-tab .item:focus .delete-btn {
   opacity: 1;
 }
 
-.item .delete-btn:hover {
+#saved-tab .item .delete-btn:hover {
   background: var(--danger);
   color: white;
   border-color: var(--danger);
@@ -1136,13 +1362,13 @@ body.light .selection-preview:hover {
   box-shadow: 0 2px 12px color-mix(in oklab, var(--danger) 40%, transparent);
 }
 
-.item .delete-btn svg {
+#saved-tab .item .delete-btn svg {
   width: 14px;
   height: 14px;
 }
 
 /* Item Content */
-.item .title {
+#saved-tab .item .title {
   font-weight: 600;
   font-size: 15px;
   margin-bottom: var(--spacing-sm);
@@ -1154,7 +1380,7 @@ body.light .selection-preview:hover {
   line-height: 1.4;
 }
 
-.item .domain {
+#saved-tab .item .domain {
   font-size: 11px;
   font-weight: 500;
   color: var(--muted);
@@ -1166,14 +1392,14 @@ body.light .selection-preview:hover {
   letter-spacing: 0.03em;
 }
 
-.item .text {
+#saved-tab .item .text {
   color: var(--muted);
   margin: var(--spacing-sm) 0 var(--spacing-md);
   font-size: 13px;
   line-height: 1.6;
 }
 
-.item .note {
+#saved-tab .item .note {
   margin-top: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: 12px;
@@ -1185,14 +1411,14 @@ body.light .selection-preview:hover {
 }
 
 /* Tags/Chips */
-.chips {
+#saved-tab .chips {
   display: flex;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
   margin-bottom: var(--spacing-md);
 }
 
-.chip {
+#saved-tab .chip {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent-fg);
@@ -1915,5 +2141,321 @@ button:focus-visible {
 }
 
 /* ============================================
-   END OF STYLESHEET
+   PART 26: MULTI-THEME SPECIFIC STYLES
+   ============================================ */
+
+/* LIQUID GLASS THEME - Glass morphism effects */
+[data-theme="liquid-glass"] .card,
+[data-theme="liquid-glass"] .primary-btn,
+[data-theme="liquid-glass"] .secondary-btn,
+[data-theme="liquid-glass"] #auth > div,
+[data-theme="liquid-glass"] header,
+[data-theme="liquid-glass"] .auth-status,
+[data-theme="liquid-glass"] .selection-preview {
+  background: var(--panel);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-lg), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="liquid-glass"] input,
+[data-theme="liquid-glass"] textarea,
+[data-theme="liquid-glass"] select {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* NEON CYBER THEME - Neon glow effects */
+[data-theme="neon-cyber"] .card,
+[data-theme="neon-cyber"] .primary-btn,
+[data-theme="neon-cyber"] .secondary-btn,
+[data-theme="neon-cyber"] input,
+[data-theme="neon-cyber"] textarea,
+[data-theme="neon-cyber"] select,
+[data-theme="neon-cyber"] header,
+[data-theme="neon-cyber"] .auth-status {
+  box-shadow: var(--neon-glow);
+  border: 1px solid var(--accent);
+}
+
+[data-theme="neon-cyber"] .card:hover,
+[data-theme="neon-cyber"] .primary-btn:hover,
+[data-theme="neon-cyber"] .item:hover {
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), 0 0 40px rgba(0, 255, 255, 0.4),
+    0 0 60px rgba(0, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Cyber grid background */
+[data-theme="neon-cyber"] .gradient-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: gridMove 20s linear infinite;
+  opacity: 0.3;
+  z-index: 1;
+}
+
+@keyframes gridMove {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(50px, 50px);
+  }
+}
+
+[data-theme="neon-cyber"] h1,
+[data-theme="neon-cyber"] h2,
+[data-theme="neon-cyber"] h3 {
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* MINIMAL CLEAN THEME - Remove all effects */
+[data-theme="minimal-clean"] .gradient-bg {
+  display: none;
+}
+
+[data-theme="minimal-clean"] body {
+  background: var(--bg);
+}
+
+[data-theme="minimal-clean"] .card {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  background: var(--panel);
+}
+
+/* Hide gradient background circles for minimal theme */
+[data-theme="minimal-clean"] .gradient-bg .g1,
+[data-theme="minimal-clean"] .gradient-bg .g2,
+[data-theme="minimal-clean"] .gradient-bg .g3,
+[data-theme="minimal-clean"] .gradient-bg .g4,
+[data-theme="minimal-clean"] .gradient-bg .g5,
+[data-theme="minimal-clean"] .gradient-bg .interactive {
+  display: none;
+}
+
+/* ============================================
+   SMOOTH THEME TRANSITIONS
+   ============================================ */
+
+/* Smooth transition for ALL theme changes */
+:root {
+  transition: --bg 0.5s ease, --panel 0.5s ease, --tile 0.5s ease,
+    --fg 0.5s ease, --muted 0.5s ease, --border 0.5s ease, --accent 0.5s ease;
+}
+
+body,
+.card,
+.primary-btn,
+.secondary-btn,
+.danger-btn,
+input,
+textarea,
+select,
+header,
+.auth-status,
+.item {
+  transition: background 0.5s ease, color 0.5s ease, border-color 0.5s ease,
+    box-shadow 0.5s ease, backdrop-filter 0.5s ease, text-shadow 0.5s ease;
+}
+
+/* View Transition API (Modern browsers) */
+@supports (view-transition-name: auto) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.5s;
+  }
+}
+
+/* ============================================
+   UPDATED THEME SELECTOR - COMPACT DROPDOWN
+   ============================================ */
+
+.theme-selector-compact {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.theme-selector-compact label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  min-width: 80px;
+}
+
+.theme-dropdown {
+  flex: 1;
+  position: relative;
+}
+
+.theme-dropdown select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.theme-dropdown select:hover {
+  border-color: var(--accent);
+  background-color: var(--panel);
+}
+
+.theme-dropdown select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+/* Dark/Light Mode Toggle (for themes that support it) */
+.mode-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 10px 14px;
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.mode-toggle-container:hover {
+  border-color: var(--accent);
+}
+
+.mode-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.mode-toggle.active {
+  background: var(--accent);
+}
+
+.mode-toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.mode-toggle.active .mode-toggle-slider {
+  transform: translateX(20px);
+}
+
+.mode-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  min-width: 60px;
+}
+
+/* Hide dark mode toggle for themes that don't support it */
+[data-theme="gradient-bubble"] .mode-toggle-container,
+[data-theme="neon-cyber"] .mode-toggle-container {
+  display: none;
+}
+
+/* ============================================
+   THEME-SPECIFIC TEXT COLOR FIXES
+   ============================================ */
+
+/* LIQUID GLASS - Light Mode (Default) */
+[data-theme="liquid-glass"] {
+  --fg: #1a1a2e;
+  --muted: #4a5568;
+}
+
+/* LIQUID GLASS - Dark Mode */
+[data-theme="liquid-glass"].dark-mode {
+  --bg: rgba(10, 10, 18, 0.95);
+  --panel: rgba(30, 30, 50, 0.7);
+  --tile: rgba(40, 40, 60, 0.5);
+  --fg: #e5e7eb;
+  --muted: #94a3b8;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #667eea;
+  --accent-fg: #ffffff;
+
+  --color-bg1: rgb(10, 10, 26);
+  --color-bg2: rgb(18, 18, 36);
+}
+
+/* MINIMAL CLEAN - Light Mode (Default) */
+[data-theme="minimal-clean"] {
+  --fg: #111827;
+  --muted: #6b7280;
+}
+
+/* MINIMAL CLEAN - Dark Mode */
+[data-theme="minimal-clean"].dark-mode {
+  --bg: #0f1419;
+  --panel: #1a1a2e;
+  --tile: #242435;
+  --fg: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #2d3748;
+  --accent: #60a5fa;
+  --accent-fg: #0f1419;
+}
+
+/* Ensure settings section has proper spacing */
+.settings-section {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.settings-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Remove the old large theme preview cards */
+.theme-selector {
+  display: none !important;
+}
+
+.theme-option {
+  display: none !important;
+}
+
+/* ============================================
+   END OF MULTI-THEME SYSTEM
    ============================================ */

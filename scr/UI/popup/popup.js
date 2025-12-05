@@ -4,7 +4,7 @@
 
 import { validateItemData, sanitizeText } from "../../lib/validation.js";
 import { aiRateLimiter } from "../../lib/rateLimiter.js";
-import { summarizeText, setApiKey, getApiKey } from "../../lib/ai.js";
+import { summarizeText } from "../../lib/ai.js"; // Removed setApiKey, getApiKey
 import { buildCitation } from "../../lib/citation.js";
 import { initFileImporter } from "../../lib/fileImport.js";
 import { exportItems } from "../../lib/fileExport.js";
@@ -86,12 +86,11 @@ class DOMRefs {
     this.citeCancel = this.byId("cite-cancel");
     this.citationMeta = this.byId("citation-meta");
 
-    // Summary
+    // Summary (removed aiKeyInput and saveAIKeyBtn)
     this.summaryInput = this.byId("summary-input");
     this.summarizeBtn = this.byId("summarize-btn");
     this.summaryResult = this.byId("summary-result");
-    this.aiKeyInput = this.byId("aiKey");
-    this.saveAIKeyBtn = this.byId("saveAIKey");
+    this.copySummaryBtn = this.byId("copy-summary-btn");
 
     // Settings
     this.shuffleThemeBtn = this.byId("shuffleTheme");
@@ -221,7 +220,12 @@ class UIUtils {
     document
       .querySelectorAll(".tab-content")
       .forEach((s) => s.classList.remove("active"));
-    dom.byId(id)?.classList.add("active");
+    const section = dom.byId(id);
+    if (section) {
+      section.classList.add("active");
+      // FIX: Scroll to top of tab content when switching
+      section.scrollTop = 0;
+    }
   }
 
   static getDomainFromUrl(url) {
@@ -230,6 +234,41 @@ class UIUtils {
     } catch {
       return "";
     }
+  }
+
+  static showMainView() {
+    document.body.classList.remove("booting");
+    document.body.classList.add("ready");
+
+    if (dom.authView) dom.authView.style.display = "none";
+    if (dom.appView) {
+      dom.appView.style.display = "flex";
+      dom.appView.classList.remove("hidden");
+    }
+
+    // FIX: Ensure body scroll is reset
+    document.body.scrollTop = 0;
+    if (dom.appView) dom.appView.scrollTop = 0;
+  }
+
+  static showAuthView() {
+    document.body.classList.remove("booting");
+    document.body.classList.add("ready");
+    document.body.classList.add("auth-visible"); // ✅ NEW: Add class to hide scrollbar
+
+    if (dom.appView) dom.appView.style.display = "none";
+    if (dom.authView) {
+      dom.authView.style.display = "flex";
+      dom.authView.classList.remove("hidden");
+    }
+
+    // FIX: Reset scroll position
+    document.body.scrollTop = 0;
+    if (dom.appView) dom.appView.scrollTop = 0;
+  }
+
+  static updateAuthStatus(user) {
+    AuthManager.updateStatus();
   }
 }
 
@@ -338,8 +377,20 @@ class DraftManager {
 // ============================================
 // PART 7: THEME MANAGEMENT
 // ============================================
-
 class ThemeManager {
+  static THEMES = {
+    GRADIENT_BUBBLE: "gradient-bubble",
+    LIQUID_GLASS: "liquid-glass",
+    NEON_CYBER: "neon-cyber",
+    MINIMAL_CLEAN: "minimal-clean",
+  };
+
+  static STORAGE_KEY = "researchmate_theme";
+  static MODE_STORAGE_KEY = "researchmate_dark_mode";
+  static currentTheme = this.THEMES.MINIMAL_CLEAN;
+  static isDarkMode = false;
+
+  // Legacy HSL to RGB conversion (keep for gradient bubble & neon cyber)
   static hslToRgb(h, s, l) {
     s /= 100;
     l /= 100;
@@ -359,58 +410,406 @@ class ThemeManager {
     document.documentElement.style.setProperty(name, `${r}, ${g}, ${b}`);
   }
 
-  static async apply() {
-    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-    const dark = !!rmSettings.dark;
-    let seed = rmSettings.themeSeed;
-
-    if (typeof seed !== "number") {
-      seed = Math.floor(Date.now() / 86400000) % 360;
-      rmSettings.themeSeed = seed;
-      await chrome.storage.local.set({ rmSettings });
-    }
-
+  /**
+   * Clear all dynamic color variables
+   */
+  static clearDynamicColors() {
     const root = document.documentElement.style;
-    const accentH = seed % 360;
 
-    root.setProperty("--accent", `hsl(${accentH} 70% ${dark ? 55 : 45}%)`);
-    root.setProperty(
-      "--grad-start",
-      `hsl(${(accentH + 10) % 360} 80% ${dark ? 24 : 84}%)`
-    );
-    root.setProperty(
-      "--grad-end",
-      `hsl(${(accentH + 60) % 360} 80% ${dark ? 28 : 78}%)`
-    );
-
-    this.setRgbVar("--color1", accentH, 85, dark ? 60 : 55);
-    this.setRgbVar("--color2", (accentH + 40) % 360, 85, dark ? 62 : 58);
-    this.setRgbVar("--color3", (accentH + 80) % 360, 85, dark ? 64 : 60);
-    this.setRgbVar("--color4", (accentH + 160) % 360, 78, dark ? 58 : 50);
-    this.setRgbVar("--color5", (accentH + 200) % 360, 78, dark ? 52 : 48);
-    this.setRgbVar(
-      "--color-interactive",
-      (accentH + 300) % 360,
-      85,
-      dark ? 65 : 55
-    );
-
-    root.setProperty(
-      "--color-bg1",
-      `hsl(${(accentH + 335) % 360} 32% ${dark ? 10 : 98}%)`
-    );
-    root.setProperty(
-      "--color-bg2",
-      `hsl(${(accentH + 30) % 360} 32% ${dark ? 14 : 96}%)`
-    );
+    // Remove inline style overrides for colors
+    root.removeProperty("--accent");
+    root.removeProperty("--grad-start");
+    root.removeProperty("--grad-end");
+    root.removeProperty("--border");
+    root.removeProperty("--color1");
+    root.removeProperty("--color2");
+    root.removeProperty("--color3");
+    root.removeProperty("--color4");
+    root.removeProperty("--color5");
+    root.removeProperty("--color-interactive");
+    root.removeProperty("--color-bg1");
+    root.removeProperty("--color-bg2");
   }
 
+  /**
+   * Initialize theme system with error handling
+   */
+  static async init() {
+    try {
+      // FIX: Check if chrome.storage is available
+      if (!chrome?.storage?.local) {
+        console.warn("⚠️ Chrome storage not available, using defaults");
+        this.applyTheme(this.THEMES.MINIMAL_CLEAN, false);
+        setTimeout(() => this.setupThemeSelector(), 100);
+        return;
+      }
+
+      // Load saved theme and mode from storage
+      const saved = await chrome.storage.local.get([
+        this.STORAGE_KEY,
+        this.MODE_STORAGE_KEY,
+      ]);
+
+      const savedTheme = saved[this.STORAGE_KEY] || this.THEMES.MINIMAL_CLEAN;
+      const savedMode = saved[this.MODE_STORAGE_KEY] || false;
+
+      this.isDarkMode = savedMode;
+
+      // Apply theme without transition on first load
+      this.applyTheme(savedTheme, false);
+
+      // Setup theme selector
+      setTimeout(() => this.setupThemeSelector(), 100);
+
+      console.log(
+        "✅ Theme system initialized:",
+        savedTheme,
+        "Dark mode:",
+        savedMode
+      );
+    } catch (error) {
+      console.error("❌ Theme init error:", error);
+      // Fallback to default theme
+      this.applyTheme(this.THEMES.MINIMAL_CLEAN, false);
+      setTimeout(() => this.setupThemeSelector(), 100);
+    }
+  }
+
+  /**
+   * Apply gradient colors (for gradient-bubble theme ONLY)
+   */
+  static async applyGradientColors() {
+    try {
+      const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+      let seed = rmSettings.themeSeed;
+
+      if (typeof seed !== "number") {
+        seed = Math.floor(Date.now() / 86400000) % 360;
+        rmSettings.themeSeed = seed;
+        await chrome.storage.local.set({ rmSettings });
+      }
+
+      const root = document.documentElement.style;
+      const accentH = seed % 360;
+
+      root.setProperty("--accent", `hsl(${accentH} 70% 55%)`);
+      root.setProperty("--grad-start", `hsl(${(accentH + 10) % 360} 80% 24%)`);
+      root.setProperty("--grad-end", `hsl(${(accentH + 60) % 360} 80% 28%)`);
+
+      this.setRgbVar("--color1", accentH, 85, 60);
+      this.setRgbVar("--color2", (accentH + 40) % 360, 85, 62);
+      this.setRgbVar("--color3", (accentH + 80) % 360, 85, 64);
+      this.setRgbVar("--color4", (accentH + 160) % 360, 78, 58);
+      this.setRgbVar("--color5", (accentH + 200) % 360, 78, 52);
+      this.setRgbVar("--color-interactive", (accentH + 300) % 360, 85, 65);
+
+      root.setProperty("--color-bg1", `hsl(${(accentH + 335) % 360} 32% 10%)`);
+      root.setProperty("--color-bg2", `hsl(${(accentH + 30) % 360} 32% 14%)`);
+    } catch (error) {
+      console.warn("⚠️ Gradient colors failed:", error);
+    }
+  }
+
+  /**
+   * Apply neon colors (for neon-cyber theme ONLY)
+   */
+  static async applyNeonColors() {
+    try {
+      const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+      let seed = rmSettings.neonSeed;
+
+      if (typeof seed !== "number") {
+        seed = Math.floor(Date.now() / 86400000) % 360;
+        rmSettings.neonSeed = seed;
+        await chrome.storage.local.set({ rmSettings });
+      }
+
+      const root = document.documentElement.style;
+      const baseH = seed % 360;
+      const complementH = (baseH + 180) % 360;
+
+      // Primary neon color
+      root.setProperty("--accent", `hsl(${baseH} 100% 50%)`);
+      root.setProperty("--grad-start", `hsl(${baseH} 100% 50%)`);
+      root.setProperty("--grad-end", `hsl(${complementH} 100% 50%)`);
+      root.setProperty("--border", `hsl(${baseH} 100% 50%)`);
+
+      // Neon gradient colors
+      this.setRgbVar("--color1", baseH, 100, 50);
+      this.setRgbVar("--color2", complementH, 100, 50);
+      this.setRgbVar("--color3", (baseH + 60) % 360, 100, 50);
+      this.setRgbVar("--color4", (baseH + 120) % 360, 100, 50);
+      this.setRgbVar("--color5", (baseH + 240) % 360, 100, 50);
+      this.setRgbVar("--color-interactive", (complementH + 30) % 360, 100, 50);
+    } catch (error) {
+      console.warn("⚠️ Neon colors failed:", error);
+    }
+  }
+
+  /**
+   * Apply a theme
+   */
+  static applyTheme(themeName, animate = true) {
+    const root = document.documentElement;
+
+    // Validate theme name
+    if (!Object.values(this.THEMES).includes(themeName)) {
+      console.error("Invalid theme:", themeName);
+      return;
+    }
+
+    // FIX: Clear dynamic colors when switching to static themes
+    if (
+      themeName === this.THEMES.MINIMAL_CLEAN ||
+      themeName === this.THEMES.LIQUID_GLASS
+    ) {
+      this.clearDynamicColors();
+    }
+
+    // Apply theme attribute
+    if (animate && document.startViewTransition) {
+      document.startViewTransition(() => {
+        root.setAttribute("data-theme", themeName);
+        this.currentTheme = themeName;
+        this.applyDarkMode();
+        this.saveTheme(themeName);
+        this.updateThemeSelector();
+        this.applyThemeColors();
+      });
+    } else {
+      root.setAttribute("data-theme", themeName);
+      this.currentTheme = themeName;
+      this.applyDarkMode();
+      this.saveTheme(themeName);
+      this.updateThemeSelector();
+      this.applyThemeColors();
+    }
+  }
+
+  /**
+   * Apply theme-specific colors ONLY for animated themes
+   */
+  static applyThemeColors() {
+    // ONLY apply dynamic colors for Gradient Bubble and Neon Cyber
+    if (this.currentTheme === this.THEMES.GRADIENT_BUBBLE) {
+      this.applyGradientColors();
+    } else if (this.currentTheme === this.THEMES.NEON_CYBER) {
+      this.applyNeonColors();
+    }
+    // No color application for Minimal Clean and Liquid Glass
+  }
+
+  /**
+   * Apply dark/light mode
+   */
+  static applyDarkMode() {
+    const root = document.documentElement;
+
+    // Only apply dark mode class for themes that support it
+    if (
+      this.currentTheme === this.THEMES.LIQUID_GLASS ||
+      this.currentTheme === this.THEMES.MINIMAL_CLEAN
+    ) {
+      if (this.isDarkMode) {
+        root.classList.add("dark-mode");
+      } else {
+        root.classList.remove("dark-mode");
+      }
+    } else {
+      root.classList.remove("dark-mode");
+    }
+  }
+
+  /**
+   * Toggle dark/light mode
+   */
+  static async toggleDarkMode() {
+    this.isDarkMode = !this.isDarkMode;
+    await chrome.storage.local.set({
+      [this.MODE_STORAGE_KEY]: this.isDarkMode,
+    });
+    this.applyDarkMode();
+    this.updateModeToggle();
+
+    const modeText = this.isDarkMode ? "Dark" : "Light";
+    UIUtils.toast(`${modeText} mode enabled`);
+  }
+
+  /**
+   * Save theme to storage
+   */
+  static async saveTheme(themeName) {
+    try {
+      await chrome.storage.local.set({ [this.STORAGE_KEY]: themeName });
+      console.log("💾 Theme saved:", themeName);
+    } catch (error) {
+      console.warn("⚠️ Theme save failed:", error);
+    }
+  }
+
+  /**
+   * Setup theme selector UI
+   */
+  static setupThemeSelector() {
+    const settingsTab = document.querySelector("#settings-tab");
+    if (!settingsTab) return;
+
+    // Check if theme selector already exists
+    if (document.querySelector(".theme-selector-compact")) return;
+
+    // Create compact theme selector HTML
+    const themeSelectorHTML = `
+      <div class="settings-section">
+        <h3 class="settings-section-title">🎨 Appearance</h3>
+        
+        <div class="theme-selector-compact">
+          <label for="theme-select">Theme</label>
+          <div class="theme-dropdown">
+            <select id="theme-select">
+              <option value="${this.THEMES.MINIMAL_CLEAN}" ${
+      this.currentTheme === this.THEMES.MINIMAL_CLEAN ? "selected" : ""
+    }>
+                📄 Minimal Clean
+              </option>
+              <option value="${this.THEMES.LIQUID_GLASS}" ${
+      this.currentTheme === this.THEMES.LIQUID_GLASS ? "selected" : ""
+    }>
+                💎 Liquid Glass
+              </option>
+              <option value="${this.THEMES.GRADIENT_BUBBLE}" ${
+      this.currentTheme === this.THEMES.GRADIENT_BUBBLE ? "selected" : ""
+    }>
+                🌊 Gradient Bubble
+              </option>
+              <option value="${this.THEMES.NEON_CYBER}" ${
+      this.currentTheme === this.THEMES.NEON_CYBER ? "selected" : ""
+    }>
+                ⚡ Neon Cyber
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="theme-selector-compact mode-toggle-container">
+          <label class="mode-label">Mode</label>
+          <div class="mode-toggle ${
+            this.isDarkMode ? "active" : ""
+          }" id="mode-toggle">
+            <div class="mode-toggle-slider"></div>
+          </div>
+          <span class="mode-label" id="mode-label">${
+            this.isDarkMode ? "Dark" : "Light"
+          }</span>
+        </div>
+      </div>
+    `;
+
+    // Insert at the beginning of settings tab
+    settingsTab.insertAdjacentHTML("afterbegin", themeSelectorHTML);
+
+    // Add event listeners
+    this.attachThemeHandlers();
+  }
+
+  /**
+   * Attach event handlers
+   */
+  static attachThemeHandlers() {
+    // Theme dropdown
+    const themeSelect = document.querySelector("#theme-select");
+    if (themeSelect) {
+      themeSelect.addEventListener("change", (e) => {
+        this.applyTheme(e.target.value, true);
+      });
+    }
+
+    // Mode toggle
+    const modeToggle = document.querySelector("#mode-toggle");
+    if (modeToggle) {
+      modeToggle.addEventListener("click", () => {
+        this.toggleDarkMode();
+      });
+    }
+  }
+
+  /**
+   * Update theme selector state
+   */
+  static updateThemeSelector() {
+    const themeSelect = document.querySelector("#theme-select");
+    if (themeSelect) {
+      themeSelect.value = this.currentTheme;
+    }
+  }
+
+  /**
+   * Update mode toggle state
+   */
+  static updateModeToggle() {
+    const modeToggle = document.querySelector("#mode-toggle");
+    const modeLabel = document.querySelector("#mode-label");
+
+    if (modeToggle) {
+      if (this.isDarkMode) {
+        modeToggle.classList.add("active");
+      } else {
+        modeToggle.classList.remove("active");
+      }
+    }
+
+    if (modeLabel) {
+      modeLabel.textContent = this.isDarkMode ? "Dark" : "Light";
+    }
+  }
+
+  /**
+   * Shuffle colors (for Gradient Bubble and Neon Cyber themes ONLY)
+   */
   static async shuffle() {
-    const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-    rmSettings.themeSeed = Math.floor(Math.random() * 360);
-    await chrome.storage.local.set({ rmSettings });
-    await this.apply();
-    UIUtils.toast("Theme updated");
+    if (this.currentTheme === this.THEMES.GRADIENT_BUBBLE) {
+      const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+      rmSettings.themeSeed = Math.floor(Math.random() * 360);
+      await chrome.storage.local.set({ rmSettings });
+      await this.applyGradientColors();
+      UIUtils.toast("Gradient colors updated! 🌈");
+    } else if (this.currentTheme === this.THEMES.NEON_CYBER) {
+      const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
+      rmSettings.neonSeed = Math.floor(Math.random() * 360);
+      await chrome.storage.local.set({ rmSettings });
+      await this.applyNeonColors();
+      UIUtils.toast("Neon colors updated! ⚡");
+    } else {
+      UIUtils.toast(
+        "Color shuffle only works with Gradient Bubble & Neon Cyber themes"
+      );
+    }
+  }
+
+  /**
+   * Legacy apply method
+   */
+  static async apply() {
+    this.applyThemeColors();
+  }
+
+  /**
+   * Get current theme
+   */
+  static getCurrentTheme() {
+    return this.currentTheme;
+  }
+
+  /**
+   * Check if theme is dark
+   */
+  static isCurrentlyDark() {
+    if (
+      this.currentTheme === this.THEMES.GRADIENT_BUBBLE ||
+      this.currentTheme === this.THEMES.NEON_CYBER
+    ) {
+      return true;
+    }
+    return this.isDarkMode;
   }
 }
 
@@ -428,7 +827,6 @@ class SettingsManager {
       sortBy = "date-desc",
     } = rmSettings;
 
-    if (dom.darkMode) dom.darkMode.checked = dark;
     if (dom.fontFamily) dom.fontFamily.value = ff;
     if (dom.fontSize) {
       dom.fontSize.value = fs;
@@ -446,7 +844,6 @@ class SettingsManager {
 
   static async save() {
     const { rmSettings = {} } = await chrome.storage.local.get("rmSettings");
-    rmSettings.dark = !!dom.darkMode?.checked;
     rmSettings.ff = dom.fontFamily?.value || "system-ui";
     rmSettings.fs = Number(dom.fontSize?.value) || 14;
 
@@ -1284,12 +1681,8 @@ class AISummaryHandlers {
         const out = await summarizeText(text);
 
         if (!out.ok) {
-          if (out.reason === "missing_api_key") {
-            UIUtils.toast("Add API key first");
-            return;
-          }
           if (out.reason === "network_error") {
-            UIUtils.toast("Network error");
+            UIUtils.toast("Network error - try again");
             return;
           }
           UIUtils.toast(`Failed: ${out.error || out.reason}`);
@@ -1309,20 +1702,31 @@ class AISummaryHandlers {
       }
     });
 
-    // Save API key button
-    dom.saveAIKeyBtn?.addEventListener("click", async () => {
-      const value = (dom.aiKeyInput?.value || "").trim();
+    // Copy summary button
+    dom.copySummaryBtn?.addEventListener("click", async () => {
+      const box = dom.summaryResult?.querySelector(".summary-content");
+      const text = box?.textContent?.trim() || "";
 
-      if (value === "••••••••••") {
-        UIUtils.toast("Key unchanged");
+      if (!text) {
+        UIUtils.toast("No summary to copy");
         return;
       }
 
-      await setApiKey(value);
-      if (dom.aiKeyInput) {
-        dom.aiKeyInput.value = value ? "••••••••••" : "";
+      try {
+        await navigator.clipboard.writeText(text);
+
+        // Visual feedback
+        const originalText = dom.copySummaryBtn.textContent;
+        dom.copySummaryBtn.textContent = "✓ Copied!";
+        setTimeout(() => {
+          dom.copySummaryBtn.textContent = originalText;
+        }, 1500);
+
+        UIUtils.toast("Summary copied!");
+      } catch (error) {
+        console.error("Copy failed:", error);
+        UIUtils.toast("Copy failed");
       }
-      UIUtils.toast(value ? "API key saved" : "API key cleared");
     });
   }
 }
@@ -1366,7 +1770,7 @@ class SettingsHandlers {
     });
 
     // Dark mode, font family, and font size changes
-    [dom.darkMode, dom.fontFamily, dom.fontSize].forEach((el) => {
+    [dom.fontFamily, dom.fontSize].forEach((el) => {
       el?.addEventListener("change", async () => {
         await SettingsManager.save();
       });
@@ -1840,96 +2244,101 @@ class AppInitializer {
   static async init() {
     console.log("🚀 Init starting...");
 
-    // Apply theme and settings
-    await ThemeManager.apply();
-    await SettingsManager.load();
+    try {
+      // Wait for DOM to be fully ready
+      if (document.readyState === "loading") {
+        await new Promise((resolve) => {
+          document.addEventListener("DOMContentLoaded", resolve);
+        });
+      }
 
-    // Check for OAuth callback first
-    // Check for OAuth callback first
-    const oauthProcessed = await OAuthProcessor.process();
+      // Initialize theme with error handling
+      await ThemeManager.init();
 
-    if (oauthProcessed) {
-      console.log("✅ OAuth processed - setting up all handlers...");
+      // Load settings with error handling
+      await SettingsManager.load().catch((err) => {
+        console.warn("⚠️ Settings load failed:", err);
+      });
 
-      // ✅ FIX: Setup ALL handlers, not just a few!
+      // Check for OAuth callback first
+      const oauthProcessed = await OAuthProcessor.process();
+
+      if (oauthProcessed) {
+        console.log("✅ OAuth processed - setting up all handlers...");
+        this.setupAllHandlers();
+        AuthManager.setupListener();
+        MiscHandlers.setupFileImporter();
+
+        const gotLive = await PreviewManager.tryFetchSelection();
+        if (!gotLive) {
+          await chrome.storage.local.remove("latestHighlight");
+          PreviewManager.clear();
+        }
+
+        console.log("✅ Init complete (OAuth path)!");
+        return;
+      }
+
+      // Normal init path - Check user status
+      const user = await getCurrentUser();
+      console.log("👤 Current user:", user?.email || "guest");
+
+      state.setUser(user);
+
+      // ✅ FIXED: Always show main app view (guest mode supported)
+      // Users can sign in via the auth status bar if they want
+      await ItemManager.load();
+      UIUtils.showMainView();
+      AuthManager.updateStatus();
+
+      if (user) {
+        console.log("✅ User authenticated - syncing enabled");
+      } else {
+        console.log("ℹ️ Guest mode - local storage only");
+      }
+
       this.setupAllHandlers();
-
-      // Setup auth listener and file importer
       AuthManager.setupListener();
       MiscHandlers.setupFileImporter();
 
-      // Load AI key
-      const existingKey = await getApiKey();
-      if (dom.aiKeyInput) {
-        dom.aiKeyInput.value = existingKey ? "••••••••••" : "";
-      }
-
-      // Try to fetch live selection
       const gotLive = await PreviewManager.tryFetchSelection();
       if (!gotLive) {
         await chrome.storage.local.remove("latestHighlight");
         PreviewManager.clear();
       }
 
-      console.log("✅ Init complete (OAuth path)!");
-      return; // NOW we can return
-    }
+      console.log("✅ Init complete!");
+    } catch (error) {
+      console.error("❌ Critical init error:", error);
 
-    // Normal initialization flow
-    const currentUser = await getCurrentUser();
-    state.setUser(currentUser);
-    console.log("👤 Current user on init:", currentUser?.id || "none");
+      // ✅ FIXED: Show app view as fallback instead of auth view
+      document.body.classList.remove("booting");
+      document.body.classList.add("ready");
 
-    // Remove boot splash and show app
-    document.body.classList.remove("booting");
-    document.body.classList.add("ready");
-
-    if (dom.authView) dom.authView.style.display = "none";
-    if (dom.appView) {
-      dom.appView.style.display = "flex";
-      dom.appView.classList.remove("hidden");
-    }
-
-    // Update auth status
-    AuthManager.updateStatus();
-
-    // Load items
-    try {
-      console.log("📚 Loading items...");
-      await ItemManager.load();
-      if (state.getItems().length > 0) {
-        const sortBy = await SettingsManager.getSortPreference();
-        ItemRenderer.renderList(SortUtils.sortItems(state.getItems(), sortBy));
+      // Try to show main app view even on error
+      if (dom.appView) {
+        dom.appView.style.display = "flex";
+        dom.appView.classList.remove("hidden");
+        UIUtils.toast("Some features may be limited");
+      } else if (dom.authView) {
+        // Last resort fallback
+        dom.authView.style.display = "flex";
+        dom.authView.innerHTML = `
+          <div class="card auth-card" style="text-align: center;">
+            <h2>⚠️ Initialization Error</h2>
+            <p class="sub" style="color: #ef4444;">
+              ${
+                error.message ||
+                "An error occurred while starting the extension"
+              }
+            </p>
+            <button class="primary-btn" onclick="location.reload()">
+              Reload Extension
+            </button>
+          </div>
+        `;
       }
-    } catch (e) {
-      console.error("❌ Load error:", e);
     }
-
-    // Setup all handlers
-    this.setupAllHandlers();
-
-    // Load draft and update save button
-    DraftManager.load();
-    PreviewManager.updateSaveEnabled();
-
-    // Setup auth listener and file importer
-    AuthManager.setupListener();
-    MiscHandlers.setupFileImporter();
-
-    // Load AI key
-    const existingKey = await getApiKey();
-    if (dom.aiKeyInput) {
-      dom.aiKeyInput.value = existingKey ? "••••••••••" : "";
-    }
-
-    // Try to fetch live selection
-    const gotLive = await PreviewManager.tryFetchSelection();
-    if (!gotLive) {
-      await chrome.storage.local.remove("latestHighlight");
-      PreviewManager.clear();
-    }
-
-    console.log("✅ Init complete!");
   }
 
   static setupAllHandlers() {
@@ -1960,4 +2369,10 @@ class AppInitializer {
 // START THE APPLICATION
 // ============================================
 
-AppInitializer.init();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    AppInitializer.init();
+  });
+} else {
+  AppInitializer.init();
+}

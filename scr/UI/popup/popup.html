@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- ============================================
+         SECTION 1: HEAD - META AND STYLES
+         ============================================ -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="ResearchMate - Your research companion" />
@@ -10,7 +13,7 @@
 
   <body class="booting">
     <!-- ============================================
-         ANIMATED BACKGROUND
+         SECTION 2: ANIMATED BACKGROUND
          ============================================ -->
     <div class="gradient-bg" aria-hidden="true">
       <svg xmlns="http://www.w3.org/2000/svg">
@@ -42,7 +45,7 @@
     </div>
 
     <!-- ============================================
-         BOOT SPLASH SCREEN
+         SECTION 3: BOOT SPLASH SCREEN
          ============================================ -->
     <div id="boot-splash" role="status" aria-live="polite">
       <div class="boot-card">
@@ -52,7 +55,7 @@
     </div>
 
     <!-- ============================================
-         AUTHENTICATION VIEW
+         SECTION 4: AUTHENTICATION VIEW
          ============================================ -->
     <div id="auth" style="display: none" role="main">
       <div class="card auth-card">
@@ -133,10 +136,12 @@
     </div>
 
     <!-- ============================================
-         MAIN APPLICATION VIEW
+         SECTION 5: MAIN APPLICATION VIEW
          ============================================ -->
     <div id="app" style="display: none" role="main">
-      <!-- Auth Status Bar -->
+      <!-- ==========================================
+           SECTION 5.1: AUTH STATUS BAR
+           ========================================== -->
       <div
         id="auth-status"
         class="auth-status"
@@ -154,7 +159,9 @@
         </button>
       </div>
 
-      <!-- Header with Navigation Tabs -->
+      <!-- ==========================================
+           SECTION 5.2: HEADER WITH NAVIGATION TABS
+           ========================================== -->
       <header>
         <h1>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -167,6 +174,7 @@
         </h1>
 
         <nav class="tabs" role="tablist" aria-label="Main navigation">
+          <!-- Tab 1: Collect -->
           <button
             class="tab-btn active"
             data-tab="collect"
@@ -184,6 +192,7 @@
             <span class="sr-only">Collect</span>
           </button>
 
+          <!-- Tab 2: Saved -->
           <button
             class="tab-btn"
             data-tab="saved"
@@ -198,6 +207,7 @@
             <span class="sr-only">Saved</span>
           </button>
 
+          <!-- Tab 3: AI Summary -->
           <button
             class="tab-btn"
             data-tab="summary"
@@ -215,6 +225,7 @@
             <span class="sr-only">AI Summary</span>
           </button>
 
+          <!-- Tab 4: Settings -->
           <button
             class="tab-btn"
             data-tab="settings"
@@ -234,9 +245,9 @@
         </nav>
       </header>
 
-      <!-- ============================================
-           TAB 1: COLLECT/HIGHLIGHT
-           ============================================ -->
+      <!-- ==========================================
+           SECTION 5.3: TAB 1 - COLLECT/HIGHLIGHT
+           ========================================== -->
       <div
         id="collect-tab"
         class="tab-content active"
@@ -316,9 +327,9 @@
         </form>
       </div>
 
-      <!-- ============================================
-           TAB 2: SAVED ITEMS
-           ============================================ -->
+      <!-- ==========================================
+           SECTION 5.4: TAB 2 - SAVED ITEMS
+           ========================================== -->
       <div
         class="tab-content"
         id="saved-tab"
@@ -339,6 +350,19 @@
               fill="currentColor"
             />
           </svg>
+        </div>
+
+        <!-- Sort Select -->
+        <div style="margin-bottom: 8px">
+          <select
+            id="sort-select"
+            style="width: 100%"
+            aria-label="Sort saved items"
+          >
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="title-asc">A-Z by Title</option>
+          </select>
         </div>
 
         <!-- Saved Items List -->
@@ -369,34 +393,15 @@
         </div>
       </div>
 
-      <!-- ============================================
-           TAB 3: AI SUMMARY
-           ============================================ -->
+      <!-- ==========================================
+           SECTION 5.5: TAB 3 - AI SUMMARY
+           ========================================== -->
       <div
         class="tab-content"
         id="summary-tab"
         role="tabpanel"
         aria-labelledby="summary"
       >
-        <!-- API Key Input -->
-        <div class="row" style="gap: 8px; margin-bottom: 8px">
-          <input
-            id="aiKey"
-            type="password"
-            style="flex: 1"
-            placeholder="OpenAI API Key"
-            aria-label="OpenAI API Key"
-          />
-          <button
-            id="saveAIKey"
-            class="secondary-btn"
-            type="button"
-            aria-label="Save API key"
-          >
-            Save Key
-          </button>
-        </div>
-
         <!-- Summary Input -->
         <label class="lbl" for="summary-input">Text to Summarize</label>
         <textarea
@@ -414,13 +419,27 @@
             type="button"
             aria-label="Generate AI summary"
           >
-            Generate Summary
+            ✨ Generate Summary
           </button>
         </div>
 
         <!-- Summary Result -->
         <div id="summary-result" class="hidden" style="margin-top: 12px">
-          <h3>AI Summary</h3>
+          <div
+            class="row"
+            style="justify-content: space-between; align-items: center"
+          >
+            <h3 style="margin: 0">AI Summary</h3>
+            <button
+              id="copy-summary-btn"
+              class="secondary-btn"
+              type="button"
+              style="padding: 4px 10px; font-size: 12px"
+              aria-label="Copy summary to clipboard"
+            >
+              📋 Copy
+            </button>
+          </div>
           <div
             class="summary-content"
             role="status"
@@ -435,9 +454,9 @@
         </div>
       </div>
 
-      <!-- ============================================
-           TAB 4: SETTINGS
-           ============================================ -->
+      <!-- ==========================================
+           SECTION 5.6: TAB 4 - SETTINGS
+           ========================================== -->
       <div
         class="tab-content"
         id="settings-tab"
@@ -468,7 +487,7 @@
             style="flex: 1; min-width: 100px"
             aria-label="Shuffle theme colors"
           >
-            🎨 Theme
+            🎨 Colors
           </button>
         </div>
 
@@ -484,26 +503,6 @@
             <option value="json">JSON (.json)</option>
             <option value="md">Markdown (.md)</option>
           </select>
-        </div>
-
-        <!-- Dark Mode Toggle -->
-        <div style="margin-bottom: 16px">
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              cursor: pointer;
-              padding: 8px 0;
-            "
-          >
-            <input
-              type="checkbox"
-              id="darkMode"
-              aria-label="Enable dark mode"
-            />
-            <span>Dark mode</span>
-          </label>
         </div>
 
         <!-- Font Family -->
@@ -539,11 +538,11 @@
         <!-- Keyboard Shortcuts Info -->
         <div
           style="
-            margin-top: 20px;
             padding: 12px;
             background: var(--tile);
             border-radius: 8px;
             border: 1px solid var(--border);
+            margin-bottom: 16px;
           "
           role="region"
           aria-label="Keyboard shortcuts"
@@ -568,11 +567,66 @@
             <div><kbd>↑↓</kbd> Navigate items</div>
           </div>
         </div>
+
+        <!-- Advanced: Custom API Key (Optional) -->
+        <details
+          style="
+            padding: 12px;
+            background: var(--tile);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+          "
+        >
+          <summary
+            style="
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 13px;
+              color: var(--muted);
+            "
+          >
+            ⚙️ Advanced: Use Your Own API Key (Optional)
+          </summary>
+          <div style="margin-top: 12px">
+            <p class="muted small" style="margin-bottom: 8px; line-height: 1.5">
+              AI features work without this! Only add your own key if you want
+              to use your personal quota.
+            </p>
+            <label class="lbl" for="aiKey">Gemini API Key</label>
+            <div class="row" style="gap: 8px">
+              <input
+                id="aiKey"
+                type="password"
+                placeholder="Leave empty to use default"
+                style="flex: 1"
+                aria-label="Enter your own Gemini API key (optional)"
+              />
+              <button
+                id="saveAIKey"
+                class="secondary-btn"
+                style="flex-shrink: 0"
+                aria-label="Save API key"
+              >
+                Save
+              </button>
+            </div>
+            <p class="muted small" style="margin-top: 6px">
+              Get your key from
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="color: var(--accent)"
+                >Google AI Studio</a
+              >
+            </p>
+          </div>
+        </details>
       </div>
     </div>
 
     <!-- ============================================
-         EDIT OVERLAY
+         SECTION 6: EDIT OVERLAY
          ============================================ -->
     <div
       class="overlay-page hidden"
@@ -649,7 +703,7 @@
     </div>
 
     <!-- ============================================
-         CITATION OVERLAY
+         SECTION 7: CITATION OVERLAY
          ============================================ -->
     <div
       class="overlay-page hidden"
@@ -829,12 +883,12 @@
     </div>
 
     <!-- ============================================
-         TOAST NOTIFICATION
+         SECTION 8: TOAST NOTIFICATION
          ============================================ -->
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <!-- ============================================
-         SCREEN READER ONLY UTILITY CLASS
+         SECTION 9: UTILITY STYLES
          ============================================ -->
     <style>
       .sr-only {
@@ -851,7 +905,7 @@
     </style>
 
     <!-- ============================================
-         JAVASCRIPT MODULE
+         SECTION 10: JAVASCRIPT MODULE
          ============================================ -->
     <script type="module" src="popup.js"></script>
   </body>
