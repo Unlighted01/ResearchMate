@@ -56,6 +56,8 @@ export async function getAllItems() {
         sourceUrl: item.source_url || "",
         sourceTitle: item.source_title || "",
         createdAt: item.created_at,
+        deviceSource: item.device_source || "extension",
+        aiSummary: item.ai_summary || "",
       }));
     } catch (error) {
       console.error("☁️ Cloud fetch failed, using local:", error);
@@ -88,6 +90,7 @@ export async function addItem(item) {
             note: item.note || "",
             source_url: item.sourceUrl || "",
             source_title: item.sourceTitle || "",
+            device_source: "extension", // ← FIXED: Now tracks device source!
           },
         ])
         .select()
@@ -103,6 +106,7 @@ export async function addItem(item) {
         sourceUrl: data.source_url,
         sourceTitle: data.source_title,
         createdAt: data.created_at,
+        deviceSource: data.device_source,
       };
     } catch (error) {
       console.error("☁️ Cloud save failed, saving locally:", error);
@@ -120,6 +124,7 @@ export async function addItem(item) {
     sourceUrl: item.sourceUrl || "",
     sourceTitle: item.sourceTitle || "",
     createdAt: new Date().toISOString(),
+    deviceSource: "extension",
   };
 
   items.unshift(newItem);
@@ -146,6 +151,8 @@ export async function updateItem(id, updates) {
     const updateData = {};
     if (updates.tags !== undefined) updateData.tags = updates.tags;
     if (updates.note !== undefined) updateData.note = updates.note;
+    if (updates.aiSummary !== undefined)
+      updateData.ai_summary = updates.aiSummary;
     updateData.updated_at = new Date().toISOString();
 
     const { error } = await supabase
@@ -158,16 +165,19 @@ export async function updateItem(id, updates) {
 }
 
 export async function deleteItem(id) {
+  // Ensure id is a string
+  const itemId = String(id);
+
   // If it's a local item
-  if (id.startsWith("local_")) {
+  if (itemId.startsWith("local_")) {
     const items = await getLocalItems();
-    const filtered = items.filter((item) => item.id !== id);
+    const filtered = items.filter((item) => item.id !== itemId);
     await setLocalItems(filtered);
     return;
   }
 
   // Cloud item
-  const { error } = await supabase.from("items").delete().eq("id", id);
+  const { error } = await supabase.from("items").delete().eq("id", itemId);
   if (error) throw error;
 }
 

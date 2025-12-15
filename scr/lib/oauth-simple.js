@@ -1,5 +1,5 @@
 // ============================================
-// oauth-simple.js - Google OAuth Flow Handler
+// PART 2: oauth-simple.js
 // ============================================
 
 import { supabase } from "./supabase.js";
@@ -27,10 +27,10 @@ const OAUTH_CONFIG = {
 
 /**
  * Get the extension URL for OAuth redirect
- * @returns {string} Full extension URL to popup.html
+ * CHANGED: Now returns the chromiumapp.org URL to match Supabase whitelist
  */
 function getExtensionRedirectUrl() {
-  return chrome.runtime.getURL("scr/UI/popup/popup.html");
+  return `https://${chrome.runtime.id}.chromiumapp.org/`;
 }
 
 /**
@@ -142,8 +142,6 @@ export async function signInWithGoogle() {
     console.log("✅ OAuth tab opened (ID:", tab.id + ")");
 
     // Step 5: Return immediately
-    // The popup will close and user will complete OAuth in the tab
-    // Background script will detect the callback and store tokens
     console.log("✅ OAuth flow initiated successfully");
     console.log("⏳ Waiting for user to complete sign-in...");
 
@@ -164,10 +162,6 @@ export async function signInWithGoogle() {
 // UTILITY FUNCTIONS
 // ============================================
 
-/**
- * Check if OAuth is currently in progress
- * @returns {Promise<boolean>}
- */
 export async function isOAuthInProgress() {
   const data = await chrome.storage.local.get([
     OAUTH_CONFIG.STORAGE_FLAGS.IN_PROGRESS,
@@ -190,11 +184,6 @@ export async function isOAuthInProgress() {
   return Boolean(inProgress);
 }
 
-/**
- * Clean up all OAuth-related storage
- * Useful for debugging or resetting OAuth state
- * @returns {Promise<void>}
- */
 export async function cleanupOAuthStorage() {
   console.log("🧹 Cleaning up OAuth storage...");
   await chrome.storage.local.remove([

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ResearchMate",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Highlight & save research snippets with cloud sync",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuaAxpKOXCWde+WzFjOd54Z7jPPV4rGTNx5TvKEDKbK5mHfVThNwLy95wfFYlEqqsxsgmiaOUvDo56pwLxkgYwJfGxojKhwSAq00vnj6MW0M38MHBJORQyOAdKofBaND71DCWRhkygFCuTW0N2YRdmg7+n9RMoPWFEF/HOQq4ouTuZOEuS3SzHpTUEJFAZktnnjyDoPkiJzNh9gxvmDZ1UHGILB9S68udHsBfBfIwAZeqiZ3Rl8Y2vkgOs+UOWN/b50zCamgG6kjWF9XmtjDvA2SqNwhyKqZtLUqY+OSeWQlO391nuH4GRzFLHO6m9HY2MQrXGrQmB+BIS2diLfPi0QIDAQAB",
   "permissions": [
@@ -14,7 +14,7 @@
   ],
   "host_permissions": ["<all_urls>"],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com https://*.supabase.co https://jxevjkzojfbywxvtcwtl.supabase.co wss://*.supabase.co"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://researchmate-web.netlify.app https://*.supabase.co https://jxevjkzojfbywxvtcwtl.supabase.co wss://*.supabase.co"
   },
   "background": {
     "service_worker": "scr/background/background.js",

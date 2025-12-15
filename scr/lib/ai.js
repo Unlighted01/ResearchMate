@@ -1,40 +1,47 @@
-// lib/ai.js - ResearchMate AI Module with Google Gemini Integration
+// lib/ai.js - ResearchMate AI Module with Netlify Backend
 // =====================================================================
 // This module provides AI-powered features for the ResearchMate extension
-// using Google's Gemini API (Gemini 2.5 Flash model)
+// All API calls go through Netlify Functions for security (no API keys in extension)
 // =====================================================================
 
 // ============================================
 // PART 1: CONFIGURATION
 // ============================================
 
-// ResearchMate's default API Key (used when user doesn't provide their own)
-const RESEARCHMATE_API_KEY = "AIzaSyAhpuWKPqU0Q2htWeUmSJNkHLK6TSB_BuQ";
+// Netlify Functions URL - handles all AI API calls securely
+const BACKEND_URL = "https://researchmate-web.netlify.app";
 
 export const CONFIG = {
   USE_REAL_API: true,
-  GEMINI_MODEL: "gemini-2.5-flash",
-  GEMINI_ENDPOINT: "https://generativelanguage.googleapis.com/v1/models",
-  MAX_TOKENS: 1024,
-  TEMPERATURE: 0.7,
+  BACKEND_URL: BACKEND_URL,
   DEMO_MODE_MESSAGE: "(demo summary · using mock data)",
 };
 
 /**
- * Store user's custom API key (optional)
+ * Store user's custom backend URL (optional, for advanced users/self-hosting)
  */
-export async function setApiKey(key) {
-  await chrome.storage.local.set({ aiApiKey: key || "" });
+export async function setBackendUrl(url) {
+  await chrome.storage.local.set({ backendUrl: url || "" });
 }
 
 /**
- * Get API key - uses user's key if provided, otherwise falls back to ResearchMate's key
+ * Get backend URL - uses custom URL if provided, otherwise default Netlify
  */
-export async function getApiKey() {
-  const { aiApiKey = "" } = await chrome.storage.local.get("aiApiKey");
+export async function getBackendUrl() {
+  const { backendUrl = "" } = await chrome.storage.local.get("backendUrl");
+  return backendUrl.trim() || BACKEND_URL;
+}
 
-  // If user has their own key, use it; otherwise use ResearchMate's default
-  return aiApiKey.trim() || RESEARCHMATE_API_KEY;
+// Legacy functions for backwards compatibility
+export async function setApiKey(key) {
+  // No longer needed with backend proxy, but kept for compatibility
+  await chrome.storage.local.set({ aiApiKey: key || "" });
+}
+
+export async function getApiKey() {
+  // No longer needed with backend proxy, but kept for compatibility
+  const { aiApiKey = "" } = await chrome.storage.local.get("aiApiKey");
+  return aiApiKey.trim();
 }
 
 // ============================================
@@ -43,8 +50,9 @@ export async function getApiKey() {
 
 /**
  * Main summarization function - generates concise summary of research text
+ * Uses multi-provider fallback: Gemini → Groq → OpenRouter
  * @param {string} input - The text to summarize
- * @returns {Promise<{ok: boolean, summary: string, reason?: string, error?: string}>}
+ * @returns {Promise<{ok: boolean, summary: string, provider?: string, reason?: string, error?: string}>}
  */
 export async function summarizeText(input) {
   const text = (input || "").trim();
@@ -59,24 +67,37 @@ export async function summarizeText(input) {
     return generateDemoSummary(text);
   }
 
-  // Real Gemini API call
-  const apiKey = await getApiKey();
-  if (!apiKey) {
-    return { ok: false, summary: "", reason: "missing_api_key" };
-  }
-
   try {
-    const summary = await callGeminiAPI(text, apiKey, "summarize");
-    return { ok: true, summary };
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(`${backendUrl}/.netlify/functions/summarize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      ok: true,
+      summary: data.summary || "",
+      provider: data.provider, // Which AI provider was used (Gemini/Groq/OpenRouter)
+    };
   } catch (error) {
     console.error("❌ AI summarization failed:", error);
 
-    // Enhanced debugging for network errors
+    // Check if backend is not reachable
     if (error.message === "Failed to fetch") {
-      console.error("⚠️ Network error detected. This might be due to:");
-      console.error("   1. Content Security Policy (CSP) blocking the request");
-      console.error("   2. No internet connection");
-      console.error("   3. Ad blockers or firewall");
+      return {
+        ok: false,
+        summary: "",
+        reason: "backend_offline",
+        error:
+          "Cannot connect to ResearchMate servers. Check your internet connection.",
+      };
     }
 
     return {
@@ -91,7 +112,7 @@ export async function summarizeText(input) {
 /**
  * Generate intelligent tags for research content
  * @param {string} text - The text to analyze
- * @returns {Promise<{ok: boolean, tags: string[], reason?: string}>}
+ * @returns {Promise<{ok: boolean, tags: string[], provider?: string, reason?: string}>}
  */
 export async function generateTags(text) {
   const input = (text || "").trim();
@@ -107,20 +128,28 @@ export async function generateTags(text) {
     return { ok: true, tags: uniqueWords };
   }
 
-  const apiKey = await getApiKey();
-  if (!apiKey) {
-    return { ok: false, tags: [], reason: "missing_api_key" };
-  }
-
   try {
-    const response = await callGeminiAPI(input, apiKey, "tags");
-    const tags = response
-      .split(",")
-      .map((t) => t.trim().toLowerCase())
-      .filter((t) => t.length > 0)
-      .slice(0, 5);
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(
+      `${backendUrl}/.netlify/functions/generate-tags`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input }),
+      }
+    );
 
-    return { ok: true, tags };
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      ok: true,
+      tags: data.tags || [],
+      provider: data.provider,
+    };
   } catch (error) {
     console.error("❌ Tag generation failed:", error);
     return {
@@ -134,6 +163,7 @@ export async function generateTags(text) {
 
 /**
  * Extract key concepts and insights from research text
+ * Uses the chat endpoint for more detailed analysis
  * @param {string} text - The text to analyze
  * @returns {Promise<{ok: boolean, insights: string, reason?: string}>}
  */
@@ -144,14 +174,29 @@ export async function extractInsights(text) {
     return { ok: false, insights: "", reason: "empty" };
   }
 
-  const apiKey = await getApiKey();
-  if (!apiKey) {
-    return { ok: false, insights: "", reason: "missing_api_key" };
-  }
-
   try {
-    const insights = await callGeminiAPI(input, apiKey, "insights");
-    return { ok: true, insights };
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(`${backendUrl}/.netlify/functions/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: "user",
+            content: `Extract the key concepts, insights, and main arguments from this research text. Be concise but comprehensive:\n\n${input}`,
+          },
+        ],
+        context: input,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { ok: true, insights: data.response || "" };
   } catch (error) {
     console.error("❌ Insight extraction failed:", error);
     return {
@@ -163,159 +208,88 @@ export async function extractInsights(text) {
   }
 }
 
-// ============================================
-// PART 3: GEMINI API INTEGRATION
-// ============================================
-
 /**
- * Call Google Gemini API with proper error handling
- * @private
+ * Chat with AI about research content
+ * @param {Array} messages - Chat history [{role: "user"|"assistant", content: "..."}]
+ * @param {string} context - Research context to inform the AI
+ * @returns {Promise<{ok: boolean, response: string, provider?: string, reason?: string}>}
  */
-async function callGeminiAPI(text, apiKey, mode = "summarize") {
-  const url = `${CONFIG.GEMINI_ENDPOINT}/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey}`;
+export async function chat(messages, context = "") {
+  if (!messages || messages.length === 0) {
+    return { ok: false, response: "", reason: "empty" };
+  }
 
-  // Build appropriate prompt based on mode
-  const prompt = buildPrompt(text, mode);
+  try {
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(`${backendUrl}/.netlify/functions/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, context }),
+    });
 
-  const requestBody = {
-    contents: [
-      {
-        parts: [
-          {
-            text: prompt,
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: CONFIG.TEMPERATURE,
-      maxOutputTokens: CONFIG.MAX_TOKENS,
-      topP: 0.8,
-      topK: 40,
-    },
-    safetySettings: [
-      {
-        category: "HARM_CATEGORY_HARASSMENT",
-        threshold: "BLOCK_ONLY_HIGH",
-      },
-      {
-        category: "HARM_CATEGORY_HATE_SPEECH",
-        threshold: "BLOCK_ONLY_HIGH",
-      },
-      {
-        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        threshold: "BLOCK_ONLY_HIGH",
-      },
-      {
-        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-        threshold: "BLOCK_ONLY_HIGH",
-      },
-    ],
-  };
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error("🔴 Gemini API error:", errorData);
-
-    // Handle specific error cases
-    if (
-      response.status === 400 &&
-      errorData.error?.message?.includes("API key")
-    ) {
-      throw new Error("Invalid API key. Please check your Gemini API key.");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Request failed: ${response.status}`);
     }
 
-    throw new Error(
-      errorData.error?.message || `API request failed: HTTP ${response.status}`
-    );
+    const data = await response.json();
+    return {
+      ok: true,
+      response: data.response || "",
+      provider: data.provider,
+    };
+  } catch (error) {
+    console.error("❌ Chat failed:", error);
+    return {
+      ok: false,
+      response: "",
+      reason: "network_error",
+      error: error.message,
+    };
   }
-
-  const data = await response.json();
-
-  // Extract text from Gemini response structure
-  const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-  if (!generatedText) {
-    throw new Error("Empty response from Gemini API");
-  }
-
-  return generatedText.trim();
 }
-
-// ============================================
-// PART 4: PROMPT BUILDER
-// ============================================
 
 /**
- * Build enhanced prompt based on task mode
- * @private
+ * Extract citation metadata from a URL
+ * @param {string} url - The URL to extract citation info from
+ * @returns {Promise<{ok: boolean, citation: object, reason?: string}>}
  */
-function buildPrompt(text, mode) {
-  switch (mode) {
-    case "summarize":
-      return `You are a summarization engine. Your task is to condense text into 2-3 sentences.
+export async function extractCitation(url) {
+  if (!url || !url.trim()) {
+    return { ok: false, citation: null, reason: "empty" };
+  }
 
-STRICT RULES:
-- Output ONLY the summary itself
-- Do NOT start with "This text...", "The article...", "This passage...", "Here is...", or any preamble
-- Do NOT include phrases like "In summary...", "To summarize...", "The main points are..."
-- Do NOT add commentary, opinions, or meta-statements about the text
-- Do NOT use first person ("I think...", "I found...")
-- Just write the condensed information directly as if it were a rewritten shorter version
+  try {
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(
+      `${backendUrl}/.netlify/functions/extract-citation`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      }
+    );
 
-Text to summarize:
-"""
-${text}
-"""
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Request failed: ${response.status}`);
+    }
 
-Summary:`;
-
-    case "tags":
-      return `You are a tagging engine. Extract 3-5 relevant keywords/tags from this text.
-
-STRICT RULES:
-- Output ONLY comma-separated lowercase tags
-- No explanations, no preamble, no numbering
-- Example correct output: machine learning, neural networks, data science
-
-Text:
-"""
-${text.slice(0, 1000)}
-"""
-
-Tags:`;
-
-    case "insights":
-      return `You are an insight extraction engine. Extract key insights as bullet points.
-
-STRICT RULES:
-- Output ONLY bullet points (use • or -)
-- No preamble like "Here are the insights..."
-- No concluding statements
-- Each bullet should be a standalone insight
-
-Text:
-"""
-${text}
-"""
-
-Insights:`;
-
-    default:
-      return text;
+    const data = await response.json();
+    return { ok: true, citation: data };
+  } catch (error) {
+    console.error("❌ Citation extraction failed:", error);
+    return {
+      ok: false,
+      citation: null,
+      reason: "network_error",
+      error: error.message,
+    };
   }
 }
 
 // ============================================
-// PART 5: DEMO MODE (FALLBACK)
+// PART 3: DEMO MODE (FALLBACK)
 // ============================================
 
 /**
@@ -337,8 +311,22 @@ function generateDemoSummary(text) {
 }
 
 // ============================================
-// PART 6: UTILITY FUNCTIONS
+// PART 4: UTILITY FUNCTIONS
 // ============================================
+
+/**
+ * Check if backend is available
+ * @returns {Promise<boolean>}
+ */
+export async function checkBackendHealth() {
+  try {
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(`${backendUrl}/.netlify/functions/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Check if API is properly configured
@@ -352,36 +340,47 @@ export async function checkAPIStatus() {
     };
   }
 
-  const apiKey = await getApiKey();
-  if (!apiKey) {
+  const backendHealthy = await checkBackendHealth();
+  if (!backendHealthy) {
     return {
       configured: false,
-      message: "API key not configured.",
+      message:
+        "Cannot connect to ResearchMate servers. Check your internet connection.",
     };
   }
 
   return {
     configured: true,
-    message: "AI features are active and ready to use.",
+    message: "AI features are active (connected to ResearchMate cloud).",
   };
 }
 
 /**
  * Test API connection with a simple request
- * @returns {Promise<{success: boolean, message: string}>}
+ * @returns {Promise<{success: boolean, message: string, provider?: string}>}
  */
 export async function testAPIConnection() {
-  const apiKey = await getApiKey();
-  if (!apiKey) {
-    return { success: false, message: "No API key configured" };
-  }
-
   try {
+    // First check if backend is running
+    const backendHealthy = await checkBackendHealth();
+    if (!backendHealthy) {
+      return {
+        success: false,
+        message:
+          "Cannot connect to ResearchMate servers. Check your internet connection.",
+      };
+    }
+
+    // Test actual summarization
     const testText = "This is a test message to verify API connectivity.";
     const result = await summarizeText(testText);
 
     if (result.ok) {
-      return { success: true, message: "API connection successful! ✅" };
+      return {
+        success: true,
+        message: `API connection successful! ✅ (${result.provider || "AI"})`,
+        provider: result.provider,
+      };
     } else {
       return { success: false, message: result.error || result.reason };
     }
@@ -391,7 +390,7 @@ export async function testAPIConnection() {
 }
 
 // ============================================
-// PART 7: CACHING (Future Enhancement)
+// PART 5: CACHING
 // ============================================
 
 /**
@@ -445,21 +444,26 @@ function hashText(text) {
   for (let i = 0; i < text.length; i++) {
     const char = text.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   return hash.toString(36);
 }
 
 // ============================================
-// PART 8: EXPORTS
+// PART 6: EXPORTS
 // ============================================
 
 export default {
   summarizeText,
   generateTags,
   extractInsights,
+  chat,
+  extractCitation,
   setApiKey,
   getApiKey,
+  setBackendUrl,
+  getBackendUrl,
   checkAPIStatus,
+  checkBackendHealth,
   testAPIConnection,
 };

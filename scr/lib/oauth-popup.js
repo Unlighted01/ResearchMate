@@ -1,4 +1,7 @@
-// oauth-popup.js - OAuth using popup window method
+// ============================================
+// PART 1: oauth-popup.js
+// ============================================
+
 import { supabase } from "./supabase.js";
 
 /**
@@ -9,11 +12,18 @@ export async function signInWithGooglePopup() {
   try {
     console.log("🔵 Starting Google OAuth with popup method...");
 
+    // 1. GENERATE THE CORRECT REDIRECT URL
+    // This creates: https://<your-extension-id>.chromiumapp.org/
+    const redirectUrl = `https://${chrome.runtime.id}.chromiumapp.org/`;
+    console.log("🔗 Using Redirect URL:", redirectUrl);
+
     // Get OAuth URL from Supabase
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         skipBrowserRedirect: true,
+        // 2. ADD THIS LINE to force redirect back to extension
+        redirectTo: redirectUrl,
       },
     });
 
