@@ -285,7 +285,10 @@ export async function extractCitation(url) {
     }
 
     const data = await response.json();
-    return { ok: true, citation: data };
+    console.log("📋 Citation extraction response:", data);
+    // Handle both direct and nested response formats
+    const citation = data.citation || data;
+    return { ok: true, citation: citation };
   } catch (error) {
     console.error("❌ Citation extraction failed:", error);
     return {
