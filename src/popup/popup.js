@@ -1799,7 +1799,10 @@ class CitationOverlayHandlers {
               dom.citeAuthors.value = authorText.join("\n");
             } else if (typeof authorText === "string" && authorText.trim()) {
               // Split by common delimiters
-              dom.citeAuthors.value = authorText.split(/[,;]\s*/).filter(Boolean).join("\n");
+              dom.citeAuthors.value = authorText
+                .split(/[,;]\s*/)
+                .filter(Boolean)
+                .join("\n");
             }
             console.log("✅ Authors populated:", dom.citeAuthors.value);
           } else {
@@ -1813,24 +1816,35 @@ class CitationOverlayHandlers {
             published: data.published,
             year: data.year,
             month: data.month,
-            day: data.day
+            day: data.day,
           });
 
-          const dateString = data.publishDate || data.date || data.published || "";
+          const dateString =
+            data.publishDate || data.date || data.published || "";
 
           if (dateString) {
             // Try parsing YYYY-MM-DD or YYYY/MM/DD format
             const parts = dateString.split(/[-/]/);
-            if (parts.length >= 1 && dom.citeYear) dom.citeYear.value = parts[0];
-            if (parts.length >= 2 && dom.citeMonth) dom.citeMonth.value = parts[1];
+            if (parts.length >= 1 && dom.citeYear)
+              dom.citeYear.value = parts[0];
+            if (parts.length >= 2 && dom.citeMonth)
+              dom.citeMonth.value = parts[1];
             if (parts.length >= 3 && dom.citeDay) dom.citeDay.value = parts[2];
-            console.log("✅ Date populated:", { year: parts[0], month: parts[1], day: parts[2] });
+            console.log("✅ Date populated:", {
+              year: parts[0],
+              month: parts[1],
+              day: parts[2],
+            });
           } else if (data.year || data.month || data.day) {
             // Fallback to individual fields
             if (data.year && dom.citeYear) dom.citeYear.value = data.year;
             if (data.month && dom.citeMonth) dom.citeMonth.value = data.month;
             if (data.day && dom.citeDay) dom.citeDay.value = data.day;
-            console.log("✅ Date populated (individual):", { year: data.year, month: data.month, day: data.day });
+            console.log("✅ Date populated (individual):", {
+              year: data.year,
+              month: data.month,
+              day: data.day,
+            });
           } else {
             console.warn("⚠️ No date data found in response");
           }
@@ -1845,9 +1859,10 @@ class CitationOverlayHandlers {
           if (dateString || data.year) extracted.push("date");
           if (data.siteName || data.website) extracted.push("source");
 
-          const message = extracted.length > 0
-            ? `Extracted: ${extracted.join(", ")} ✨`
-            : "Extracted metadata (some fields may be empty)";
+          const message =
+            extracted.length > 0
+              ? `Extracted: ${extracted.join(", ")} ✨`
+              : "Extracted metadata (some fields may be empty)";
           UIUtils.toast(message);
         } else {
           UIUtils.toast(result.error || "Could not find citation info");
