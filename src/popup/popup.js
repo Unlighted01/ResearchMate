@@ -1790,36 +1790,80 @@ class CitationOverlayHandlers {
             dom.citeContainer.value = data.siteName || data.website;
           }
 
-          // Authors: Backend sends "author" (string), Frontend expects "authors" (array or string)
-          // UI expects one per line
-          const authorText = data.author || data.authors;
+          // Authors: Try multiple field names and formats
+          const authorText = data.author || data.authors || data.creator || "";
+          console.log("📝 Author data received:", authorText);
+
           if (authorText && dom.citeAuthors) {
             if (Array.isArray(authorText)) {
               dom.citeAuthors.value = authorText.join("\n");
-            } else if (typeof authorText === "string") {
-              // Split by commas or semi-colons if it looks like a list
-              dom.citeAuthors.value = authorText.split(/[,;]\s+/).join("\n");
+            } else if (typeof authorText === "string" && authorText.trim()) {
+              // Split by common delimiters
+              dom.citeAuthors.value = authorText
+                .split(/[,;]\s*/)
+                .filter(Boolean)
+                .join("\n");
             }
+            console.log("✅ Authors populated:", dom.citeAuthors.value);
+          } else {
+            console.warn("⚠️ No author data found in response");
           }
 
-          // Date: Backend sends "publishDate" (YYYY-MM-DD)
-          // Frontend expects year, month, day
-          if (data.publishDate) {
-            const [y, m, d] = data.publishDate.split("-");
-            if (y && dom.citeYear) dom.citeYear.value = y;
-            if (m && dom.citeMonth) dom.citeMonth.value = m;
-            if (d && dom.citeDay) dom.citeDay.value = d;
-          } else {
-            // Fallback to individual fields if backend sends them
+          // Date: Try multiple formats and field names
+          console.log("📅 Date data received:", {
+            publishDate: data.publishDate,
+            date: data.date,
+            published: data.published,
+            year: data.year,
+            month: data.month,
+            day: data.day,
+          });
+
+          const dateString =
+            data.publishDate || data.date || data.published || "";
+
+          if (dateString) {
+            // Try parsing YYYY-MM-DD or YYYY/MM/DD format
+            const parts = dateString.split(/[-/]/);
+            if (parts.length >= 1 && dom.citeYear)
+              dom.citeYear.value = parts[0];
+            if (parts.length >= 2 && dom.citeMonth)
+              dom.citeMonth.value = parts[1];
+            if (parts.length >= 3 && dom.citeDay) dom.citeDay.value = parts[2];
+            console.log("✅ Date populated:", {
+              year: parts[0],
+              month: parts[1],
+              day: parts[2],
+            });
+          } else if (data.year || data.month || data.day) {
+            // Fallback to individual fields
             if (data.year && dom.citeYear) dom.citeYear.value = data.year;
             if (data.month && dom.citeMonth) dom.citeMonth.value = data.month;
             if (data.day && dom.citeDay) dom.citeDay.value = data.day;
+            console.log("✅ Date populated (individual):", {
+              year: data.year,
+              month: data.month,
+              day: data.day,
+            });
+          } else {
+            console.warn("⚠️ No date data found in response");
           }
 
           // Refresh the citation preview
           CitationManager.refresh();
 
-          UIUtils.toast("Metadata extracted! ✨");
+          // Better success message showing what was extracted
+          const extracted = [];
+          if (data.title) extracted.push("title");
+          if (authorText) extracted.push("author");
+          if (dateString || data.year) extracted.push("date");
+          if (data.siteName || data.website) extracted.push("source");
+
+          const message =
+            extracted.length > 0
+              ? `Extracted: ${extracted.join(", ")} ✨`
+              : "Extracted metadata (some fields may be empty)";
+          UIUtils.toast(message);
         } else {
           UIUtils.toast(result.error || "Could not find citation info");
         }
