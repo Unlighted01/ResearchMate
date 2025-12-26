@@ -1,4 +1,4 @@
-// scr/lib/citation.js
+// src/utils/citation.js
 export function splitName(full) {
   const parts = String(full || "")
     .trim()

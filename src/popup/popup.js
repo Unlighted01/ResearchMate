@@ -2,12 +2,12 @@
 // PART 1: IMPORTS AND CONSTANTS
 // ============================================
 
-import { validateItemData, sanitizeText } from "../../lib/validation.js";
-import { aiRateLimiter } from "../../lib/rateLimiter.js";
-import { summarizeText } from "../../lib/ai.js"; // Removed setApiKey, getApiKey
-import { buildCitation } from "../../lib/citation.js";
-import { initFileImporter } from "../../lib/fileImport.js";
-import { exportItems } from "../../lib/fileExport.js";
+import { validateItemData, sanitizeText } from "../utils/validation.js";
+import { aiRateLimiter } from "../utils/rateLimiter.js";
+import { summarizeText, extractCitation } from "../services/ai.js";
+import { buildCitation } from "../utils/citation.js";
+import { initFileImporter } from "../utils/fileImport.js";
+import { exportItems } from "../utils/fileExport.js";
 import {
   getAllItems,
   addItem,
@@ -15,7 +15,7 @@ import {
   deleteItem,
   migrateLocalToCloud,
   getLocalItemsCount,
-} from "../../lib/storage.js";
+} from "../services/storage.js";
 import {
   signInWithEmail,
   signUpWithEmail,
@@ -24,7 +24,8 @@ import {
   getCurrentUser,
   processOAuthCallback,
   supabase,
-} from "../../lib/supabase.js";
+} from "../services/supabase.js";
+import { signInWithGoogleExtension } from "../services/oauth.js";
 
 // Constants
 const TOAST_DURATION = 1800;
@@ -1077,6 +1078,10 @@ class ItemRenderer {
           </svg>
           Copy
         </button>
+        <button data-act="summarize" data-id="${item.id}">
+          ✨ Summary
+        </button>
+
         ${
           item.sourceUrl
             ? `
@@ -1543,8 +1548,120 @@ class ItemActionHandlers {
         case "delete":
           await ItemManager.delete(itemId);
           break;
+
+        case "summarize":
+          await this.handleSummarize(item);
+          break;
       }
     });
+  }
+
+  static refineSummary(text) {
+    let clean = text.trim();
+    // Remove "Here is a summary..." variations (case insensitive, handling bold/newlines)
+    const patterns = [
+      /^(\*\*|__)?(here is|here's|this is)( a| the)?( concise| short| brief)? summary.*?(:|\.)(\*\*|__)?\s*/i,
+      /^(\*\*|__)?sure,?( here is| here's)?( a| the)? summary.*?(:|\.)(\*\*|__)?\s*/i,
+      /^(\*\*|__)?summary:(\*\*|__)?\s*/i,
+    ];
+
+    for (const p of patterns) {
+      clean = clean.replace(p, "").trim();
+    }
+    // Capitalize first letter
+    if (clean.length > 0) {
+      clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+    }
+    return clean;
+  }
+
+  static async handleSummarize(item) {
+    if (!item || !item.text) {
+      UIUtils.toast("No text to summarize");
+      return;
+    }
+
+    // Switch to summary tab
+    const summaryTabBtn = document.querySelector(
+      '.tab-btn[data-tab="summary"]'
+    );
+    summaryTabBtn?.click();
+
+    // Show loading state in result box
+    if (dom.summaryResult) dom.summaryResult.classList.remove("hidden");
+    const box = dom.summaryResult?.querySelector(".summary-content");
+    const placeholder = document.getElementById("summary-placeholder");
+
+    if (placeholder) placeholder.classList.add("hidden");
+    if (box) {
+      box.innerHTML = `
+        <div style="text-align: center; color: var(--muted); padding: 20px;">
+          <div style="font-size: 24px; margin-bottom: 10px;">✨</div>
+          <p>Analyzing text with AI...</p>
+        </div>
+      `;
+    }
+
+    try {
+      // Check for cached summary first (optimization)
+      if (item.aiSummary) {
+        // Clean cached summary too (fixes legacy chatty responses)
+        const cleanCached = this.refineSummary(item.aiSummary);
+
+        // If it changed, update the cache
+        if (cleanCached !== item.aiSummary && item.id) {
+          item.aiSummary = cleanCached;
+          // We don't async await this update to avoid delay, just let it happen
+          ItemManager.update(item.id, { aiSummary: cleanCached });
+        }
+
+        if (box) box.innerText = cleanCached;
+        UIUtils.toast("Loaded from cache (No API used)");
+        return;
+      }
+
+      // Confirmation before using API (if not cached)
+      if (
+        !confirm(
+          "✨ Generate AI Summary?\n\nThis will assume usage of your free AI quota."
+        )
+      ) {
+        // Reset/clear if cancelled - show placeholder again
+        if (box) box.innerHTML = "";
+        if (placeholder) placeholder.classList.remove("hidden");
+        if (dom.summaryResult) dom.summaryResult.classList.add("hidden");
+        return;
+      }
+
+      await aiRateLimiter.throttle();
+      const out = await summarizeText(item.text);
+
+      if (!out.ok) {
+        if (box) box.textContent = "Failed to generate summary.";
+        // Restore placeholder if it was a failure
+        if (placeholder) placeholder.classList.remove("hidden");
+        if (dom.summaryResult) dom.summaryResult.classList.add("hidden");
+        UIUtils.toast(`Failed: ${out.error || out.reason}`);
+        return;
+      }
+
+      // Clean up common conversational prefixes
+      const cleanSummary = this.refineSummary(out.summary);
+
+      // Display result
+      if (box) box.innerText = cleanSummary;
+
+      // Save summary back to item (cache it)
+      if (item.id) {
+        await ItemManager.update(item.id, { aiSummary: cleanSummary });
+      }
+
+      UIUtils.toast("Summary generated & saved!");
+    } catch (error) {
+      console.error(error);
+      if (box) box.textContent = "Error generating summary.";
+      UIUtils.toast("Unexpected error");
+    }
   }
 
   static openEditOverlay(item, itemId) {
@@ -1619,6 +1736,104 @@ class EditOverlayHandlers {
 
 class CitationOverlayHandlers {
   static setup() {
+    // AI Citation Extraction
+    const extractBtn = document.getElementById("ai-extract-btn");
+    const extractStatus = document.getElementById("extract-status");
+
+    extractBtn?.addEventListener("click", async () => {
+      // 1. Get URL from input or current tab
+      let url = dom.citeUrl?.value?.trim();
+
+      if (!url) {
+        try {
+          const tabs = await chrome.tabs.query({
+            active: true,
+            currentWindow: true,
+          });
+          if (tabs[0]?.url) {
+            url = tabs[0].url;
+            if (dom.citeUrl) dom.citeUrl.value = url;
+            // Trigger input event to update everything
+            dom.citeUrl.dispatchEvent(new Event("input"));
+          }
+        } catch {
+          // Ignore tab query errors
+        }
+      }
+
+      if (!url) {
+        UIUtils.toast("Enter a URL or open a page");
+        return;
+      }
+
+      // 2. Show loading state
+      if (extractStatus) {
+        extractStatus.classList.remove("hidden");
+        extractStatus.textContent = "✨ Extracting metadata... ⏳";
+      }
+      extractBtn.disabled = true;
+      extractBtn.style.opacity = "0.7";
+
+      try {
+        // 3. Call AI service
+        const result = await extractCitation(url);
+
+        if (result.ok && result.citation) {
+          const data = result.citation;
+
+          // 4. Populate fields
+          // 4. Populate fields
+          if (data.title && dom.citeTitle) dom.citeTitle.value = data.title;
+
+          // Site Name -> Container
+          if ((data.siteName || data.website) && dom.citeContainer) {
+            dom.citeContainer.value = data.siteName || data.website;
+          }
+
+          // Authors: Backend sends "author" (string), Frontend expects "authors" (array or string)
+          // UI expects one per line
+          const authorText = data.author || data.authors;
+          if (authorText && dom.citeAuthors) {
+            if (Array.isArray(authorText)) {
+              dom.citeAuthors.value = authorText.join("\n");
+            } else if (typeof authorText === "string") {
+              // Split by commas or semi-colons if it looks like a list
+              dom.citeAuthors.value = authorText.split(/[,;]\s+/).join("\n");
+            }
+          }
+
+          // Date: Backend sends "publishDate" (YYYY-MM-DD)
+          // Frontend expects year, month, day
+          if (data.publishDate) {
+            const [y, m, d] = data.publishDate.split("-");
+            if (y && dom.citeYear) dom.citeYear.value = y;
+            if (m && dom.citeMonth) dom.citeMonth.value = m;
+            if (d && dom.citeDay) dom.citeDay.value = d;
+          } else {
+            // Fallback to individual fields if backend sends them
+            if (data.year && dom.citeYear) dom.citeYear.value = data.year;
+            if (data.month && dom.citeMonth) dom.citeMonth.value = data.month;
+            if (data.day && dom.citeDay) dom.citeDay.value = data.day;
+          }
+
+          // Refresh the citation preview
+          CitationManager.refresh();
+
+          UIUtils.toast("Metadata extracted! ✨");
+        } else {
+          UIUtils.toast(result.error || "Could not find citation info");
+        }
+      } catch (error) {
+        console.error("Extraction error:", error);
+        UIUtils.toast("Extraction failed");
+      } finally {
+        // 5. Restore UI
+        if (extractStatus) extractStatus.classList.add("hidden");
+        extractBtn.disabled = false;
+        extractBtn.style.opacity = "1";
+      }
+    });
+
     // Setup input listeners for live citation updates
     const citationInputs = [
       dom.citeStyle,
@@ -1769,6 +1984,13 @@ class SettingsHandlers {
       }
     });
 
+    // Smart Pen connect button (placeholder - coming soon)
+    document
+      .getElementById("connect-smartpen")
+      ?.addEventListener("click", () => {
+        UIUtils.toast("🖊️ Smart Pen integration coming soon!");
+      });
+
     // Dark mode, font family, and font size changes
     [dom.fontFamily, dom.fontSize].forEach((el) => {
       el?.addEventListener("change", async () => {
@@ -1888,8 +2110,7 @@ class AuthHandlers {
 
       console.log("🌐 Using tab-based OAuth...");
 
-      const { signInWithGoogle } = await import("../../lib/oauth-simple.js");
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogleExtension();
 
       if (!result.success) {
         console.error("❌ OAuth initialization failed:", result.error);

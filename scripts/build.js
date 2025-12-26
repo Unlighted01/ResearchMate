@@ -3,32 +3,12 @@ const fs = require("fs");
 const path = require("path");
 
 // Clean dist
-if (!fs.existsSync("dist")) {
-  fs.mkdirSync("dist", { recursive: true });
+if (fs.existsSync("dist")) {
+  fs.rmSync("dist", { recursive: true, force: true });
 }
+fs.mkdirSync("dist", { recursive: true });
 
-// Bundle popup.js with Supabase
-esbuild
-  .build({
-    entryPoints: ["scr/UI/popup/popup.js"],
-    bundle: true,
-    outfile: "dist/scr/UI/popup/popup.js",
-    format: "esm",
-    platform: "browser",
-    target: "es2022",
-    external: [],
-  })
-  .then(() => console.log("✅ Bundled popup.js"));
-
-// Copy background.js WITHOUT bundling
-fs.mkdirSync("dist/scr/background", { recursive: true });
-fs.copyFileSync(
-  "scr/background/background.js",
-  "dist/scr/background/background.js"
-);
-console.log("✅ Copied background.js");
-
-// Copy other files
+// Helper to copy directory recursive
 function copyDir(src, dest) {
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -45,26 +25,39 @@ function copyDir(src, dest) {
   }
 }
 
-// Copy manifest.json WITH key preserved
+console.log("📂 Copying static files...");
+
+// 1. Copy assets
+if (fs.existsSync("assets")) {
+  copyDir("assets", "dist/assets");
+}
+
+// 2. Copy src folder (preserves structure for dynamic imports logic)
+copyDir("src", "dist/src");
+
+// 3. Copy manifest
 const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf-8"));
 fs.writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2));
-console.log("✅ Copied manifest.json with key preserved");
 
-// Copy assets
-copyDir("assets", "dist/assets");
+console.log("✅ Static files copied");
 
-// Copy UI files
-fs.mkdirSync("dist/scr/UI/popup", { recursive: true });
-fs.copyFileSync("scr/UI/popup/popup.html", "dist/scr/UI/popup/popup.html");
-fs.copyFileSync("scr/UI/popup/popup.css", "dist/scr/UI/popup/popup.css");
+// 4. Bundle popup.js
+console.log("📦 Bundling popup.js...");
+esbuild
+  .build({
+    entryPoints: ["src/popup/popup.js"],
+    bundle: true,
+    outfile: "dist/src/popup/popup.js", // Overwrites the raw copy
+    format: "esm",
+    platform: "browser",
+    target: "es2022",
+    allowOverwrite: true,
+    external: [], // Add externals if needed
+  })
+  .then(() => console.log("✅ Bundled popup.js"))
+  .catch((err) => {
+    console.error("❌ Build failed:", err);
+    process.exit(1);
+  });
 
-// Copy content script
-fs.mkdirSync("dist/scr/content", { recursive: true });
-fs.copyFileSync("scr/content/content.js", "dist/scr/content/content.js");
-
-// Copy lib folder (AI, storage, supabase, validation, etc.)
-fs.mkdirSync("dist/scr/lib", { recursive: true });
-copyDir("scr/lib", "dist/scr/lib");
-console.log("✅ Copied lib folder");
-
-console.log("✅ Build complete!");
+console.log("✅ Build configuration complete!");

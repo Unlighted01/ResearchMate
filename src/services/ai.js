@@ -1,4 +1,4 @@
-// lib/ai.js - ResearchMate AI Module with Netlify Backend
+// src/services/ai.js - ResearchMate AI Module with Netlify Backend
 // =====================================================================
 // This module provides AI-powered features for the ResearchMate extension
 // All API calls go through Netlify Functions for security (no API keys in extension)
@@ -8,8 +8,8 @@
 // PART 1: CONFIGURATION
 // ============================================
 
-// Netlify Functions URL - handles all AI API calls securely
-const BACKEND_URL = "https://researchmate-web.netlify.app";
+// ResearchMate Vercel Backend (handles multi-provider fallback: Gemini -> Groq -> OpenRouter)
+const BACKEND_URL = "https://research-mate-website.vercel.app";
 
 export const CONFIG = {
   USE_REAL_API: true,
@@ -51,8 +51,9 @@ export async function getApiKey() {
 /**
  * Main summarization function - generates concise summary of research text
  * Uses multi-provider fallback: Gemini → Groq → OpenRouter
+ * Now with caching to reduce redundant API calls
  * @param {string} input - The text to summarize
- * @returns {Promise<{ok: boolean, summary: string, provider?: string, reason?: string, error?: string}>}
+ * @returns {Promise<{ok: boolean, summary: string, provider?: string, reason?: string, error?: string, cached?: boolean}>}
  */
 export async function summarizeText(input) {
   const text = (input || "").trim();
@@ -62,6 +63,13 @@ export async function summarizeText(input) {
     return { ok: false, summary: "", reason: "empty" };
   }
 
+  // Check cache first
+  const cachedResult = getCachedSummary(text);
+  if (cachedResult) {
+    console.log("✅ Using cached summary");
+    return { ok: true, summary: cachedResult, cached: true };
+  }
+
   // Demo mode fallback (when API is disabled)
   if (!CONFIG.USE_REAL_API) {
     return generateDemoSummary(text);
@@ -69,7 +77,7 @@ export async function summarizeText(input) {
 
   try {
     const backendUrl = await getBackendUrl();
-    const response = await fetch(`${backendUrl}/.netlify/functions/summarize`, {
+    const response = await fetch(`${backendUrl}/api/summarize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -81,9 +89,16 @@ export async function summarizeText(input) {
     }
 
     const data = await response.json();
+    const summary = data.summary || "";
+
+    // Cache the result for future use
+    if (summary) {
+      cacheSummary(text, summary);
+    }
+
     return {
       ok: true,
-      summary: data.summary || "",
+      summary: summary,
       provider: data.provider, // Which AI provider was used (Gemini/Groq/OpenRouter)
     };
   } catch (error) {
@@ -130,14 +145,11 @@ export async function generateTags(text) {
 
   try {
     const backendUrl = await getBackendUrl();
-    const response = await fetch(
-      `${backendUrl}/.netlify/functions/generate-tags`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
-      }
-    );
+    const response = await fetch(`${backendUrl}/api/generate-tags`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: input }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -176,7 +188,7 @@ export async function extractInsights(text) {
 
   try {
     const backendUrl = await getBackendUrl();
-    const response = await fetch(`${backendUrl}/.netlify/functions/chat`, {
+    const response = await fetch(`${backendUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -221,7 +233,7 @@ export async function chat(messages, context = "") {
 
   try {
     const backendUrl = await getBackendUrl();
-    const response = await fetch(`${backendUrl}/.netlify/functions/chat`, {
+    const response = await fetch(`${backendUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages, context }),
@@ -261,14 +273,11 @@ export async function extractCitation(url) {
 
   try {
     const backendUrl = await getBackendUrl();
-    const response = await fetch(
-      `${backendUrl}/.netlify/functions/extract-citation`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
-      }
-    );
+    const response = await fetch(`${backendUrl}/api/extract-citation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim() }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -321,7 +330,7 @@ function generateDemoSummary(text) {
 export async function checkBackendHealth() {
   try {
     const backendUrl = await getBackendUrl();
-    const response = await fetch(`${backendUrl}/.netlify/functions/health`);
+    const response = await fetch(`${backendUrl}/api/health`);
     return response.ok;
   } catch {
     return false;

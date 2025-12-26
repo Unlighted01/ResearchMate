@@ -1,4 +1,4 @@
-// scr/lib/storage.js - Hybrid storage (local + cloud)
+// src/services/storage.js - Hybrid storage (local + cloud)
 import { supabase } from "./supabase.js";
 
 // ============================================
@@ -135,10 +135,13 @@ export async function addItem(item) {
 export async function updateItem(id, updates) {
   const authenticated = await isAuthenticated();
 
+  // Ensure id is a string to prevent type errors
+  const itemId = String(id);
+
   // If it's a local item (ID starts with "local_")
-  if (id.startsWith("local_")) {
+  if (itemId.startsWith("local_")) {
     const items = await getLocalItems();
-    const index = items.findIndex((item) => item.id === id);
+    const index = items.findIndex((item) => item.id === itemId);
     if (index === -1) throw new Error("Item not found");
 
     items[index] = { ...items[index], ...updates };

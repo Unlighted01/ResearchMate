@@ -1,4 +1,4 @@
-// scr/lib/rateLimiter.js
+// src/utils/rateLimiter.js - Rate limiting for API calls
 export class RateLimiter {
   constructor(maxRequests, windowMs) {
     this.maxRequests = maxRequests;
@@ -26,4 +26,4 @@ export class RateLimiter {
 
 // Export pre-configured limiters
 export const aiRateLimiter = new RateLimiter(10, 60000); // 10 requests per minute
-export const firestoreRateLimiter = new RateLimiter(50, 60000); // 50 requests per minute
+export const supabaseRateLimiter = new RateLimiter(50, 60000); // 50 requests per minute

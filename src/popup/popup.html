@@ -8,7 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="ResearchMate - Your research companion" />
     <title>ResearchMate</title>
-    <link rel="stylesheet" href="../popup/popup.css" />
+    <link rel="stylesheet" href="./popup.css" />
   </head>
 
   <body class="booting">
@@ -402,32 +402,30 @@
         role="tabpanel"
         aria-labelledby="summary"
       >
-        <!-- Summary Input -->
-        <label class="lbl" for="summary-input">Text to Summarize</label>
-        <textarea
-          id="summary-input"
-          rows="6"
-          placeholder="Paste text to summarize..."
-          aria-label="Paste text for AI summary"
-        ></textarea>
-
-        <!-- Generate Button -->
-        <div class="row center" style="margin-top: 8px">
-          <button
-            id="summarize-btn"
-            class="primary-btn"
-            type="button"
-            aria-label="Generate AI summary"
-          >
-            ✨ Generate Summary
-          </button>
+        <!-- Summary Placeholder -->
+        <div id="summary-placeholder" class="placeholder-content">
+          <div class="empty-state">
+            <div class="empty-icon" style="font-size: 48px; opacity: 0.5">
+              ✨
+            </div>
+            <h3>Select an Item to Summarize</h3>
+            <p>
+              Go to the <b>Saved</b> tab and click on the
+              <b>✨ Summary</b> button on any item to generate an AI summary
+              using our multi-provider engine.
+            </p>
+          </div>
         </div>
 
         <!-- Summary Result -->
-        <div id="summary-result" class="hidden" style="margin-top: 12px">
+        <div id="summary-result" class="hidden">
           <div
             class="row"
-            style="justify-content: space-between; align-items: center"
+            style="
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 8px;
+            "
           >
             <h3 style="margin: 0">AI Summary</h3>
             <button
@@ -441,14 +439,16 @@
             </button>
           </div>
           <div
+            id="summary-content"
             class="summary-content"
             role="status"
             aria-live="polite"
             style="
-              padding: 10px;
+              padding: 12px;
               background: var(--tile);
               border-radius: 8px;
-              margin-top: 8px;
+              line-height: 1.6;
+              font-size: 13px;
             "
           ></div>
         </div>
@@ -622,6 +622,65 @@
             </p>
           </div>
         </details>
+
+        <!-- Smart Pen Integration (Beta) -->
+        <details
+          class="smart-pen-section"
+          style="
+            padding: 12px;
+            background: var(--tile);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-top: 16px;
+          "
+        >
+          <summary
+            style="
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 13px;
+              color: var(--muted);
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            🖊️ Smart Pen Integration
+            <span
+              class="beta-badge"
+              style="
+                background: linear-gradient(135deg, #ff9500, #ff6b00);
+                color: white;
+                font-size: 9px;
+                font-weight: 600;
+                padding: 2px 6px;
+                border-radius: 4px;
+                text-transform: uppercase;
+              "
+              >Beta</span
+            >
+          </summary>
+          <div style="margin-top: 12px">
+            <p
+              class="muted small"
+              style="margin-bottom: 12px; line-height: 1.5"
+            >
+              Connect your smart pen to digitize handwritten notes with OCR.
+              Your notes will sync automatically across all devices.
+            </p>
+            <button
+              id="connect-smartpen"
+              class="secondary-btn"
+              style="width: 100%; padding: 10px"
+              aria-label="Connect Smart Pen"
+            >
+              🔗 Connect Smart Pen
+            </button>
+            <p class="muted small" style="margin-top: 8px; font-size: 10px">
+              Compatible with Neo Smartpen and Moleskine Pen+.
+            </p>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -737,6 +796,32 @@
             id="citation-meta"
             style="margin-bottom: 12px"
           ></p>
+
+          <!-- AI Citation Extraction -->
+          <div style="margin-bottom: 16px">
+            <button
+              id="ai-extract-btn"
+              class="secondary-btn"
+              style="
+                width: 100%;
+                padding: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+              "
+              aria-label="Auto-extract citation from URL"
+            >
+              ✨ Auto-Extract from URL
+            </button>
+            <p
+              id="extract-status"
+              class="muted small hidden"
+              style="margin-top: 8px; text-align: center"
+            >
+              Extracting metadata...
+            </p>
+          </div>
 
           <!-- Citation Style and Type -->
           <div class="row" style="gap: 8px; margin-bottom: 12px">

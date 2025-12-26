@@ -78,7 +78,7 @@ export async function signUpWithEmail(email, password) {
       email: email.trim(),
       password: password,
       options: {
-        emailRedirectTo: chrome.runtime.getURL("scr/UI/popup/popup.html"),
+        emailRedirectTo: chrome.runtime.getURL("src/popup/popup.html"),
       },
     });
 

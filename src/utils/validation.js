@@ -1,4 +1,4 @@
-// scr/lib/validation.js
+// src/utils/validation.js
 export function validateItemData(data) {
   const errors = [];
 

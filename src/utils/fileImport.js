@@ -1,4 +1,4 @@
-// scr/lib/fileImport.js
+// src/utils/fileImport.js
 
 let pdfjsLib = null;
 let pdfJsLoading = false;
@@ -25,26 +25,26 @@ async function loadPdfJs() {
   pdfJsLoading = true;
 
   try {
-    // Load PDF.js script
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = chrome.runtime.getURL("scr/lib/pdf.min.js");
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
+    // Import PDF.js as a module from local vendor folder
+    const pdfUrl = chrome.runtime.getURL("src/vendor/pdf.mjs");
+    const workerUrl = chrome.runtime.getURL("src/vendor/pdf.worker.mjs");
 
-    // Get pdfjsLib from window
-    pdfjsLib = window.pdfjsLib || window["pdfjs-dist/build/pdf"];
+    const lib = await import(pdfUrl);
+    pdfjsLib = lib; // Use the module namespace directly, or lib.default if needed
 
-    if (pdfjsLib) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL(
-        "scr/lib/pdf.worker.min.js"
-      );
+    // Fallback if it's wrapped in default
+    if (!pdfjsLib.getDocument && lib.default) {
+      pdfjsLib = lib.default;
+    }
+
+    if (pdfjsLib && pdfjsLib.getDocument) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
       pdfJsLoaded = true;
       pdfJsLoading = false;
       console.log("PDF.js loaded successfully");
       return true;
+    } else {
+      throw new Error("PDF.js loaded but getDocument not found");
     }
   } catch (error) {
     console.error("Failed to load PDF.js:", error);
@@ -145,34 +145,5 @@ async function readPdfFile(file) {
   } catch (error) {
     console.error("PDF parsing error:", error);
     throw new Error("Failed to parse PDF file");
-  }
-}
-
-/**
- * Auto-save imported text to Firestore
- */
-export async function autoSaveImport(
-  text,
-  fileName,
-  { db, user, projectId, serverTimestamp, addDoc, collection }
-) {
-  if (!user || !text) return false;
-
-  try {
-    await addDoc(
-      collection(db, `users/${user.uid}/projects/${projectId}/items`),
-      {
-        text: text.slice(0, 10000),
-        sourceTitle: fileName,
-        sourceUrl: "",
-        tags: ["imported"],
-        note: "",
-        createdAt: serverTimestamp(),
-      }
-    );
-    return true;
-  } catch (error) {
-    console.error("Auto-save error:", error);
-    return false;
   }
 }

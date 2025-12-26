@@ -1,9 +1,23 @@
-// content.js - Optimized version
+// src/content/content.js - Content script for text selection
 (() => {
   const getSel = () => window.getSelection?.()?.toString?.() || "";
 
   let debounceTimer = null;
   let lastSelection = "";
+
+  /**
+   * Safely send message to extension - handles disconnection gracefully
+   */
+  function safeSendMessage(message) {
+    try {
+      chrome.runtime.sendMessage(message).catch(() => {
+        // Extension context invalidated - ignore silently
+      });
+    } catch (error) {
+      // Extension not available (context invalidated, extension reloaded, etc.)
+      // This is expected during extension updates - fail silently
+    }
+  }
 
   // ✅ Add passive listener for better performance
   document.addEventListener(
@@ -18,14 +32,14 @@
         lastSelection = text;
 
         if (text && text.length >= 4) {
-          chrome.runtime.sendMessage({
+          safeSendMessage({
             type: "selectionPreview",
             text,
             url: location.href,
             title: document.title,
           });
         } else if (lastSelection) {
-          chrome.runtime.sendMessage({ type: "selectionCleared" });
+          safeSendMessage({ type: "selectionCleared" });
         }
       }, 200);
     },
@@ -38,7 +52,7 @@
     () => {
       const text = getSel();
       if (!text.trim()) {
-        chrome.runtime.sendMessage({ type: "selectionCleared" });
+        safeSendMessage({ type: "selectionCleared" });
         lastSelection = "";
       }
     },
