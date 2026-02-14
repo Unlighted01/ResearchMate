@@ -1,0 +1,81 @@
+import { supabase } from "./supabaseClient";
+
+const API_BASE_URL = "https://research-mate-website.vercel.app/api";
+
+export interface BookMetadata {
+  title: string;
+  authors: string[];
+  publisher?: string;
+  publishedDate?: string;
+  description?: string;
+  industryIdentifiers?: { type: string; identifier: string }[];
+  imageLinks?: { smallThumbnail?: string; thumbnail?: string };
+  previewLink?: string;
+  infoLink?: string;
+  isbn?: string; // Normalized ISBN-13
+}
+
+export interface SearchResult {
+  ok: boolean;
+  data?: BookMetadata[];
+  error?: string;
+}
+
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
+/**
+ * Search for books by query (Title, Author, or ISBN)
+ */
+export async function searchBooks(query: string): Promise<SearchResult> {
+  if (!query.trim()) return { ok: false, error: "Query is empty" };
+
+  try {
+    const headers = await getAuthHeaders();
+    // Use the generic search endpoint
+    const response = await fetch(`${API_BASE_URL}/search-books`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: data.error || "Failed to search books",
+      };
+    }
+
+    return {
+      ok: true,
+      data: data.items || [], // Assuming API returns { items: [...] }
+    };
+  } catch (error: any) {
+    console.error("Book Search Error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+/**
+ * Direct ISBN lookup (Specific Endpoint if available, else re-use search)
+ */
+export async function lookupISBN(isbn: string): Promise<SearchResult> {
+  // We can interpret ISBN lookup as a specific search
+  return searchBooks(`isbn:${isbn}`);
+}

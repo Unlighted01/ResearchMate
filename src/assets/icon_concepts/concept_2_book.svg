@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5856D6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#AF52DE;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="url(#grad2)" />
+  <!-- Open Book -->
+  <path d="M34 40 v 48 c 0 4 4 8 10 8 h 20 c 4 0 8 -4 8 -8 v -48 c 0 4 -4 8 -8 8 h -20 c -6 0 -10 -4 -10 -8 z" fill="#FFFFFF" opacity="0.9" />
+  <path d="M94 40 v 48 c 0 4 -4 8 -10 8 h -20 c -4 0 -8 -4 -8 -8 v -48 c 0 4 4 8 8 8 h 20 c 6 0 10 -4 10 -8 z" fill="#FFFFFF" opacity="0.9" />
+  <!-- Spark/Star -->
+  <path d="M64 24 L 68 34 L 78 38 L 68 42 L 64 52 L 60 42 L 50 38 L 60 34 Z" fill="#FFD60A" />
+</svg>

@@ -1,0 +1,1025 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   RESEARCHMATE - APPLE-INSPIRED DESIGN SYSTEM
+   ============================================ */
+
+/* ============================================
+   PART 1: CSS VARIABLES & THEME
+   ============================================ */
+
+:root {
+  /* Apple-inspired color palette */
+  --apple-blue: #007aff;
+  --apple-blue-dark: #0051d5;
+  --apple-gray-1: #8e8e93;
+  --apple-gray-2: #636366;
+  --apple-gray-3: #48484a;
+  --apple-gray-4: #3a3a3c;
+  --apple-gray-5: #2c2c2e;
+  --apple-gray-6: #1c1c1e;
+
+  /* ResearchMate Brand Colors */
+  --rm-blue: #007aff;
+  --rm-blue-light: #5ac8fa;
+  --rm-blue-dark: #0051d5;
+  --rm-purple: #5856d6;
+  --rm-purple-light: #af52de;
+  --rm-green: #34c759;
+  --rm-orange: #ff9500;
+  --rm-red: #ff3b30;
+  --rm-teal: #5ac8fa;
+
+  /* Semantic Colors */
+  --rm-success: var(--rm-green);
+  --rm-warning: var(--rm-orange);
+  --rm-error: var(--rm-red);
+  --rm-info: var(--rm-blue);
+
+  /* Accent Gradients */
+  --rm-gradient-primary: linear-gradient(
+    135deg,
+    var(--rm-blue) 0%,
+    var(--rm-purple) 100%
+  );
+  --rm-gradient-success: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+  --rm-gradient-premium: linear-gradient(135deg, #5856d6 0%, #af52de 100%);
+
+  /* Light mode backgrounds */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --bg-tertiary: #e8e8ed;
+
+  /* Glass effects */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+
+  /* Typography */
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, sans-serif;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dark {
+  --bg-primary: #000000;
+  --bg-secondary: #1c1c1e;
+  --bg-tertiary: #2c2c2e;
+
+  --glass-bg: rgba(28, 28, 30, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+
+  /* Dark mode accent adjustments for better contrast */
+  --rm-blue: #0a84ff;
+  --rm-purple: #bf5af2;
+  --rm-green: #30d158;
+  --rm-orange: #ff9f0a;
+  --rm-red: #ff453a;
+}
+
+/* ============================================
+   PART 2: BASE STYLES
+   ============================================ */
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 3rem; /* Accounts for fixed navbar height */
+}
+
+body {
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
+/* Apple-style text rendering */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+/* ============================================
+   PART 3: GLASSMORPHISM UTILITIES
+   ============================================ */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .glass-subtle {
+  background: rgba(28, 28, 30, 0.5);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass-card {
+  background: rgba(28, 28, 30, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   PART 4: SHADOW SYSTEM (Apple-style layered)
+   ============================================ */
+
+.shadow-apple-sm {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-apple {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-apple-md {
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-apple-lg {
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.06),
+    0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+.shadow-apple-xl {
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.08),
+    0 32px 64px rgba(0, 0, 0, 0.16);
+}
+
+.dark .shadow-apple-sm,
+.dark .shadow-apple,
+.dark .shadow-apple-md,
+.dark .shadow-apple-lg,
+.dark .shadow-apple-xl {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   PART 5: ANIMATIONS
+   ============================================ */
+
+/* Fade in up - for page transitions */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+/* Fade in - subtle */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Scale in - for modals */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out forwards;
+}
+
+/* Slide up - for toasts */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Slide down - for dropdowns */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out forwards;
+}
+
+/* Pulse - refined */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Spin - loading */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Bounce - subtle */
+@keyframes bounce-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-bounce-soft {
+  animation: bounce-soft 1s ease-in-out infinite;
+}
+
+/* Shimmer - skeleton loading */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #2c2c2e 25%, #3a3a3c 37%, #2c2c2e 63%);
+  background-size: 200% 100%;
+}
+
+/* Glow effect */
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(0, 122, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 122, 255, 0.5);
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* ============================================
+   PART 6: CARD HOVER EFFECTS (PREMIUM)
+   ============================================ */
+
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 16px 32px -8px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 122, 255, 0.1);
+  border-color: rgba(0, 122, 255, 0.2);
+}
+
+.dark .hover-lift:hover {
+  box-shadow:
+    0 16px 32px -8px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(0, 122, 255, 0.15);
+  border-color: rgba(0, 122, 255, 0.4);
+}
+
+/* ============================================
+   SKELETON SHIMMER ANIMATION
+   ============================================ */
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(200, 200, 200, 0.2) 25%,
+    rgba(200, 200, 200, 0.5) 50%,
+    rgba(200, 200, 200, 0.2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(50, 50, 50, 0.3) 25%,
+    rgba(80, 80, 80, 0.5) 50%,
+    rgba(50, 50, 50, 0.3) 75%
+  );
+  background-size: 200% 100%;
+}
+
+.card-hover {
+  transition: all var(--transition-base);
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.08),
+    0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Helper for staggered list animation */
+.animate-stagger > *:nth-child(1) {
+  animation-delay: 50ms;
+}
+.animate-stagger > *:nth-child(2) {
+  animation-delay: 100ms;
+}
+.animate-stagger > *:nth-child(3) {
+  animation-delay: 150ms;
+}
+.animate-stagger > *:nth-child(4) {
+  animation-delay: 200ms;
+}
+.animate-stagger > *:nth-child(5) {
+  animation-delay: 250ms;
+}
+.animate-stagger > *:nth-child(6) {
+  animation-delay: 300ms;
+}
+
+/* Premium Entry Animations */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dark .card-hover:hover {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+/* Interactive card with scale */
+.card-interactive {
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  transform: scale(1.02);
+}
+
+.card-interactive:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   PART 7: BUTTON EFFECTS
+   ============================================ */
+
+.btn-press {
+  transition: all var(--transition-fast);
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+.btn-glow:hover {
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.4);
+}
+
+/* ============================================
+   PART 8: SCROLLBAR (Apple-style minimal)
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   PART 9: LINE CLAMP UTILITIES
+   ============================================ */
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================
+   PART 10: FOCUS STATES (Apple-style ring)
+   ============================================ */
+
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.4);
+}
+
+/* ============================================
+   PART 11: GRADIENT UTILITIES
+   ============================================ */
+
+.gradient-text {
+  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, #007aff 0%, #0051d5 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #5856d6 0%, #af52de 100%);
+}
+
+.gradient-mesh {
+  background:
+    radial-gradient(at 40% 20%, rgba(0, 122, 255, 0.15) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(88, 86, 214, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(175, 82, 222, 0.1) 0px, transparent 50%);
+}
+
+.dark .gradient-mesh {
+  background:
+    radial-gradient(at 40% 20%, rgba(0, 122, 255, 0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(88, 86, 214, 0.06) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(175, 82, 222, 0.06) 0px, transparent 50%);
+}
+
+/* ============================================
+   PART 12: BACKDROP & OVERLAY
+   ============================================ */
+
+.backdrop-blur-apple {
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.overlay-dark {
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* ============================================
+   PART 13: DIVIDER STYLES
+   ============================================ */
+
+.divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 0, 0, 0.1) 20%,
+    rgba(0, 0, 0, 0.1) 80%,
+    transparent
+  );
+}
+
+.dark .divider {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.1) 80%,
+    transparent
+  );
+}
+
+/* ============================================
+   PART 14: STATUS INDICATORS
+   ============================================ */
+
+.status-dot {
+  position: relative;
+}
+
+.status-dot::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34c759;
+  top: -2px;
+  right: -2px;
+  border: 2px solid white;
+}
+
+.dark .status-dot::after {
+  border-color: #1c1c1e;
+}
+
+/* Real-time pulse indicator */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.realtime-indicator {
+  position: relative;
+}
+
+.realtime-indicator::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #34c759;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* ============================================
+   PART 15: SELECTION STYLES
+   ============================================ */
+
+::selection {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+.dark ::selection {
+  background: rgba(0, 122, 255, 0.3);
+}
+
+/* ============================================
+   PART 16: INTERACTIVE BUBBLE BACKGROUND
+   Smooth, organic floating bubbles
+   ============================================ */
+
+/* Container - full viewport */
+.bubble-container {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Content that should appear ABOVE bubbles */
+.content-above-bubbles {
+  position: relative;
+  z-index: 10;
+}
+
+/* Allow clicking through transparent areas to reach bubbles */
+.bubble-clickthrough {
+  pointer-events: none;
+}
+
+/* Re-enable pointer events for interactive elements inside clickthrough areas */
+.bubble-clickthrough a,
+.bubble-clickthrough button,
+.bubble-clickthrough input,
+.bubble-clickthrough select,
+.bubble-clickthrough textarea,
+.bubble-clickthrough [role="button"] {
+  pointer-events: auto;
+}
+
+/* Individual bubble styling */
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+  will-change: transform, opacity;
+
+  /* Gradient fill with highlight */
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.4) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(0, 122, 255, 0.35) 0%,
+      rgba(88, 86, 214, 0.3) 50%,
+      rgba(175, 82, 222, 0.25) 100%
+    );
+
+  /* Glass effect */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+
+  /* Border and shadow */
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 0 30px rgba(255, 255, 255, 0.15),
+    0 8px 32px rgba(0, 122, 255, 0.15),
+    0 4px 16px rgba(88, 86, 214, 0.1);
+
+  /* Smooth hover transition */
+  transition:
+    transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.6s ease,
+    opacity 0.6s ease;
+
+  /* Start invisible for fade-in */
+  opacity: 0;
+
+  /* Single animation - float controls everything */
+  animation: bubble-float var(--bubble-duration, 25s) ease-in-out infinite;
+  animation-delay: var(--bubble-delay, 0s);
+  animation-fill-mode: both;
+
+  /* Fade in on load */
+  opacity: 1;
+  transition: opacity 1s ease-out;
+}
+
+.bubble:hover {
+  filter: brightness(1.15) contrast(1.1);
+  box-shadow:
+    inset 0 0 40px rgba(255, 255, 255, 0.35),
+    0 16px 48px rgba(0, 122, 255, 0.35),
+    0 0 80px rgba(88, 86, 214, 0.25);
+}
+
+/* Pop animation class */
+.bubble-pop {
+  animation: bubble-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+  pointer-events: none;
+}
+
+/* Spawn animation - just opacity, no transform */
+@keyframes bubble-spawn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   SMOOTH FLOAT ANIMATION
+   ============================================ */
+
+@keyframes bubble-float {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  10% {
+    transform: translate(30px, -80px) scale(1.02) rotate(3deg);
+  }
+  20% {
+    transform: translate(70px, -180px) scale(1.05) rotate(7deg);
+  }
+  30% {
+    transform: translate(50px, -280px) scale(1.03) rotate(4deg);
+  }
+  40% {
+    transform: translate(-20px, -360px) scale(0.98) rotate(-3deg);
+  }
+  50% {
+    transform: translate(-80px, -420px) scale(0.95) rotate(-8deg);
+  }
+  60% {
+    transform: translate(-100px, -360px) scale(0.97) rotate(-5deg);
+  }
+  70% {
+    transform: translate(-60px, -260px) scale(1.01) rotate(2deg);
+  }
+  80% {
+    transform: translate(-20px, -150px) scale(1.03) rotate(5deg);
+  }
+  90% {
+    transform: translate(10px, -70px) scale(1.02) rotate(2deg);
+  }
+  100% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+/* Pop animation - smooth expand and fade */
+@keyframes bubble-pop {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* ============================================
+   BUBBLE VARIATIONS
+   ============================================ */
+
+/* Purple/pink variant */
+.bubble:nth-child(odd) {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.35) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      45deg,
+      rgba(88, 86, 214, 0.32) 0%,
+      rgba(175, 82, 222, 0.28) 50%,
+      rgba(255, 45, 85, 0.18) 100%
+    );
+  animation-direction: reverse, normal;
+}
+
+/* Green/blue variant */
+.bubble:nth-child(3n) {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.35) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(52, 199, 89, 0.28) 0%,
+      rgba(0, 122, 255, 0.32) 100%
+    );
+}
+
+/* Orange/yellow variant */
+.bubble:nth-child(5n) {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.4) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 149, 0, 0.3) 0%,
+      rgba(255, 204, 0, 0.25) 100%
+    );
+  animation-direction: normal, normal;
+}
+
+/* Slower bubbles */
+.bubble:nth-child(even) {
+  --bubble-duration: 30s;
+}
+
+/* Offset timing */
+.bubble:nth-child(2n + 1) {
+  --bubble-delay: -5s;
+}
+
+.bubble:nth-child(3n + 1) {
+  --bubble-delay: -10s;
+}
+
+.bubble:nth-child(4n + 1) {
+  --bubble-delay: -15s;
+}
+
+/* ============================================
+   PART 17: STAGGERED ANIMATIONS
+   ============================================ */
+
+.stagger-animate > * {
+  animation: fade-in-up 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+.stagger-animate > *:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.stagger-animate > *:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.stagger-animate > *:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.stagger-animate > *:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.stagger-animate > *:nth-child(5) {
+  animation-delay: 0.25s;
+}
+.stagger-animate > *:nth-child(6) {
+  animation-delay: 0.3s;
+}
+.stagger-animate > *:nth-child(7) {
+  animation-delay: 0.35s;
+}
+.stagger-animate > *:nth-child(8) {
+  animation-delay: 0.4s;
+}
+.stagger-animate > *:nth-child(9) {
+  animation-delay: 0.45s;
+}
+.stagger-animate > *:nth-child(10) {
+  animation-delay: 0.5s;
+}
+.stagger-animate > *:nth-child(11) {
+  animation-delay: 0.55s;
+}
+.stagger-animate > *:nth-child(12) {
+  animation-delay: 0.6s;
+}
+
+/* ============================================
+   PART 18: HAMBURGER MENU ANIMATION
+   ============================================ */
+
+.hamburger-line {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background-color: currentColor;
+  border-radius: 1px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+.hamburger-open .hamburger-line:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.hamburger-open .hamburger-line:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.hamburger-open .hamburger-line:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
