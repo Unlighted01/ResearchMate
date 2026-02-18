@@ -334,6 +334,25 @@ export async function generateCitation(
       citation = `${author}. "${title}." ${site} (${year}). ${url}.`;
     } else if (style === "harvard") {
       citation = `${author} (${year}) '${title}', ${site}. Available at: ${url}.`;
+    } else if (style === "ieee") {
+      // IEEE Format: J. K. Author, "Title," Site, Year. [Online]. Available: URL. [Accessed: Abbrev. Month. Day, Year].
+      const dateAccess = new Date();
+      const months = [
+        "Jan.",
+        "Feb.",
+        "Mar.",
+        "Apr.",
+        "May",
+        "June",
+        "July",
+        "Aug.",
+        "Sept.",
+        "Oct.",
+        "Nov.",
+        "Dec.",
+      ];
+      const accessed = `${months[dateAccess.getMonth()]} ${dateAccess.getDate()}, ${dateAccess.getFullYear()}`;
+      citation = `${author}, "${title}," *${site}*, ${year}. [Online]. Available: ${url}. [Accessed: ${accessed}].`;
     } else if (style === "bibtex") {
       const slug = author.split(" ")[0].toLowerCase() + year;
       citation = `@misc{${slug}, title={${title}}, url={${url}}, journal={${site}}, author={${author}}, year={${year}}}`;

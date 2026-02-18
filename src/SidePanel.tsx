@@ -5,9 +5,18 @@ import {
   getAllItems,
   StorageItem,
   deleteItem,
+  syncLocalItemsToCloud,
 } from "./services/storageService";
 import { getCurrentUser, supabase } from "./services/supabaseClient";
-import { Search, PenTool, Sparkles, Quote, ExternalLink } from "lucide-react";
+import {
+  Search,
+  PenTool,
+  Sparkles,
+  Quote,
+  ExternalLink,
+  CloudOff,
+  RefreshCw,
+} from "lucide-react";
 import { Auth } from "./components/Auth";
 import Settings from "./components/Settings";
 import ItemDetail from "./components/ItemDetail";
@@ -23,6 +32,11 @@ function SidePanel() {
   const [showAuth, setShowAuth] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{
+    msg: string;
+    type: "success" | "error";
+  } | null>(null);
 
   // Navigation State
   const [currentView, setCurrentView] = useState<
@@ -43,7 +57,18 @@ function SidePanel() {
     // });
 
     fetchItems();
-    getCurrentUser().then(setUser);
+    getCurrentUser().then((currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Auto-sync on open/mount if logged in
+        syncLocalItemsToCloud().then((res) => {
+          if (res.success && res.count > 0) {
+            console.log("Auto-synced on open:", res.count);
+            fetchItems();
+          }
+        });
+      }
+    });
 
     // Listen for Auth Changes (Login/Logout)
     const {
@@ -80,6 +105,40 @@ function SidePanel() {
     const data = await getAllItems();
     setItems(data);
     setLoading(false);
+  };
+
+  const handleSync = async () => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    setIsSyncing(true);
+    setSyncStatus(null);
+    try {
+      const result = await syncLocalItemsToCloud();
+      if (result.success) {
+        if (result.count > 0) {
+          setSyncStatus({
+            msg: `Synced ${result.count} items!`,
+            type: "success",
+          });
+          fetchItems();
+        } else {
+          setSyncStatus({ msg: "Nothing to sync.", type: "success" });
+        }
+      } else {
+        setSyncStatus({
+          msg: result.error || "Sync failed",
+          type: "error",
+        });
+      }
+    } catch (e) {
+      setSyncStatus({ msg: "Sync error occurred.", type: "error" });
+    } finally {
+      setIsSyncing(false);
+      // Clear status after 3 seconds
+      setTimeout(() => setSyncStatus(null), 3000);
+    }
   };
 
   const handleDelete = (id: string, e?: React.MouseEvent) => {
@@ -166,6 +225,10 @@ function SidePanel() {
                   fetchItems();
                   setCurrentView("list");
                 }}
+                onUpdate={() => {
+                  // Refresh the list so it has the latest data (summary, citation, etc.)
+                  fetchItems();
+                }}
               />
             </motion.div>
           );
@@ -192,7 +255,38 @@ function SidePanel() {
                   </h1>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  {/* Status Message */}
+                  <AnimatePresence>
+                    {syncStatus && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`text-[10px] px-2 py-1 rounded-md font-medium whitespace-nowrap ${
+                          syncStatus.type === "success"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {syncStatus.msg}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Sync Button */}
+                  <div
+                    onClick={handleSync}
+                    className={`p-2 rounded-full transition-colors cursor-pointer ${
+                      isSyncing
+                        ? "text-blue-500 bg-blue-50 animate-spin"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                    title="Sync to Cloud"
+                  >
+                    <RefreshCw size={20} />
+                  </div>
+
                   <div
                     onClick={() => setCurrentView("smartpen")}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400 cursor-pointer"
@@ -283,9 +377,16 @@ function SidePanel() {
                             .hostname
                         }
                       </span>
-                      <span className="text-[10px] text-gray-400">
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {item.id.startsWith("local_") && (
+                          <div title="Not synced to cloud">
+                            <CloudOff className="w-3 h-3 text-red-400" />
+                          </div>
+                        )}
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
 
                     <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-3 mb-3 font-medium">

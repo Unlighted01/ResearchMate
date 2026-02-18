@@ -186,17 +186,27 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
   }
 }
 
-export async function syncLocalItemsToCloud(): Promise<void> {
+export async function syncLocalItemsToCloud(): Promise<{
+  success: boolean;
+  count: number;
+  error?: string;
+}> {
   const authenticated = await isAuthenticated();
-  if (!authenticated) return;
+  if (!authenticated) {
+    return { success: false, count: 0, error: "Not authenticated" };
+  }
 
   const storage = getLocalStorage();
-  if (!storage) return;
+  if (!storage) {
+    return { success: false, count: 0, error: "Storage not available" };
+  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) {
+    return { success: false, count: 0, error: "User not found" };
+  }
 
   // 1. Get Local Items
   const localItems = await new Promise<StorageItem[]>((resolve) => {
@@ -207,40 +217,53 @@ export async function syncLocalItemsToCloud(): Promise<void> {
     });
   });
 
-  if (localItems.length === 0) return;
+  if (localItems.length === 0) {
+    return { success: true, count: 0 };
+  }
 
   console.log(`Syncing ${localItems.length} items to cloud...`);
 
   // 2. Upload to Supabase
-  const itemsToUpload = localItems.map((item) =>
-    transformToDatabase(
-      {
-        text: item.text,
-        tags: item.tags,
-        note: item.note,
-        sourceUrl: item.sourceUrl,
-        sourceTitle: item.sourceTitle,
-        aiSummary: item.aiSummary,
-        citation: item.citation,
-        citationFormat: item.citationFormat,
-        deviceSource: "extension",
-        collectionId: item.collectionId,
-        preferredView: item.preferredView,
-      },
-      user.id,
-    ),
-  );
+  try {
+    const itemsToUpload = localItems.map((item) =>
+      transformToDatabase(
+        {
+          text: item.text,
+          tags: item.tags,
+          note: item.note,
+          sourceUrl: item.sourceUrl,
+          sourceTitle: item.sourceTitle,
+          aiSummary: item.aiSummary,
+          citation: item.citation,
+          citationFormat: item.citationFormat,
+          deviceSource: "extension",
+          collectionId: item.collectionId,
+          preferredView: item.preferredView,
+        },
+        user.id,
+      ),
+    );
 
-  const { error } = await supabase.from("items").insert(itemsToUpload);
+    const { error } = await supabase.from("items").insert(itemsToUpload);
 
-  if (!error) {
+    if (error) {
+      console.error("Sync failed:", error);
+      return { success: false, count: 0, error: error.message };
+    }
+
     // 3. Clear Local Storage on success
     await new Promise<void>((resolve) => {
       storage.remove("researchMateItems", () => resolve());
     });
     console.log("Sync complete and local items cleared.");
-  } else {
-    console.error("Sync failed:", error);
+    return { success: true, count: localItems.length };
+  } catch (err: any) {
+    console.error("Sync exception:", err);
+    return {
+      success: false,
+      count: 0,
+      error: err.message || "Unknown sync error",
+    };
   }
 }
 

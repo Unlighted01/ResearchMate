@@ -29,9 +29,15 @@ interface ItemDetailProps {
   item: StorageItem;
   onBack: () => void;
   onDelete: () => void;
+  onUpdate: () => void;
 }
 
-const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
+const ItemDetail: React.FC<ItemDetailProps> = ({
+  item,
+  onBack,
+  onDelete,
+  onUpdate,
+}) => {
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -83,6 +89,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
     await updateItem(item.id, {
       preferredView: showSummary ? "summary" : "original",
     });
+    onUpdate();
   };
 
   const handleDelete = async () => {
@@ -121,6 +128,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
           aiSummary: result.summary,
           preferredView: "summary",
         });
+        onUpdate();
       } else {
         alert(result.error || "Failed to generate summary");
       }
@@ -163,6 +171,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
           citation: result.citation,
           citationFormat: formatToUse,
         });
+        onUpdate();
       } else {
         alert(result.error || "Failed to generate citation");
       }
@@ -175,6 +184,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
         citation: newCitation,
         citationFormat: formatToUse,
       });
+      onUpdate();
     }
     setLoadingCitation(false);
   };
@@ -185,6 +195,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
     setTags(updatedTags); // Optimistic UI update
     await updateItem(item.id, { tags: updatedTags });
     item.tags = updatedTags; // Keep prop in sync
+    onUpdate();
     setIsAddingTag(false);
     setNewTag("");
   };
@@ -194,6 +205,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
     setTags(updatedTags); // Optimistic UI update
     await updateItem(item.id, { tags: updatedTags });
     item.tags = updatedTags; // Keep prop in sync
+    onUpdate();
   };
 
   const handleBookSelect = async (book: BookMetadata) => {
@@ -215,6 +227,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
     item.citation = citation;
     item.sourceUrl = book.previewLink || book.infoLink || "";
 
+    onUpdate();
     setIsIdentifyModalOpen(false);
   };
 
@@ -497,6 +510,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({ item, onBack, onDelete }) => {
                   <option value="mla">MLA</option>
                   <option value="harvard">Harvard</option>
                   <option value="chicago">Chicago</option>
+                  <option value="ieee">IEEE</option>
                   <option value="bibtex">BibTeX</option>
                 </select>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-blue-500 z-20">

@@ -281,6 +281,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                   { value: "apa", label: "APA" },
                   { value: "mla", label: "MLA" },
                   { value: "chicago", label: "CHICAGO" },
+                  { value: "ieee", label: "IEEE" },
                 ]}
               />
             </div>
