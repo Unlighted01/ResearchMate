@@ -32,6 +32,7 @@ export interface AddItemInput {
   deviceSource?: DeviceSource;
   collectionId?: string;
   preferredView?: "original" | "summary";
+  createdAt?: string;
 }
 
 // Transform helpers
@@ -73,6 +74,7 @@ function transformToDatabase(
     device_source: item.deviceSource || "extension",
     collection_id: item.collectionId || null,
     preferred_view: item.preferredView || null,
+    created_at: item.createdAt, // Optional: preserve original creation time
   };
 }
 
@@ -239,6 +241,7 @@ export async function syncLocalItemsToCloud(): Promise<{
           deviceSource: "extension",
           collectionId: item.collectionId,
           preferredView: item.preferredView,
+          createdAt: item.createdAt,
         },
         user.id,
       ),

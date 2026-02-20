@@ -1,0 +1,8 @@
+Clean: node_modules/jspdf/dist/jspdf.es.min.js
+Clean: node_modules/jspdf/dist/jspdf.es.js
+Clean: node_modules/jspdf/dist/jspdf.umd.min.js
+Clean: node_modules/jspdf/dist/jspdf.umd.js
+Patched node_modules/jspdf/dist/jspdf.node.min.js
+Clean: node_modules/jspdf/dist/jspdf.node.js
+Total Patched: 1
+Done.
