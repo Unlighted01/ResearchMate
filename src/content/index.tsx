@@ -61,6 +61,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     });
   } else if (request.action === "toggleOverlay") {
     toggleOverlay();
+  } else if (request.action === "showErrorToast") {
+    showErrorToast(request.message);
   }
 });
 
@@ -92,12 +94,64 @@ const removeSelectionButton = () => {
   }
 };
 
+function showErrorToast(message: string) {
+  const existing = document.getElementById("rm-content-error-toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "rm-content-error-toast";
+  toast.style.position = "fixed";
+  toast.style.bottom = "24px";
+  toast.style.left = "50%";
+  toast.style.transform = "translateX(-50%) translateY(20px)";
+  toast.style.opacity = "0";
+  toast.style.background = "#EF4444"; // Red error color
+  toast.style.color = "#fff";
+  toast.style.padding = "8px 16px";
+  toast.style.borderRadius = "8px";
+  toast.style.fontSize = "14px";
+  toast.style.fontWeight = "500";
+  toast.style.zIndex = "2147483647";
+  toast.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+  toast.style.transition = "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+  toast.innerText = message;
+
+  document.body.appendChild(toast);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    toast.style.transform = "translateX(-50%) translateY(0)";
+    toast.style.opacity = "1";
+  });
+
+  // Remove after 2.5s
+  setTimeout(() => {
+    toast.style.transform = "translateX(-50%) translateY(20px)";
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+
 const handleSelection = (e?: Event) => {
   const selection = window.getSelection();
   const text = selection?.toString().trim();
 
   if (!text || text.length === 0) {
     removeSelectionButton();
+    return;
+  }
+
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+
+  // If selection is too short (less than 2 words), reject it
+  if (words.length < 2) {
+    removeSelectionButton();
+    // Only show the toast if they definitively finished highlighting (mouseup)
+    // AND they actively selected a real word (e.g. double clicking a single word),
+    // rather than accidentally snagging a space or newline.
+    if (e && e.type === "mouseup" && words.length === 1) {
+      showErrorToast("Select at least 2 words to save");
+    }
     return;
   }
 
@@ -200,7 +254,7 @@ const handleSelection = (e?: Event) => {
       }
 
       try {
-        await addItem({
+        const resultItem = await addItem({
           text: text,
           sourceUrl: window.location.href,
           sourceTitle: document.title,
@@ -210,13 +264,27 @@ const handleSelection = (e?: Event) => {
 
         // Success State
         if (selectionButton) {
-          selectionButton.innerHTML = `
-                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                   <polyline points="20 6 9 17 4 12"></polyline>
-                 </svg>
-                 <span style="color: #22C55E;">Saved!</span>
-               `;
-          setTimeout(() => removeSelectionButton(), 1500);
+          if (resultItem && resultItem.id.startsWith("local_")) {
+            // Guest Mode / Offline Fallback - Orange UI
+            selectionButton.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              <span style="color: #F59E0B;">Saved Locally (Sign in to sync)</span>
+            `;
+            setTimeout(() => removeSelectionButton(), 2500);
+          } else {
+            // Authenticated (Supabase Sync) - Green UI
+            selectionButton.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span style="color: #22C55E;">Saved to Supabase!</span>
+            `;
+            setTimeout(() => removeSelectionButton(), 1500);
+          }
         }
       } catch (err) {
         console.error("Failed to save:", err);
@@ -306,6 +374,22 @@ const createTrigger = () => {
     .trigger:hover .label {
       opacity: 1;
     }
+    
+    .trigger.idle {
+      opacity: 0.15;
+      transform: translateX(10px);
+    }
+    
+    .trigger.idle:hover {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    
+    .trigger.fullscreen-hidden {
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
   `;
 
   shadow.appendChild(style);
@@ -337,6 +421,48 @@ const createTrigger = () => {
   });
 
   shadow.appendChild(container);
+
+  // Idle and Fullscreen Logic
+  let idleTimer: number | null = null;
+  const resetIdleTimer = () => {
+    if (idleTimer) window.clearTimeout(idleTimer);
+    container.classList.remove("idle");
+
+    // After 3 seconds of no mouse movement, make it transparent
+    idleTimer = window.setTimeout(() => {
+      // Don't fade out if we are currently hovering over the trigger
+      if (!container.matches(":hover")) {
+        container.classList.add("idle");
+      }
+    }, 3000);
+  };
+
+  // Start the timer
+  resetIdleTimer();
+  window.addEventListener("mousemove", resetIdleTimer);
+  window.addEventListener("mousedown", resetIdleTimer);
+  window.addEventListener("keydown", resetIdleTimer);
+
+  // Stop trigger from hiding when hovering over it
+  container.addEventListener("mouseenter", () => {
+    if (idleTimer) window.clearTimeout(idleTimer);
+    container.classList.remove("idle");
+  });
+
+  container.addEventListener("mouseleave", resetIdleTimer);
+
+  // Hide entirely in fullscreen (YouTube, Netflix, etc.)
+  const handleFullscreenChange = () => {
+    if (document.fullscreenElement) {
+      container.classList.add("fullscreen-hidden");
+    } else {
+      container.classList.remove("fullscreen-hidden");
+    }
+  };
+
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+  document.addEventListener("mozfullscreenchange", handleFullscreenChange);
 
   // Theme Handling
   const updateTheme = (theme: string) => {

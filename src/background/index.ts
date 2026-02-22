@@ -27,8 +27,24 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "save-to-researchmate" && info.selectionText) {
+    const text = info.selectionText.trim();
+    const words = text.split(/\s+/).filter((w) => w.length > 0);
+
+    // Enforce the same minimum word count as the highlight button
+    if (words.length < 10) {
+      if (tab?.id) {
+        chrome.tabs
+          .sendMessage(tab.id, {
+            action: "showErrorToast",
+            message: "Select a full sentence or paragraph to save",
+          })
+          .catch(() => {}); // ignore errors if content script not loaded
+      }
+      return;
+    }
+
     // Handle saving text
-    console.log("Saving text from context menu:", info.selectionText);
+    console.log("Saving text from context menu:", text);
 
     // You would typically send this to the side panel or save directly to storage
     // using the storageService (but background service workers have limited import capabilities w/o bundler)
