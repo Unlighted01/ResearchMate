@@ -93,10 +93,44 @@ export async function getSession(): Promise<SessionResult> {
 }
 
 export async function isAuthenticated(): Promise<boolean> {
+  // Force the Supabase client to wake up and retrieve the session
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  return !!session;
+
+  if (session) return true;
+
+  // Fallback: If Supabase auth state hasn't initialized yet in the Background Worker context,
+  // manually check our adapter's backing store to see if a token exists.
+  // Supabase prefixes keys with sb-[project-id]-auth-token.
+  const allData = await new Promise<{ [key: string]: any }>((resolve) => {
+    chrome.storage.local.get(null, (result) => resolve(result));
+  });
+
+  const authKey = Object.keys(allData).find(
+    (key) => key.startsWith("sb-") && key.endsWith("-auth-token")
+  );
+
+  if (authKey && allData[authKey]) {
+    try {
+      // The custom storage adapter stringifies data, but if it's already an object, use it directly
+      const sessionData = typeof allData[authKey] === "string"
+        ? JSON.parse(allData[authKey])
+        : allData[authKey];
+
+      if (sessionData && sessionData.access_token) {
+        await supabase.auth.setSession({
+          access_token: sessionData.access_token,
+          refresh_token: sessionData.refresh_token,
+        });
+        return true;
+      }
+    } catch (e) {
+      console.error("Failed to parse chrome auth token", e);
+    }
+  }
+
+  return false;
 }
 
 export async function signInWithGoogle() {

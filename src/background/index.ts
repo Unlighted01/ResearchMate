@@ -1,4 +1,6 @@
 // Background service worker
+import { addItem } from "../services/storageService";
+
 console.log("ResearchMate Background Loaded");
 
 // Toggle overlay on action click
@@ -38,7 +40,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             action: "showErrorToast",
             message: "Select a full sentence or paragraph to save",
           })
-          .catch(() => {}); // ignore errors if content script not loaded
+          .catch(() => { }); // ignore errors if content script not loaded
       }
       return;
     }
@@ -51,27 +53,39 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     // For now, let's store it in local storage to be picked up by the side panel
 
     const newItem = {
-      id: `local_${Date.now()}`,
       text: info.selectionText,
       sourceUrl: tab?.url || "",
       sourceTitle: tab?.title || "",
       createdAt: new Date().toISOString(),
-      deviceSource: "extension",
+      deviceSource: "extension" as const,
       tags: ["quick-save"],
       note: "",
     };
 
-    chrome.storage.local.get(["researchMateItems"], (result) => {
-      const items = result.researchMateItems
-        ? JSON.parse(result.researchMateItems)
-        : [];
-      items.unshift(newItem);
-      chrome.storage.local.set(
-        { researchMateItems: JSON.stringify(items) },
-        () => {
-          // Notify the user?
-        },
-      );
+    // Route through the official storage service (handles Supabase/Local fallback)
+    addItem(newItem).then(() => {
+      // Notify any open SidePanels to refresh their lists
+      chrome.runtime.sendMessage({ action: "itemAdded" }).catch(() => { });
+    }).catch((err) => {
+      console.error("Failed to add item from background:", err);
     });
+  }
+});
+
+// Listen for save requests from Content Scripts
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.action === "saveItemInBackground") {
+    addItem(request.payload)
+      .then((resultItem) => {
+        // Broadcast the update to any open SidePanels
+        chrome.runtime.sendMessage({ action: "itemAdded" }).catch(() => { });
+        // Reply to the content script with the success state
+        sendResponse({ success: true, isLocal: resultItem?.id.startsWith("local_") });
+      })
+      .catch((err) => {
+        console.error("Background save error:", err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true; // Keep message channel open for async response
   }
 });

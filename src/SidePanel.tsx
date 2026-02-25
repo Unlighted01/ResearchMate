@@ -29,6 +29,7 @@ function SidePanel() {
   const [items, setItems] = useState<StorageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
@@ -59,6 +60,7 @@ function SidePanel() {
     fetchItems();
     getCurrentUser().then((currentUser) => {
       setUser(currentUser);
+      setIsAuthLoading(false);
       if (currentUser) {
         // Auto-sync on open/mount if logged in
         syncLocalItemsToCloud().then((res) => {
@@ -93,9 +95,17 @@ function SidePanel() {
       }
     };
 
+    const handleMessage = (msg: any) => {
+      if (msg.action === "itemAdded") {
+        fetchItems();
+      }
+    };
+
     chrome.storage.onChanged.addListener(handleStorageChange);
+    chrome.runtime.onMessage.addListener(handleMessage);
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange);
+      chrome.runtime.onMessage.removeListener(handleMessage);
       subscription.unsubscribe();
     };
   }, []);
@@ -263,11 +273,10 @@ function SidePanel() {
                         initial={{ opacity: 0, x: 10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
-                        className={`text-[10px] px-2 py-1 rounded-md font-medium whitespace-nowrap ${
-                          syncStatus.type === "success"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
+                        className={`text-[10px] px-2 py-1 rounded-md font-medium whitespace-nowrap ${syncStatus.type === "success"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                          }`}
                       >
                         {syncStatus.msg}
                       </motion.div>
@@ -277,11 +286,10 @@ function SidePanel() {
                   {/* Sync Button */}
                   <div
                     onClick={handleSync}
-                    className={`p-2 rounded-full transition-colors cursor-pointer ${
-                      isSyncing
-                        ? "text-blue-500 bg-blue-50 animate-spin"
-                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
+                    className={`p-2 rounded-full transition-colors cursor-pointer ${isSyncing
+                      ? "text-blue-500 bg-blue-50 animate-spin"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
                     title="Sync to Cloud"
                   >
                     <RefreshCw size={20} />
@@ -332,7 +340,7 @@ function SidePanel() {
                 },
               }}
             >
-              {!user && (
+              {!user && !isAuthLoading && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex items-center justify-between mb-4">
                   <div className="text-xs text-blue-800 dark:text-blue-200">
                     <span className="font-semibold">Guest Mode:</span> Items are
@@ -372,10 +380,13 @@ function SidePanel() {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                        {
-                          new URL(item.sourceUrl || "https://example.com")
-                            .hostname
-                        }
+                        {(() => {
+                          try {
+                            return new URL(item.sourceUrl || "https://example.com").hostname;
+                          } catch (e) {
+                            return "UNKNOWN SOURCE";
+                          }
+                        })()}
                       </span>
                       <div className="flex items-center gap-1">
                         {item.id.startsWith("local_") && (

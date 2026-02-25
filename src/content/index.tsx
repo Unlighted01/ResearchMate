@@ -1,4 +1,3 @@
-import { addItem } from "../services/storageService";
 // Content script to handle text selection and highlighting
 console.log("ResearchMate Content Script Loaded");
 
@@ -254,40 +253,56 @@ const handleSelection = (e?: Event) => {
       }
 
       try {
-        const resultItem = await addItem({
-          text: text,
-          sourceUrl: window.location.href,
-          sourceTitle: document.title,
-          tags: ["quick-save"],
-          deviceSource: "extension",
-        });
+        chrome.runtime.sendMessage(
+          {
+            action: "saveItemInBackground",
+            payload: {
+              text: text,
+              sourceUrl: window.location.href,
+              sourceTitle: document.title,
+              tags: ["quick-save"],
+              deviceSource: "extension",
+            },
+          },
+          (response) => {
+            if (chrome.runtime.lastError || !response || !response.success) {
+              console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
+              if (selectionButton) {
+                selectionButton.innerHTML = `<span style="color: red;">Error</span>`;
+                selectionButton.style.pointerEvents = "auto";
+                setTimeout(() => removeSelectionButton(), 2000);
+              }
+              return;
+            }
 
-        // Success State
-        if (selectionButton) {
-          if (resultItem && resultItem.id.startsWith("local_")) {
-            // Guest Mode / Offline Fallback - Orange UI
-            selectionButton.innerHTML = `
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                <polyline points="7 3 7 8 15 8"></polyline>
-              </svg>
-              <span style="color: #F59E0B;">Saved Locally (Sign in to sync)</span>
-            `;
-            setTimeout(() => removeSelectionButton(), 2500);
-          } else {
-            // Authenticated (Supabase Sync) - Green UI
-            selectionButton.innerHTML = `
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <span style="color: #22C55E;">Saved to Supabase!</span>
-            `;
-            setTimeout(() => removeSelectionButton(), 1500);
+            // Success State
+            if (selectionButton) {
+              if (response.isLocal) {
+                // Guest Mode / Offline Fallback - Orange UI
+                selectionButton.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                  </svg>
+                  <span style="color: #F59E0B;">Saved Locally (Sign in to sync)</span>
+                `;
+                setTimeout(() => removeSelectionButton(), 2500);
+              } else {
+                // Authenticated (Supabase Sync) - Green UI
+                selectionButton.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span style="color: #22C55E;">Saved to Supabase!</span>
+                `;
+                setTimeout(() => removeSelectionButton(), 1500);
+              }
+            }
           }
-        }
+        );
       } catch (err) {
-        console.error("Failed to save:", err);
+        console.error("Message execution failed:", err);
         if (selectionButton) {
           selectionButton.innerHTML = `<span style="color: red;">Error</span>`;
           selectionButton.style.pointerEvents = "auto";

@@ -127,6 +127,26 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
   return newItem;
 }
 
+// Helper to remove duplicated local items after successful cloud sync
+async function purgeLocalDuplicates(text: string): Promise<void> {
+  const storage = getLocalStorage();
+  if (!storage) return;
+
+  const localItems = await new Promise<StorageItem[]>((resolve) => {
+    storage.get(["researchMateItems"], (result) => {
+      resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+    });
+  });
+
+  const filtered = localItems.filter((i) => i.text !== text);
+
+  if (filtered.length !== localItems.length) {
+    await new Promise<void>((resolve) => {
+      storage.set({ researchMateItems: JSON.stringify(filtered) }, () => resolve());
+    });
+  }
+}
+
 export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
   const authenticated = await isAuthenticated();
 
@@ -148,6 +168,7 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
           .single();
 
         if (error) throw error;
+        await purgeLocalDuplicates(item.text); // Cleanup
         return transformDatabaseItem(data);
       } catch (insertError: any) {
         // Check for "Column not found" error (Schema mismatch)
@@ -173,6 +194,7 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
             .single();
 
           if (retryError) throw retryError;
+          await purgeLocalDuplicates(item.text); // Cleanup
           return transformDatabaseItem(retryData);
         }
 
@@ -247,11 +269,23 @@ export async function syncLocalItemsToCloud(): Promise<{
       ),
     );
 
-    const { error } = await supabase.from("items").insert(itemsToUpload);
-
-    if (error) {
-      console.error("Sync failed:", error);
-      return { success: false, count: 0, error: error.message };
+    try {
+      const { error } = await supabase.from("items").insert(itemsToUpload);
+      if (error) throw error;
+    } catch (insertError: any) {
+      if (insertError.code === "PGRST204" || insertError.message?.includes("citation")) {
+        console.warn("Schema mismatch during sync. Retrying with safe payload...", insertError);
+        const safeItems = itemsToUpload.map(item => {
+          const safe = { ...item };
+          delete safe.citation;
+          delete safe.citation_format;
+          return safe;
+        });
+        const { error: retryError } = await supabase.from("items").insert(safeItems);
+        if (retryError) throw retryError;
+      } else {
+        throw insertError;
+      }
     }
 
     // 3. Clear Local Storage on success
@@ -305,13 +339,21 @@ export async function getAllItems(): Promise<StorageItem[]> {
   }
 
   // 3. Merge and Sort
-  // Create a map to avoid duplicates if we decide to sync local to cloud later
-  const combined = [...localItems, ...items]; // Local items usually newer/unsynced first
+  // Create a map to avoid duplicates. Since a successfully uploaded Cloud item will have a UUID
+  // instead of a `local_` ID, we deduplicate by `text` content to prevent ghost "CloudOff" icons.
+  const combined = [...localItems, ...items];
+  const uniqueItemsMap = new Map<string, StorageItem>();
 
-  // Deduplicate by ID
-  const uniqueItems = Array.from(
-    new Map(combined.map((item) => [item.id, item])).values(),
-  );
+  for (const item of combined) {
+    // If we already have this text in the map, only overwrite it if the NEW item is from the cloud (ID doesn't start with local_)
+    // This ensures the Cloud version "wins" over the Local version in the UI.
+    const existing = uniqueItemsMap.get(item.text);
+    if (!existing || (!item.id.startsWith("local_") && existing.id.startsWith("local_"))) {
+      uniqueItemsMap.set(item.text, item);
+    }
+  }
+
+  const uniqueItems = Array.from(uniqueItemsMap.values());
 
   return uniqueItems.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
