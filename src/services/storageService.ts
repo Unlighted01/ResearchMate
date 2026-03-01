@@ -174,18 +174,24 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
         // Check for "Column not found" error (Schema mismatch)
         if (
           insertError.code === "PGRST204" ||
-          insertError.message?.includes("citation")
+          insertError.message?.includes("citation") ||
+          insertError.message?.includes("column") ||
+          insertError.message?.includes("does not exist")
         ) {
           console.warn(
-            "Schema mismatch detected (missing columns). Retrying without citation fields...",
+            "Schema mismatch detected (missing columns). Retrying with safe payload...",
             insertError,
           );
 
-          // Remove new columns and retry
-          const safePayload = { ...payload };
-          delete safePayload.citation;
-          delete safePayload.citation_format;
-          // Also remove ai_summary if that might be missing too, but let's stick to citation first
+          // Retry with safe payload
+          const safePayload = {
+            user_id: payload.user_id,
+            text: payload.text,
+            source_url: payload.source_url,
+            source_title: payload.source_title,
+            tags: payload.tags,
+            created_at: payload.created_at,
+          };
 
           const { data: retryData, error: retryError } = await supabase
             .from("items")
@@ -193,7 +199,24 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
             .select()
             .single();
 
-          if (retryError) throw retryError;
+          if (retryError) {
+             console.warn("Safe payload failed, retrying with ultra-safe payload", retryError);
+             const ultraSafePayload = {
+               user_id: payload.user_id,
+               text: payload.text
+             };
+             
+             const { data: ultraData, error: ultraError } = await supabase
+                .from("items")
+                .insert([ultraSafePayload])
+                .select()
+                .single();
+                
+             if (ultraError) throw ultraError;
+             await purgeLocalDuplicates(item.text);
+             return transformDatabaseItem(ultraData);
+          }
+          
           await purgeLocalDuplicates(item.text); // Cleanup
           return transformDatabaseItem(retryData);
         }
@@ -273,16 +296,34 @@ export async function syncLocalItemsToCloud(): Promise<{
       const { error } = await supabase.from("items").insert(itemsToUpload);
       if (error) throw error;
     } catch (insertError: any) {
-      if (insertError.code === "PGRST204" || insertError.message?.includes("citation")) {
+      if (
+        insertError.code === "PGRST204" || 
+        insertError.message?.includes("citation") ||
+        insertError.message?.includes("column") ||
+        insertError.message?.includes("does not exist")
+      ) {
         console.warn("Schema mismatch during sync. Retrying with safe payload...", insertError);
-        const safeItems = itemsToUpload.map(item => {
-          const safe = { ...item };
-          delete safe.citation;
-          delete safe.citation_format;
-          return safe;
-        });
-        const { error: retryError } = await supabase.from("items").insert(safeItems);
-        if (retryError) throw retryError;
+        const safeItems = itemsToUpload.map(item => ({
+          user_id: item.user_id,
+          text: item.text,
+          source_url: item.source_url,
+          source_title: item.source_title,
+          tags: item.tags,
+          created_at: item.created_at
+        }));
+        
+        try {
+          const { error: retryError } = await supabase.from("items").insert(safeItems);
+          if (retryError) throw retryError;
+        } catch (retryErr: any) {
+          console.warn("Second sync attempt failed, trying ultra-safe payload", retryErr);
+          const ultraSafeItems = itemsToUpload.map(item => ({
+            user_id: item.user_id,
+            text: item.text
+          }));
+          const { error: finalError } = await supabase.from("items").insert(ultraSafeItems);
+          if (finalError) throw finalError;
+        }
       } else {
         throw insertError;
       }
@@ -386,6 +427,80 @@ export async function deleteItem(id: string): Promise<void> {
       const { error } = await supabase.from("items").delete().eq("id", id);
       if (error) {
         console.error("Error deleting item:", error);
+        throw error;
+      }
+    }
+  }
+}
+// Delete multiple items at once
+export async function deleteItems(ids: string[]): Promise<void> {
+  const localIds = ids.filter(id => id.startsWith("local_"));
+  const cloudIds = ids.filter(id => !id.startsWith("local_"));
+
+  // 1. Delete from local storage
+  if (localIds.length > 0) {
+    const storage = getLocalStorage();
+    if (storage) {
+      const localItems = await new Promise<StorageItem[]>((resolve) => {
+        storage.get(["researchMateItems"], (result) => {
+          resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+        });
+      });
+      const newItems = localItems.filter((i) => !localIds.includes(i.id));
+      await new Promise<void>((resolve) => {
+        storage.set({ researchMateItems: JSON.stringify(newItems) }, () => resolve());
+      });
+    }
+  }
+
+  // 2. Delete from Cloud
+  if (cloudIds.length > 0) {
+    const authenticated = await isAuthenticated();
+    if (authenticated) {
+      const { error } = await supabase.from("items").delete().in("id", cloudIds);
+      if (error) {
+        console.error("Error deleting items in bulk:", error);
+        throw error;
+      }
+    }
+  }
+}
+
+export async function updateItemsCollection(ids: string[], collectionId: string | null): Promise<void> {
+  const localIds = ids.filter(id => id.startsWith("local_"));
+  const cloudIds = ids.filter(id => !id.startsWith("local_"));
+  
+  // 1. Update in local storage
+  if (localIds.length > 0) {
+    const storage = getLocalStorage();
+    if (storage) {
+      const localItems = await new Promise<StorageItem[]>((resolve) => {
+        storage.get(["researchMateItems"], (result) => {
+          resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+        });
+      });
+      
+      const newItems = localItems.map((i) => 
+        localIds.includes(i.id) ? { ...i, collectionId: collectionId || undefined } : i
+      );
+
+      await new Promise<void>((resolve) => {
+        storage.set({ researchMateItems: JSON.stringify(newItems) }, () => resolve());
+      });
+    }
+  }
+
+  // 2. Update in Cloud
+  if (cloudIds.length > 0) {
+    const authenticated = await isAuthenticated();
+    if (authenticated) {
+      const { error } = await supabase
+        .from("items")
+        .update({ collection_id: collectionId || null })
+        .in("id", cloudIds);
+        
+      if (error) {
+        console.error("Error updating items collections in bulk:", error);
         throw error;
       }
     }

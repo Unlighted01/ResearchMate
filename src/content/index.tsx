@@ -145,12 +145,6 @@ const handleSelection = (e?: Event) => {
   // If selection is too short (less than 2 words), reject it
   if (words.length < 2) {
     removeSelectionButton();
-    // Only show the toast if they definitively finished highlighting (mouseup)
-    // AND they actively selected a real word (e.g. double clicking a single word),
-    // rather than accidentally snagging a space or newline.
-    if (e && e.type === "mouseup" && words.length === 1) {
-      showErrorToast("Select at least 2 words to save");
-    }
     return;
   }
 
@@ -194,7 +188,7 @@ const handleSelection = (e?: Event) => {
     selectionButton.style.display = "flex";
     selectionButton.style.alignItems = "center";
     selectionButton.style.justifyContent = "center";
-    selectionButton.style.padding = "6px 12px";
+    selectionButton.style.padding = "6px";
     selectionButton.style.background = "#fff";
     selectionButton.style.borderRadius = "20px";
     selectionButton.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
@@ -204,17 +198,18 @@ const handleSelection = (e?: Event) => {
     selectionButton.style.fontSize = "13px";
     selectionButton.style.fontWeight = "600";
     selectionButton.style.color = "#333";
-    selectionButton.style.gap = "6px";
     selectionButton.style.transition = "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
     selectionButton.style.opacity = "0";
     selectionButton.style.animation = "fadeInScale 0.2s forwards";
 
     // Icon + Text
     selectionButton.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-      </svg>
-      <span>Save to ResearchMate</span>
+      <div class="rm-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </div>
+      <span class="rm-btn-label">Save</span>
     `;
 
     // Add Styles
@@ -229,6 +224,19 @@ const handleSelection = (e?: Event) => {
             #researchmate-selection-btn:hover {
                 transform: translate(-50%, -2px) scale(1.05) !important;
                 box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
+            }
+            #researchmate-selection-btn .rm-btn-label {
+                max-width: 0;
+                overflow: hidden;
+                opacity: 0;
+                white-space: nowrap;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            #researchmate-selection-btn:hover .rm-btn-label {
+                max-width: 60px;
+                opacity: 1;
+                margin-left: 6px;
+                padding-right: 6px;
             }
         `;
       document.head.appendChild(style);
@@ -248,7 +256,7 @@ const handleSelection = (e?: Event) => {
 
       // Show Loading/Saving State
       if (selectionButton) {
-        selectionButton.innerHTML = `<span>Saving...</span>`;
+        selectionButton.innerHTML = `<span style="padding: 0 6px;">Saving...</span>`;
         selectionButton.style.pointerEvents = "none";
       }
 
@@ -268,7 +276,7 @@ const handleSelection = (e?: Event) => {
             if (chrome.runtime.lastError || !response || !response.success) {
               console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
               if (selectionButton) {
-                selectionButton.innerHTML = `<span style="color: red;">Error</span>`;
+                selectionButton.innerHTML = `<span style="color: red; padding: 0 6px;">Error</span>`;
                 selectionButton.style.pointerEvents = "auto";
                 setTimeout(() => removeSelectionButton(), 2000);
               }
@@ -280,21 +288,21 @@ const handleSelection = (e?: Event) => {
               if (response.isLocal) {
                 // Guest Mode / Offline Fallback - Orange UI
                 selectionButton.innerHTML = `
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 6px;">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                     <polyline points="17 21 17 13 7 13 7 21"></polyline>
                     <polyline points="7 3 7 8 15 8"></polyline>
                   </svg>
-                  <span style="color: #F59E0B;">Saved Locally (Sign in to sync)</span>
+                  <span style="color: #F59E0B; padding: 0 6px;">Saved Locally</span>
                 `;
                 setTimeout(() => removeSelectionButton(), 2500);
               } else {
                 // Authenticated (Supabase Sync) - Green UI
                 selectionButton.innerHTML = `
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 6px;">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
-                  <span style="color: #22C55E;">Saved to Supabase!</span>
+                  <span style="color: #22C55E; padding: 0 6px;">Saved!</span>
                 `;
                 setTimeout(() => removeSelectionButton(), 1500);
               }
@@ -304,7 +312,7 @@ const handleSelection = (e?: Event) => {
       } catch (err) {
         console.error("Message execution failed:", err);
         if (selectionButton) {
-          selectionButton.innerHTML = `<span style="color: red;">Error</span>`;
+          selectionButton.innerHTML = `<span style="color: red; padding: 0 6px;">Error</span>`;
           selectionButton.style.pointerEvents = "auto";
           setTimeout(() => removeSelectionButton(), 2000);
         }
@@ -391,13 +399,17 @@ const createTrigger = () => {
     }
     
     .trigger.idle {
-      opacity: 0.15;
-      transform: translateX(10px);
+      opacity: 0;
+      transform: translateX(100%);
+      pointer-events: none;
     }
     
-    .trigger.idle:hover {
-      opacity: 1;
-      transform: translateX(0);
+    .trigger-area {
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: 20px;
     }
     
     .trigger.fullscreen-hidden {
@@ -437,34 +449,41 @@ const createTrigger = () => {
 
   shadow.appendChild(container);
 
-  // Idle and Fullscreen Logic
+  // Create a slightly larger, invisible hit area to make it easier to hover
+  // Wait, instead of waking up generally, we just let CSS do the layout but we can make it an edge trigger.
+  // Actually, let's keep it visible but super small
+  container.className = "trigger";
+
+  // Idle Logic
   let idleTimer: number | null = null;
   const resetIdleTimer = () => {
     if (idleTimer) window.clearTimeout(idleTimer);
     container.classList.remove("idle");
 
-    // After 3 seconds of no mouse movement, make it transparent
+    // After 2 seconds of no interaction, hide almost completely
     idleTimer = window.setTimeout(() => {
-      // Don't fade out if we are currently hovering over the trigger
       if (!container.matches(":hover")) {
-        container.classList.add("idle");
+        // We will just apply inline styles to hide it instead of adding the .idle class
+        // because we want a tiny sliver visible, and we want hover to work natively.
+        container.style.transform = "translateX(36px)";
+        container.style.opacity = "0.2";
       }
-    }, 3000);
+    }, 2000);
   };
 
-  // Start the timer
-  resetIdleTimer();
-  window.addEventListener("mousemove", resetIdleTimer);
-  window.addEventListener("mousedown", resetIdleTimer);
-  window.addEventListener("keydown", resetIdleTimer);
-
-  // Stop trigger from hiding when hovering over it
+  // Only wake up when we interact WITH the trigger, NOT the whole window!
   container.addEventListener("mouseenter", () => {
     if (idleTimer) window.clearTimeout(idleTimer);
+    container.style.transform = "translateX(0)";
+    container.style.opacity = "1";
     container.classList.remove("idle");
   });
 
-  container.addEventListener("mouseleave", resetIdleTimer);
+  container.addEventListener("mouseleave", () => {
+    resetIdleTimer();
+  });
+
+  resetIdleTimer(); // Initial hide after 2s
 
   // Hide entirely in fullscreen (YouTube, Netflix, etc.)
   const handleFullscreenChange = () => {

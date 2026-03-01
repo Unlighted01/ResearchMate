@@ -5,6 +5,7 @@ import {
   getAllItems,
   StorageItem,
   deleteItem,
+  deleteItems,
   syncLocalItemsToCloud,
 } from "./services/storageService";
 import { getCurrentUser, supabase } from "./services/supabaseClient";
@@ -23,6 +24,9 @@ import ItemDetail from "./components/ItemDetail";
 import SmartPenView from "./components/SmartPenView";
 import { GearIcon, TrashIcon } from "./components/icons";
 import { AnimatePresence, motion } from "motion/react";
+import { CheckSquare, Check, FolderPlus } from "lucide-react";
+import { CollectionSelector } from "./components/CollectionSelector";
+import { CollectionsView } from "./components/CollectionsView";
 import { Welcome } from "./components/Welcome";
 
 function SidePanel() {
@@ -41,11 +45,16 @@ function SidePanel() {
 
   // Navigation State
   const [currentView, setCurrentView] = useState<
-    "list" | "detail" | "settings" | "smartpen"
+    "list" | "collections" | "detail" | "settings" | "smartpen"
   >("list");
   const [selectedItem, setSelectedItem] = useState<StorageItem | null>(null);
 
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  // Multi-select state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showCollectionSelector, setShowCollectionSelector] = useState(false);
 
   useEffect(() => {
     // Check for welcome screen
@@ -168,7 +177,44 @@ function SidePanel() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size > 0) {
+      setIsSyncing(true); // Re-use loading state
+      try {
+        await deleteItems(Array.from(selectedIds));
+        await fetchItems();
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+      } catch (err) {
+        console.error("Failed to delete bulk items", err);
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+  };
+
+  const toggleSelection = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
   const handleItemClick = (item: StorageItem) => {
+    if (isSelectionMode) {
+      const newSet = new Set(selectedIds);
+      if (newSet.has(item.id)) {
+        newSet.delete(item.id);
+      } else {
+        newSet.add(item.id);
+      }
+      setSelectedIds(newSet);
+      return;
+    }
     setSelectedItem(item);
     setCurrentView("detail");
   };
@@ -244,11 +290,12 @@ function SidePanel() {
           );
         }
         return null;
+      case "collections":
       case "list":
       default:
         return (
           <motion.div
-            key="list"
+            key={currentView}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -256,7 +303,7 @@ function SidePanel() {
             className="flex-1 flex flex-col overflow-hidden h-full"
           >
             {/* Header */}
-            <div className="p-4 bg-white dark:bg-gray-800 shadow-sm z-10">
+            <div className="p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
                   <img src={logo} alt="Logo" className="w-6 h-6" />
@@ -312,20 +359,106 @@ function SidePanel() {
                 </div>
               </div>
 
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search your research..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-apple-blue dark:text-white outline-none"
-                />
+              {/* Top Navigation Tabs */}
+              <div className="flex gap-4 border-b border-gray-100 dark:border-gray-800 mb-3 px-1">
+                <button
+                  onClick={() => {
+                    setCurrentView("list");
+                    setIsSelectionMode(false);
+                  }}
+                  className={`pb-3 text-sm font-semibold transition-colors relative ${
+                    currentView === "list" 
+                      ? "text-blue-600 dark:text-blue-400" 
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  }`}
+                >
+                  Items
+                  {currentView === "list" && (
+                    <motion.div layoutId="nav-pill" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setCurrentView("collections");
+                    setIsSelectionMode(false);
+                  }}
+                  className={`pb-3 text-sm font-semibold transition-colors relative ${
+                    currentView === "collections" 
+                      ? "text-blue-600 dark:text-blue-400" 
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  }`}
+                >
+                  Collections
+                  {currentView === "collections" && (
+                    <motion.div layoutId="nav-pill" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+                  )}
+                </button>
               </div>
+
+              {/* Search Bar (Only in list view for now) */}
+              {currentView === "list" && (
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search your research..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-apple-blue dark:text-white outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Selection Action Bar */}
+              {isSelectionMode && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 flex items-center justify-between"
+                >
+                  <button
+                    onClick={() => {
+                      if (selectedIds.size === filteredItems.length) {
+                        setSelectedIds(new Set());
+                      } else {
+                        setSelectedIds(new Set(filteredItems.map(i => i.id)));
+                      }
+                    }}
+                    className="text-xs font-medium text-blue-500 hover:text-blue-600"
+                  >
+                    {selectedIds.size === filteredItems.length ? "Deselect All" : "Select All"}
+                  </button>
+                  <span className="text-xs text-gray-500 font-medium">
+                    {selectedIds.size} selected
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsSelectionMode(false);
+                      setSelectedIds(new Set());
+                    }}
+                    className="text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </motion.div>
+              )}
             </div>
 
             {/* Main Content Area */}
+            {currentView === "collections" ? (
+              <CollectionsView 
+                isGuest={!user} 
+                onCollectionClick={(id) => {
+                  // E.g filter items list by collection
+                  // TBD: Could have a 'collection items' view or just filter the list
+                  console.log("Clicked collection", id);
+                  setSearchQuery(""); // Clear search
+                  // Temporarily just switch to list view (filtering logic could go here)
+                  setCurrentView("list");
+                }} 
+              />
+            ) : (
             <motion.div
               className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide"
               initial="hidden"
@@ -376,8 +509,28 @@ function SidePanel() {
                       hidden: { opacity: 0, y: 10 },
                       show: { opacity: 1, y: 0 },
                     }}
-                    className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 cursor-pointer group hover-lift relative"
+                    className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border transition-all cursor-pointer group hover-lift relative ${
+                      selectedIds.has(item.id) 
+                        ? "border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/10" 
+                        : "border-gray-100 dark:border-gray-700"
+                    }`}
                   >
+                    {/* Selection Checkbox */}
+                    {(isSelectionMode || selectedIds.has(item.id)) && (
+                      <div 
+                        className="absolute -top-2 -left-2 z-10 bg-white dark:bg-gray-800 rounded-full"
+                        onClick={(e) => toggleSelection(item.id, e)}
+                      >
+                        {selectedIds.has(item.id) ? (
+                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border border-blue-500 shadow-sm">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-500 rounded-full bg-white dark:bg-gray-800 shadow-sm group-hover:border-blue-400 transition-colors"></div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                         {(() => {
@@ -427,38 +580,87 @@ function SidePanel() {
                           )}
                         </div>
                       </div>
-                      {/* Action Buttons (visible on hover) */}
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-3 right-3 flex gap-2">
-                        {item.sourceUrl && (
+                      {/* Action Buttons (visible on hover, hidden in selection mode) */}
+                      {!isSelectionMode && (
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-3 right-3 flex gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-lg shadow-sm">
+                          {!isSelectionMode && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsSelectionMode(true);
+                                setSelectedIds(new Set([item.id]));
+                              }}
+                              className="text-gray-400 hover:text-blue-500 cursor-pointer p-0.5"
+                              title="Select"
+                            >
+                              <CheckSquare size={16} />
+                            </div>
+                          )}
+                          {item.sourceUrl && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(item.sourceUrl, "_blank");
+                              }}
+                              className="text-gray-400 hover:text-blue-500 cursor-pointer p-0.5"
+                              title="Visit Source"
+                            >
+                              <ExternalLink size={16} />
+                            </div>
+                          )}
                           <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(item.sourceUrl, "_blank");
-                            }}
-                            className="text-gray-400 hover:text-blue-500 cursor-pointer"
-                            title="Visit Source"
+                            onClick={(e) => handleDelete(item.id, e)}
+                            className="text-gray-400 hover:text-red-500 cursor-pointer p-0.5"
+                            title="Delete"
                           >
-                            <ExternalLink size={18} />
+                            <TrashIcon
+                              size={16}
+                              className="text-gray-400 hover:text-red-500"
+                              dangerHover
+                              shakeOnClick
+                            />
                           </div>
-                        )}
-                        <div
-                          onClick={(e) => handleDelete(item.id, e)}
-                          className="text-gray-400 hover:text-red-500 cursor-pointer"
-                          title="Delete"
-                        >
-                          <TrashIcon
-                            size={18}
-                            className="text-gray-400 hover:text-red-500"
-                            dangerHover
-                            shakeOnClick
-                          />
                         </div>
-                      </div>
+                      )}
                     </div>
                   </motion.div>
                 ))
               )}
             </motion.div>
+            )}
+
+            {/* Bulk Actions Bottom Bar */}
+            <AnimatePresence>
+              {isSelectionMode && selectedIds.size > 0 && (
+                <motion.div
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 100, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  className="absolute bottom-4 left-4 right-4 bg-white dark:bg-gray-800 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 dark:border-gray-700 p-3 flex justify-between items-center z-40"
+                >
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 ml-2">
+                    {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowCollectionSelector(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      <FolderPlus size={16} />
+                      Collection
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                    >
+                      <TrashIcon size={16} dangerHover />
+                      Delete
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         );
     }
@@ -523,6 +725,19 @@ function SidePanel() {
           </div>
         </div>
       )}
+
+      {/* Collection Selector Modal */}
+      <CollectionSelector
+        isOpen={showCollectionSelector}
+        onClose={() => setShowCollectionSelector(false)}
+        selectedItemIds={Array.from(selectedIds)}
+        onComplete={() => {
+          setShowCollectionSelector(false);
+          setIsSelectionMode(false);
+          setSelectedIds(new Set());
+          fetchItems();
+        }}
+      />
 
       <AnimatePresence>
         {showWelcome && <Welcome onComplete={() => setShowWelcome(false)} />}
