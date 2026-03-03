@@ -52,6 +52,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
   const [summarizing, setSummarizing] = useState(false);
   const [loadingCitation, setLoadingCitation] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Initialize from preference OR default to showing summary if it exists
   const [showSummaryView, setShowSummaryView] = useState(() => {
@@ -103,6 +104,14 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     setShowDeleteConfirm(false);
   };
 
+  const cancelSummarization = () => {
+    if (abortController) {
+      abortController.abort();
+      setSummarizing(false);
+      setAbortController(null);
+    }
+  };
+
   const handleSummarize = async () => {
     // If summary exists, just toggle view to it
     if (summary && !showSummaryView) {
@@ -117,9 +126,11 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       return;
     }
 
+    const controller = new AbortController();
+    setAbortController(controller);
     setSummarizing(true);
     try {
-      const result = await summarizeText(item.text);
+      const result = await summarizeText(item.text, controller.signal);
       if (result.ok) {
         setSummary(result.summary);
         setShowSummaryView(true);
@@ -132,10 +143,14 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       } else {
         alert(result.error || "Failed to generate summary");
       }
-    } catch (e) {
-      alert("Error generating summary");
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+         alert("Error generating summary");
+      }
+    } finally {
+      setSummarizing(false);
+      setAbortController(null);
     }
-    setSummarizing(false);
   };
 
   const handleCite = async (overrideFormat?: string) => {
@@ -472,12 +487,18 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
             {/* Loading State Overlay */}
             {summarizing && !summary && (
-              <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-                  <span className="text-xs font-medium text-purple-600">
+              <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                  <span className="text-sm font-medium text-purple-600">
                     Summarizing...
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); cancelSummarization(); }}
+                    className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full text-xs font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}

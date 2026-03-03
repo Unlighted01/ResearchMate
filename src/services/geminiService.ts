@@ -45,7 +45,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 /**
  * Summarize text using the ResearchMate API
  */
-export async function summarizeText(text: string): Promise<SummaryResult> {
+export async function summarizeText(text: string, signal?: AbortSignal): Promise<SummaryResult> {
   if (!text.trim()) return { ok: false, summary: "", reason: "empty" };
 
   try {
@@ -54,6 +54,7 @@ export async function summarizeText(text: string): Promise<SummaryResult> {
       method: "POST",
       headers,
       body: JSON.stringify({ text }),
+      signal, // Attach standard AbortSignal
     });
 
     const data = await response.json();
