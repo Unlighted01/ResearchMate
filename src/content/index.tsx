@@ -266,8 +266,8 @@ const handleSelection = (e?: Event) => {
             action: "saveItemInBackground",
             payload: {
               text: text,
-              sourceUrl: window.location.href,
-              sourceTitle: document.title,
+              sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
+              sourceTitle: document.title || "Unknown Title",
               tags: ["quick-save"],
               deviceSource: "extension",
             },

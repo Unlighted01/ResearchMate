@@ -534,8 +534,12 @@ function SidePanel() {
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                         {(() => {
+                          if (!item.sourceUrl) return "UNKNOWN SOURCE";
                           try {
-                            return new URL(item.sourceUrl || "https://example.com").hostname;
+                            const urlToParse = item.sourceUrl.startsWith('http') 
+                                ? item.sourceUrl 
+                                : `https://${item.sourceUrl}`;
+                            return new URL(urlToParse).hostname;
                           } catch (e) {
                             return "UNKNOWN SOURCE";
                           }

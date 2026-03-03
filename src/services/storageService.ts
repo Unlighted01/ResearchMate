@@ -61,7 +61,7 @@ function transformToDatabase(
   item: AddItemInput,
   userId: string,
 ): Record<string, any> {
-  return {
+  const payload: Record<string, any> = {
     user_id: userId,
     text: item.text,
     tags: item.tags || [],
@@ -69,13 +69,16 @@ function transformToDatabase(
     source_url: item.sourceUrl || "",
     source_title: item.sourceTitle || "",
     ai_summary: item.aiSummary || "",
-    citation: item.citation,
-    citation_format: item.citationFormat,
     device_source: item.deviceSource || "extension",
-    collection_id: item.collectionId || null,
-    preferred_view: item.preferredView || null,
-    created_at: item.createdAt, // Optional: preserve original creation time
   };
+
+  if (item.citation !== undefined) payload.citation = item.citation;
+  if (item.citationFormat !== undefined) payload.citation_format = item.citationFormat;
+  if (item.collectionId !== undefined && item.collectionId !== null) payload.collection_id = item.collectionId;
+  if (item.preferredView !== undefined) payload.preferred_view = item.preferredView;
+  if (item.createdAt !== undefined) payload.created_at = item.createdAt;
+
+  return payload;
 }
 
 // Helper to safely get local storage (handles Web vs Extension)
@@ -200,21 +203,8 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
             .single();
 
           if (retryError) {
-             console.warn("Safe payload failed, retrying with ultra-safe payload", retryError);
-             const ultraSafePayload = {
-               user_id: payload.user_id,
-               text: payload.text
-             };
-             
-             const { data: ultraData, error: ultraError } = await supabase
-                .from("items")
-                .insert([ultraSafePayload])
-                .select()
-                .single();
-                
-             if (ultraError) throw ultraError;
-             await purgeLocalDuplicates(item.text);
-             return transformDatabaseItem(ultraData);
+             console.error("Safe payload failed:", retryError);
+             throw retryError;
           }
           
           await purgeLocalDuplicates(item.text); // Cleanup
@@ -316,13 +306,8 @@ export async function syncLocalItemsToCloud(): Promise<{
           const { error: retryError } = await supabase.from("items").insert(safeItems);
           if (retryError) throw retryError;
         } catch (retryErr: any) {
-          console.warn("Second sync attempt failed, trying ultra-safe payload", retryErr);
-          const ultraSafeItems = itemsToUpload.map(item => ({
-            user_id: item.user_id,
-            text: item.text
-          }));
-          const { error: finalError } = await supabase.from("items").insert(ultraSafeItems);
-          if (finalError) throw finalError;
+          console.error("Second sync attempt with safe items failed:", retryErr);
+          throw retryErr;
         }
       } else {
         throw insertError;

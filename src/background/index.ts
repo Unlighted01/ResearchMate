@@ -54,8 +54,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
     const newItem = {
       text: info.selectionText,
-      sourceUrl: tab?.url || "",
-      sourceTitle: tab?.title || "",
+      sourceUrl: info.pageUrl || tab?.url || "https://example.com/unknown",
+      sourceTitle: tab?.title || "Unknown Title",
       createdAt: new Date().toISOString(),
       deviceSource: "extension" as const,
       tags: ["quick-save"],
