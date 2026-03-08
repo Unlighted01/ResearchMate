@@ -15,6 +15,7 @@ The Chrome Extension is fully functional, capable of extracting text payloads of
     - Includes **Fullscreen Evasion**: Actively sweeps the DOM for `document.fullscreenElement` and instantly hides itself when YouTube or fullscreen presentations are running, preventing UI overlap annoyance.
     - Includes **Idle Dimming**: Safely drops to a 10% opacity ghost mode if the mouse hasn't moved in 3 seconds.
     - **Simplified Save Flow:** Reverted the floating button to a single "Save" action for zero-friction capture.
+    - **Refined Trigger Logic:** To avoid UI annoyance, the button only appears if a selection contains at least **3 words** and **15 characters**. It explicitly skips "collapsed" selections (simple clicks) using `selection.isCollapsed`.
     - **Modal Color Tagging:** Moved the color picker into the Item Detail modal. Users can optionally assign one of 5 aesthetic colors (Yellow, Green, Blue, Red, Purple) during review. Colors are persistent via the Supabase `tags` array (e.g. `"color:blue"`).
 3.  **Markdown Support & Export UI:**
     - **Single Item Export:** Supports "MD" as a default format in the extension Settings slider.

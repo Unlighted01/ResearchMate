@@ -239,17 +239,25 @@ function cleanSelectedText(selection: Selection | null): string {
 
 const handleSelection = (e?: Event) => {
   const selection = window.getSelection();
+  
+  // 1. Skip if selection is empty or collapsed (just a click)
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    removeSelectionButton();
+    return;
+  }
+
   const text = cleanSelectedText(selection);
 
+  // 2. Skip if no cleaned text
   if (!text || text.length === 0) {
     removeSelectionButton();
     return;
   }
 
+  // 3. Stricter requirement: At least 3 words AND 15 characters
+  // This prevents it from appearing on tiny selections or single words
   const words = text.split(/\s+/).filter((w) => w.length > 0);
-
-  // If selection is too short (less than 2 words), reject it
-  if (words.length < 2) {
+  if (words.length < 3 || text.length < 15) {
     removeSelectionButton();
     return;
   }
