@@ -1,49 +1,35 @@
-# 📦 Project Handover: ResearchMate Browser Extension
+# 📦 AI Handover: ResearchMate Browser Extension
 
-## 🚀 Current Status: STABLE & COMPLIANT
+## 🚀 Architectural Context
+ResearchMate is a high-fidelity research tool designed to bridge the gap between web browsing and structured data management. The extension is built with **Vite (Manifest V3)** and utilizes a **Shadow DOM** for its trigger to avoid polluting host-site styles.
 
-The Chrome Extension is fully functional, capable of extracting text payloads off web pages, saving them to User Collections, and triggering automated background citations.
+### 🧠 Strategic "Magic" Logic (Read Carefully)
+1.  **Implicit Color Syncing:** To avoid breaking Supabase migrations, highlight colors are stored as prefixed strings in the `tags` array (e.g., `"color:blue"`, `"color:red"`). 
+    - `storageService.ts` handles the **bi-directional extraction**: It filters these out during read (mapping them to the `color` property) and injects them back into the array during write.
+    - **UI Impact:** The item detail modal in `ItemDetail.tsx` allows users to toggle these colors. Clearing a color simply removes the `color:x` tag from the array.
+2.  **Selection Sensitivity Throttling:** 
+    - Logic located in `content/index.tsx` inside `handleSelection`.
+    - Constraints: **isCollapsed == false**, **words >= 3**, and **chars >= 15**.
+    - **Rationale:** This prevents the "Save" button from appearing on simple clicks or tiny selections (like numbers or single words), preserving an unobtrusive UX.
+3.  **Local vs. Cloud States:**
+    - The extension supports an offline-first "Local Save" fallback. `sidebarService` and `storageService` handle checking if a user is authenticated before attempting a Supabase sync.
+4.  **Security/Compliance Hack:**
+    - The project uses a custom Vite plugin `remove-jspdf-cdn-plugin` in `vite.config.ts`. This strips out the `jspdf` CDN string during build to comply with Chrome Store "No Remote Code" policies.
 
-### ✅ Key Features Working:
+### 🛠️ Core Workflows
+- **Capture Flow:** `content/index.tsx` captures selection -> `cleanSelectedText` strips junk (ads, invisible text) -> `saveItemInBackground` sends payload to the background script -> Supabase.
+- **Detail View:** `ItemDetail.tsx` handles AI summaries, manual tagging, color selection, and citation generation.
+- **Exporting:** Uses `markdownGenerator.ts` to create formatted `.md` files with citations. Supports individual export (slider-driven) and bulk export (Data Management).
 
-1.  **Chrome Store Compliance (Vite Builder):**
-    - Replaced all remotely-hosted CDN injected scripts (such as `cdnjs` for `jspdf`).
-    - Engineered a custom Vite plugin (`remove-jspdf-cdn-plugin`) to actively strip out the CDN string from the built `index.html` file right before package output.
-    - The extension now ships 100% locally hosted, avoiding Google's Remote Code injection rejections outright.
-2.  **Smart Floating UI Trigger:**
-    - The `trigger` icon injects cleanly onto host websites to allow rapid capture flows.
-    - Includes **Fullscreen Evasion**: Actively sweeps the DOM for `document.fullscreenElement` and instantly hides itself when YouTube or fullscreen presentations are running, preventing UI overlap annoyance.
-    - Includes **Idle Dimming**: Safely drops to a 10% opacity ghost mode if the mouse hasn't moved in 3 seconds.
-    - **Simplified Save Flow:** Reverted the floating button to a single "Save" action for zero-friction capture.
-    - **Refined Trigger Logic:** To avoid UI annoyance, the button only appears if a selection contains at least **3 words** and **15 characters**. It explicitly skips "collapsed" selections (simple clicks) using `selection.isCollapsed`.
-    - **Modal Color Tagging:** Moved the color picker into the Item Detail modal. Users can optionally assign one of 5 aesthetic colors (Yellow, Green, Blue, Red, Purple) during review. Colors are persistent via the Supabase `tags` array (e.g. `"color:blue"`).
-3.  **Markdown Support & Export UI:**
-    - **Single Item Export:** Supports "MD" as a default format in the extension Settings slider.
-    - **Bulk Export:** Dedicated "Bulk Markdown Export" button in the Data Management section.
-    - **Copy as Markdown:** High-fidelity markdown generation (with citations) available via a single click in those item details.
-4.  **Supabase Auth Bridge:**
-    - Correctly syncs Auth Tokens with the Web Application to ensure zero-login capture flows.
-5.  **UI Resilience & Parsing:**
-    - Wrapped strict DOM URL instantiations (like `new URL()`) inside silent `try...catch` block boundaries within `SidePanel.tsx`. 
-    - This mitigates fatal React unmount crashes when processing older or heavily malformed string captures loaded from the Cloud database.
-6.  **Smart Text Extraction & Formatting Preservation:**
-    - The content script (`index.tsx`) now features a custom DOM-walking extractor (`cleanSelectedText`).
-    - Actively strips out ads (`ins.adsbygoogle`, `<iframe/>`, sponsored tags), invisible UI elements (`display: none`, `opacity: 0`), and non-content markup (scripts, styles, headers, sidebars) from user selections.
-    - Intelligently translates HTML block-level elements (`<p>`, `<div>`, `<h1>`-`<h6>`) into double line breaks (`\n\n`), seamlessly hooking into the UI's existing `white-space: pre-wrap` styles to render perfectly formatted paragraphs without saving unwanted junk.
+### 💅 Design Language
+- **Theme:** Apple-inspired, using `backdrop-filter: blur`, dynamic HSL colors, and premium transitions.
+- **Icons:** Powered by `Lucide React`. 
 
-### 🛠️ Technology Stack
+### ⏭️ Roadmap for the Next AI
+1.  **OCR Injection:** The infrastructure is ready to proxy image/PDF drags to the Vercel API `/api/ocr`.
+2.  **Folder Selection (Quick-Save):** Allow users to pick which Collection to save into *before* hitting save (perhaps a long-press on the save button).
+3.  **PDF Highlighting:** Currently optimized for HTML; extending `Selection` logic to work inside PDF.js frames is a high-value target.
 
-- **Frontend:** React, Vite (CRXjs Plugin)
-- **Styling:** CSS Modules, Lucide React
-- **Browser APIs:** Manifest V3, Storage, ActiveTab
-
-### 📂 Code Structure
-
-- `src/content/`: Foreground UI hooks that render on external websites (Trigger, Sidebar).
-- `src/background/`: Background service workers handling global context-menus and auth logic.
-- `vite.config.ts`: Advanced build-step plugins mitigating CDN violations.
-
-### ⏭️ Next Steps / Maintenance:
-
-1.  **OCR Injection (Optional Hook):** The user expressed interest in feeding images dragged into the extension directly into the centralized Vercel `/api/ocr` pipeline. This can be built as a `POST` block in the background worker that proxies the web payload.
-2.  **DOM Mutation Observers:** Ensure modern Single Page Applications (SPAs) like React sites aren't actively destroying the `content.js` UI trigger when they hot-reload their own DOM structures. You may need to inject a `MutationObserver` to passively re-mount the trigger.
+### ⚠️ Dev Notes
+- **Lints:** You will see "CSS inline styles" warnings in `ItemDetail.tsx` and `Dashboard.tsx`. These are used for dynamic color injection (Shadow DOM/dynamic palettes) and can be ignored unless refactoring the Entire UI system.
+- **Builds:** The user prefers `npm run build` checks. If `tsc` hangs, use `npx tsc --noEmit`.
