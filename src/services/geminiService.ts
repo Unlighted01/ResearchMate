@@ -11,6 +11,8 @@ export interface SummaryResult {
   credits_remaining?: number | string;
 }
 
+export type SummaryMode = "ultra-short" | "standard" | "detailed";
+
 export interface TagsResult {
   ok: boolean;
   tags: string[];
@@ -45,7 +47,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 /**
  * Summarize text using the ResearchMate API
  */
-export async function summarizeText(text: string, signal?: AbortSignal): Promise<SummaryResult> {
+export async function summarizeText(text: string, signal?: AbortSignal, mode: SummaryMode = "standard"): Promise<SummaryResult> {
   if (!text.trim()) return { ok: false, summary: "", reason: "empty" };
 
   try {
@@ -53,7 +55,7 @@ export async function summarizeText(text: string, signal?: AbortSignal): Promise
     const response = await fetch(`${API_BASE_URL}/summarize`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, mode }),
       signal, // Attach standard AbortSignal
     });
 

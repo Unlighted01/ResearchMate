@@ -5,6 +5,7 @@ import {
   updateItem,
 } from "../services/storageService";
 import { summarizeText, generateCitation } from "../services/geminiService";
+import type { SummaryMode } from "../services/geminiService";
 import {
   exportSingleItemToPdf,
   exportSingleItemToJson,
@@ -51,6 +52,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   );
 
   const [summarizing, setSummarizing] = useState(false);
+  const [summaryMode, setSummaryMode] = useState<SummaryMode>("standard");
   const [loadingCitation, setLoadingCitation] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
@@ -130,7 +132,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     setAbortController(controller);
     setSummarizing(true);
     try {
-      const result = await summarizeText(item.text, controller.signal);
+      const result = await summarizeText(item.text, controller.signal, summaryMode);
       if (result.ok) {
         setSummary(result.summary);
         setShowSummaryView(true);
@@ -339,6 +341,18 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
               <Sparkles className="w-5 h-5" />
             )}
           </button>
+
+          {/* Summary Mode Selector */}
+          <select
+            value={summaryMode}
+            onChange={(e) => setSummaryMode(e.target.value as SummaryMode)}
+            aria-label="Summary Mode"
+            className="appearance-none px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[10px] font-medium text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+          >
+            <option value="ultra-short">⚡ Short</option>
+            <option value="standard">📝 Standard</option>
+            <option value="detailed">📖 Detailed</option>
+          </select>
 
           <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
 

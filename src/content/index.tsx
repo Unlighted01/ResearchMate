@@ -131,9 +131,115 @@ function showErrorToast(message: string) {
   }, 2500);
 }
 
+function cleanSelectedText(selection: Selection | null): string {
+  if (!selection || selection.rangeCount === 0) return "";
+
+  const range = selection.getRangeAt(0);
+  const tempDiv = document.createElement("div");
+  // Clone the contents of the selection range to separate it from the live DOM
+  tempDiv.appendChild(range.cloneContents());
+
+  // Define selectors for elements we want to completely ignore
+  const junkSelectors = [
+    // Ads
+    "ins.adsbygoogle",
+    '[id*="google_ads"]',
+    '[class*="ad-"]',
+    '[class*="sponsored"]',
+    "[data-ad]",
+    "iframe",
+    // Non-content
+    "script",
+    "style",
+    "noscript",
+    "svg",
+    "nav",
+    "footer",
+    "aside",
+    ".site-header",
+    ".post-sidebar",
+    ".related-articles",
+    ".newsletter-signup",
+    ".social-share",
+  ];
+
+  // Remove completely ignored elements
+  const junkElements = tempDiv.querySelectorAll(junkSelectors.join(","));
+  junkElements.forEach((el) => el.remove());
+
+  // Walk the DOM and replace block elements with spacing
+  let extractedText = "";
+
+  function processNode(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      extractedText += node.textContent || "";
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+
+      // Skip elements that are visibly hidden via inline styles (we can't easily check computed style on a disconnected clone)
+      const style = el.getAttribute("style");
+      if (
+        style &&
+        (style.includes("display: none") ||
+          style.includes("visibility: hidden") ||
+          style.includes("opacity: 0"))
+      ) {
+        return;
+      }
+      
+      // Skip aria-hidden
+      if (el.getAttribute("aria-hidden") === "true") {
+        return;
+      }
+
+      // Block-level elements that usually indicate a newline
+      const isBlock = [
+        "DIV",
+        "P",
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "SECTION",
+        "ARTICLE",
+        "LI",
+        "BLOCKQUOTE",
+      ].includes(el.tagName);
+      
+      const isLineBreak = ["BR", "HR"].includes(el.tagName);
+
+      if (isBlock || isLineBreak) {
+        extractedText += "\n";
+      }
+
+      // Process children
+      node.childNodes.forEach(processNode);
+
+      // Add trailing newline for block elements
+      if (isBlock) {
+        extractedText += "\n";
+      }
+    }
+  }
+
+  tempDiv.childNodes.forEach(processNode);
+
+  // Clean up whitespace:
+  // 1. Replace 3+ consecutive newlines with exactly 2 newlines (one blank line max between paragraphs)
+  // 2. Collapse multiple spaces into a single space
+  // 3. Trim leading/trailing whitespace
+  return extractedText
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/^\s+|\s+$/g, "")
+    .trim();
+}
+
 const handleSelection = (e?: Event) => {
   const selection = window.getSelection();
-  const text = selection?.toString().trim();
+  const text = cleanSelectedText(selection);
 
   if (!text || text.length === 0) {
     removeSelectionButton();
@@ -251,7 +357,7 @@ const handleSelection = (e?: Event) => {
       e.stopPropagation();
 
       const selection = window.getSelection();
-      const text = selection?.toString().trim();
+      const text = cleanSelectedText(selection);
       if (!text) return;
 
       // Show Loading/Saving State
