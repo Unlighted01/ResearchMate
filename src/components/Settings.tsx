@@ -14,9 +14,11 @@ import {
   Sun,
   Monitor,
   Printer, // New icon for PDF
+  FileText // New icon for Markdown
 } from "lucide-react";
 import { getAllItems, addItem } from "../services/storageService";
 import { exportToPdf } from "../services/pdfService"; // Import service
+import { generateMarkdownTemplate } from "../utils/markdownGenerator"; // Import MD Gen
 import { SegmentedControl } from "./SegmentedControl";
 import { AnimatedSwitch } from "./AnimatedSwitch";
 
@@ -109,6 +111,27 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const handleExportPdf = async () => {
     const items = await getAllItems();
     exportToPdf(items, user);
+  };
+
+  const handleExportMarkdown = async () => {
+    const items = await getAllItems();
+    if (!items || items.length === 0) {
+      alert("No research items found to export.");
+      return;
+    }
+    const mdContent = items
+      .map((item) => generateMarkdownTemplate(item) + "\n---\n")
+      .join("\n");
+      
+    const dataStr =
+      "data:text/markdown;charset=utf-8," +
+      encodeURIComponent(mdContent);
+    const downloadAnchorNode = document.createElement("a");
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "researchmate_backup.md");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
   const handleImportClick = () => {
@@ -324,6 +347,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                   { value: "pdf", label: "PDF" },
                   { value: "json", label: "JSON" },
                   { value: "txt", label: "TXT" },
+                  { value: "md", label: "MD" },
                 ]}
               />
             </div>
@@ -350,13 +374,26 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
             <button
               onClick={handleExportPdf}
-              aria-label="Export items to PDF Report"
+              aria-label="Export as PDF Report"
               className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700"
             >
               <div className="flex items-center gap-3">
                 <Printer size={16} className="text-gray-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-200">
                   Export as PDF Report
+                </span>
+              </div>
+            </button>
+
+            <button
+              onClick={handleExportMarkdown}
+              aria-label="Export as Markdown"
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700"
+            >
+              <div className="flex items-center gap-3">
+                <FileText size={16} className="text-gray-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  Export as Markdown File
                 </span>
               </div>
             </button>

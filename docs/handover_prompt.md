@@ -14,11 +14,21 @@ The Chrome Extension is fully functional, capable of extracting text payloads of
     - The `trigger` icon injects cleanly onto host websites to allow rapid capture flows.
     - Includes **Fullscreen Evasion**: Actively sweeps the DOM for `document.fullscreenElement` and instantly hides itself when YouTube or fullscreen presentations are running, preventing UI overlap annoyance.
     - Includes **Idle Dimming**: Safely drops to a 10% opacity ghost mode if the mouse hasn't moved in 3 seconds.
-3.  **Supabase Auth Bridge:**
+    - **Simplified Save Flow:** Reverted the floating button to a single "Save" action for zero-friction capture.
+    - **Modal Color Tagging:** Moved the color picker into the Item Detail modal. Users can optionally assign one of 5 aesthetic colors (Yellow, Green, Blue, Red, Purple) during review. Colors are persistent via the Supabase `tags` array (e.g. `"color:blue"`).
+3.  **Markdown Support & Export UI:**
+    - **Single Item Export:** Supports "MD" as a default format in the extension Settings slider.
+    - **Bulk Export:** Dedicated "Bulk Markdown Export" button in the Data Management section.
+    - **Copy as Markdown:** High-fidelity markdown generation (with citations) available via a single click in those item details.
+4.  **Supabase Auth Bridge:**
     - Correctly syncs Auth Tokens with the Web Application to ensure zero-login capture flows.
-4.  **UI Resilience & Parsing:**
+5.  **UI Resilience & Parsing:**
     - Wrapped strict DOM URL instantiations (like `new URL()`) inside silent `try...catch` block boundaries within `SidePanel.tsx`. 
     - This mitigates fatal React unmount crashes when processing older or heavily malformed string captures loaded from the Cloud database.
+6.  **Smart Text Extraction & Formatting Preservation:**
+    - The content script (`index.tsx`) now features a custom DOM-walking extractor (`cleanSelectedText`).
+    - Actively strips out ads (`ins.adsbygoogle`, `<iframe/>`, sponsored tags), invisible UI elements (`display: none`, `opacity: 0`), and non-content markup (scripts, styles, headers, sidebars) from user selections.
+    - Intelligently translates HTML block-level elements (`<p>`, `<div>`, `<h1>`-`<h6>`) into double line breaks (`\n\n`), seamlessly hooking into the UI's existing `white-space: pre-wrap` styles to render perfectly formatted paragraphs without saving unwanted junk.
 
 ### 🛠️ Technology Stack
 

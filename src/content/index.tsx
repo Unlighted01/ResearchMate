@@ -282,7 +282,7 @@ const handleSelection = (e?: Event) => {
       return;
     }
 
-    // Create Button
+    // Build the floating save button with an optional color toggle
     selectionButton = document.createElement("div");
     selectionButton.id = "researchmate-selection-btn";
     selectionButton.style.position = "absolute";
@@ -290,139 +290,109 @@ const handleSelection = (e?: Event) => {
     selectionButton.style.left = `${left}px`;
     selectionButton.style.transform = "translateX(-50%)";
     selectionButton.style.zIndex = "2147483647";
-    selectionButton.style.cursor = "pointer";
     selectionButton.style.display = "flex";
     selectionButton.style.alignItems = "center";
-    selectionButton.style.justifyContent = "center";
-    selectionButton.style.padding = "6px";
+    selectionButton.style.gap = "4px";
+    selectionButton.style.padding = "5px 8px";
     selectionButton.style.background = "#fff";
     selectionButton.style.borderRadius = "20px";
     selectionButton.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
     selectionButton.style.border = "1px solid rgba(0,0,0,0.08)";
-    selectionButton.style.fontFamily =
-      "-apple-system, BlinkMacSystemFont, sans-serif";
-    selectionButton.style.fontSize = "13px";
-    selectionButton.style.fontWeight = "600";
-    selectionButton.style.color = "#333";
     selectionButton.style.transition = "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
     selectionButton.style.opacity = "0";
     selectionButton.style.animation = "fadeInScale 0.2s forwards";
 
-    // Icon + Text
-    selectionButton.innerHTML = `
-      <div class="rm-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-      </div>
-      <span class="rm-btn-label">Save</span>
-    `;
-
-    // Add Styles
+    // Add animation styles once
     if (!document.getElementById("rm-anim-styles")) {
       const style = document.createElement("style");
       style.id = "rm-anim-styles";
       style.textContent = `
-            @keyframes fadeInScale {
-                from { opacity: 0; transform: translate(-50%, 5px) scale(0.95); }
-                to { opacity: 1; transform: translate(-50%, 0) scale(1); }
-            }
-            #researchmate-selection-btn:hover {
-                transform: translate(-50%, -2px) scale(1.05) !important;
-                box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
-            }
-            #researchmate-selection-btn .rm-btn-label {
-                max-width: 0;
-                overflow: hidden;
-                opacity: 0;
-                white-space: nowrap;
-                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            }
-            #researchmate-selection-btn:hover .rm-btn-label {
-                max-width: 60px;
-                opacity: 1;
-                margin-left: 6px;
-                padding-right: 6px;
-            }
-        `;
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: translate(-50%, 5px) scale(0.95); }
+          to   { opacity: 1; transform: translate(-50%, 0)   scale(1);    }
+        }
+        #researchmate-selection-btn:hover {
+          transform: translate(-50%, -2px) scale(1.02) !important;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
+        }
+        .rm-save-btn {
+          padding: 3px 10px;
+          background: #007AFF;
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .rm-save-btn:hover { background: #0066dd; }
+      `;
       document.head.appendChild(style);
     }
 
-    // Imports
+    // Default Save button
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "rm-save-btn";
+    saveBtn.textContent = "Save";
 
-    // ... existing code ...
+    selectionButton.appendChild(saveBtn);
 
-    selectionButton.addEventListener("mousedown", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
+    // Core save function
+    const doSave = () => {
       const selection = window.getSelection();
       const text = cleanSelectedText(selection);
       if (!text) return;
 
-      // Show Loading/Saving State
       if (selectionButton) {
-        selectionButton.innerHTML = `<span style="padding: 0 6px;">Saving...</span>`;
+        selectionButton.innerHTML = `<span style="padding: 0 8px; font-family: sans-serif; font-size: 13px; font-weight: 600; color: #333;">Saving...</span>`;
         selectionButton.style.pointerEvents = "none";
       }
 
-      try {
-        chrome.runtime.sendMessage(
-          {
-            action: "saveItemInBackground",
-            payload: {
-              text: text,
-              sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
-              sourceTitle: document.title || "Unknown Title",
-              tags: ["quick-save"],
-              deviceSource: "extension",
-            },
-          },
-          (response) => {
-            if (chrome.runtime.lastError || !response || !response.success) {
-              console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
-              if (selectionButton) {
-                selectionButton.innerHTML = `<span style="color: red; padding: 0 6px;">Error</span>`;
-                selectionButton.style.pointerEvents = "auto";
-                setTimeout(() => removeSelectionButton(), 2000);
-              }
-              return;
-            }
+      const payload: Record<string, unknown> = {
+        text,
+        sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
+        sourceTitle: document.title || "Unknown Title",
+        tags: ["quick-save"],
+        deviceSource: "extension",
+      };
 
-            // Success State
-            if (selectionButton) {
-              if (response.isLocal) {
-                // Guest Mode / Offline Fallback - Orange UI
-                selectionButton.innerHTML = `
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 6px;">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                    <polyline points="7 3 7 8 15 8"></polyline>
-                  </svg>
-                  <span style="color: #F59E0B; padding: 0 6px;">Saved Locally</span>
-                `;
-                setTimeout(() => removeSelectionButton(), 2500);
-              } else {
-                // Authenticated (Supabase Sync) - Green UI
-                selectionButton.innerHTML = `
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 6px;">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                  <span style="color: #22C55E; padding: 0 6px;">Saved!</span>
-                `;
-                setTimeout(() => removeSelectionButton(), 1500);
-              }
-            }
+      chrome.runtime.sendMessage({ action: "saveItemInBackground", payload }, (response) => {
+        if (chrome.runtime.lastError || !response || !response.success) {
+          console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
+          if (selectionButton) {
+            selectionButton.innerHTML = `<span style="color:red;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Error</span>`;
+            selectionButton.style.pointerEvents = "auto";
+            setTimeout(() => removeSelectionButton(), 2000);
           }
-        );
-      } catch (err) {
-        console.error("Message execution failed:", err);
-        if (selectionButton) {
-          selectionButton.innerHTML = `<span style="color: red; padding: 0 6px;">Error</span>`;
-          selectionButton.style.pointerEvents = "auto";
-          setTimeout(() => removeSelectionButton(), 2000);
+          return;
         }
-      }
+        if (selectionButton) {
+          if (response.isLocal) {
+            selectionButton.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+              </svg>
+              <span style="color:#F59E0B;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Saved Locally</span>`;
+            setTimeout(() => removeSelectionButton(), 2500);
+          } else {
+            selectionButton.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span style="color:#22C55E;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Saved!</span>`;
+            setTimeout(() => removeSelectionButton(), 1500);
+          }
+        }
+      });
+    };
+
+    // Default save (no color)
+    saveBtn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      doSave();
     });
 
     document.body.appendChild(selectionButton);

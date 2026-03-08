@@ -18,6 +18,7 @@ export interface StorageItem {
   imageUrl?: string;
   ocrText?: string;
   preferredView?: "original" | "summary";
+  color?: "yellow" | "green" | "red" | "blue" | "purple";
 }
 
 export interface AddItemInput {
@@ -33,14 +34,27 @@ export interface AddItemInput {
   collectionId?: string;
   preferredView?: "original" | "summary";
   createdAt?: string;
+  color?: "yellow" | "green" | "red" | "blue" | "purple";
 }
 
 // Transform helpers
 function transformDatabaseItem(item: any): StorageItem {
+  const allTags = Array.isArray(item.tags) ? item.tags : [];
+  
+  // Extract color tag if present (e.g., "color:green")
+  let extractedColor: "yellow" | "green" | "red" | "blue" | "purple" | undefined = undefined;
+  const filteredTags = allTags.filter((tag: string) => {
+    if (tag.startsWith("color:")) {
+      extractedColor = tag.split(":")[1] as any;
+      return false; // Remove it from the standard tags array
+    }
+    return true;
+  });
+
   return {
     id: String(item.id), // Ensure ID is always a string
     text: item.text || "",
-    tags: Array.isArray(item.tags) ? item.tags : [],
+    tags: filteredTags,
     note: item.note || item.notes || "",
     sourceUrl: item.source_url || "",
     sourceTitle: item.source_title || "",
@@ -54,6 +68,7 @@ function transformDatabaseItem(item: any): StorageItem {
     imageUrl: item.image_url,
     ocrText: item.ocr_text,
     preferredView: item.preferred_view || undefined,
+    color: extractedColor,
   };
 }
 
@@ -61,10 +76,17 @@ function transformToDatabase(
   item: AddItemInput,
   userId: string,
 ): Record<string, any> {
+  const mergedTags = [...(item.tags || [])];
+  if (item.color) {
+    if (!mergedTags.includes(`color:${item.color}`)) {
+        mergedTags.push(`color:${item.color}`);
+    }
+  }
+
   const payload: Record<string, any> = {
     user_id: userId,
     text: item.text,
-    tags: item.tags || [],
+    tags: mergedTags,
     note: item.note || "",
     source_url: item.sourceUrl || "",
     source_title: item.sourceTitle || "",
@@ -91,10 +113,15 @@ const getLocalStorage = () => {
 
 // Helper to save locally
 async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
+  const mergedTags = [...(item.tags || [])];
+  if (item.color && !mergedTags.includes(`color:${item.color}`)) {
+    mergedTags.push(`color:${item.color}`);
+  }
+
   const newItem: StorageItem = {
     id: `local_${Date.now()}`,
     text: item.text,
-    tags: item.tags || [],
+    tags: mergedTags,
     note: item.note || "",
     sourceUrl: item.sourceUrl || "",
     sourceTitle: item.sourceTitle || "",
@@ -103,6 +130,7 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
     aiSummary: item.aiSummary,
     deviceSource: "extension",
     collectionId: item.collectionId,
+    color: item.color,
   };
 
   const storage = getLocalStorage();
@@ -365,23 +393,27 @@ export async function getAllItems(): Promise<StorageItem[]> {
   }
 
   // 3. Merge and Sort
-  // Create a map to avoid duplicates. Since a successfully uploaded Cloud item will have a UUID
-  // instead of a `local_` ID, we deduplicate by `text` content to prevent ghost "CloudOff" icons.
-  const combined = [...localItems, ...items];
-  const uniqueItemsMap = new Map<string, StorageItem>();
+  // Instead of a global Map deduplicating by text (which hides legitimate duplicate highlights of the same text),
+  // we only want to drop `local_` items IF a Cloud item exists with the exact same text.
+  // Cloud items should never overwrite each other.
 
-  for (const item of combined) {
-    // If we already have this text in the map, only overwrite it if the NEW item is from the cloud (ID doesn't start with local_)
-    // This ensures the Cloud version "wins" over the Local version in the UI.
-    const existing = uniqueItemsMap.get(item.text);
-    if (!existing || (!item.id.startsWith("local_") && existing.id.startsWith("local_"))) {
-      uniqueItemsMap.set(item.text, item);
+  const finalItems: StorageItem[] = [];
+  const cloudItemsTextSet = new Set<string>();
+
+  // Add all Cloud items first
+  for (const item of items) {
+    finalItems.push(item);
+    cloudItemsTextSet.add(item.text);
+  }
+
+  // Add Local items only if they don't exactly match a Cloud item's text
+  for (const localItem of localItems) {
+    if (!cloudItemsTextSet.has(localItem.text)) {
+      finalItems.push(localItem);
     }
   }
 
-  const uniqueItems = Array.from(uniqueItemsMap.values());
-
-  return uniqueItems.sort(
+  return finalItems.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }

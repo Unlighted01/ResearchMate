@@ -22,7 +22,9 @@ import {
   BookOpen,
   Download,
 } from "lucide-react";
-import { CopyIcon, TrashIcon } from "./icons";
+import { Trash } from "lucide-react";
+import { CopyIcon } from "./icons";
+import { generateMarkdownTemplate } from "../utils/markdownGenerator";
 import ISBNSearchModal from "./ISBNSearchModal";
 import { BookMetadata } from "../services/citationService";
 
@@ -43,14 +45,13 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Local State initialized from Item (for immediate UI updates)
-  const [summary, setSummary] = useState<string | null>(item.aiSummary || null);
-  const [citation, setCitation] = useState<string | null>(
-    item.citation || null,
-  );
-  const [citationFormat, setCitationFormat] = useState<string>(
+  const [summary, setSummary] = useState(item.aiSummary || "");
+  const [citation, setCitation] = useState(item.citation || "");
+  const [citationFormat, setCitationFormat] = useState(
     item.citationFormat || "apa",
   );
-
+  const [tags, setTags] = useState<string[]>(item.tags || []);
+  const [itemColor, setItemColor] = useState<"yellow" | "green" | "red" | "blue" | "purple" | "">(item.color || "");
   const [summarizing, setSummarizing] = useState(false);
   const [summaryMode, setSummaryMode] = useState<SummaryMode>("standard");
   const [loadingCitation, setLoadingCitation] = useState(false);
@@ -67,7 +68,6 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Tag State
-  const [tags, setTags] = useState<string[]>(item.tags || []);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState("");
 
@@ -155,6 +155,16 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     }
   };
 
+  const handleCopyMarkdown = async () => {
+    try {
+      const mdContent = generateMarkdownTemplate(item);
+      await navigator.clipboard.writeText(mdContent);
+      alert("Markdown copied to clipboard!");
+    } catch (e) {
+      console.error("Failed to copy markdown", e);
+    }
+  };
+
   const handleCite = async (overrideFormat?: string) => {
     const formatToUse = overrideFormat || citationFormat;
 
@@ -225,6 +235,14 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     onUpdate();
   };
 
+  const handleColorChange = async (color: "yellow" | "green" | "red" | "blue" | "purple" | "") => {
+    const newColor = itemColor === color ? "" : color;
+    setItemColor(newColor);
+    await updateItem(item.id, { color: newColor === "" ? undefined : newColor });
+    item.color = newColor === "" ? undefined : newColor;
+    onUpdate();
+  };
+
   const handleBookSelect = async (book: BookMetadata) => {
     // 1. Construct Citation (Mock generic style for now, or use existing generator if adaptable)
     const authors = book.authors?.join(", ") || "Unknown";
@@ -254,6 +272,15 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       exportSingleItemToPdf(item);
     } else if (format === "json") {
       exportSingleItemToJson(item);
+    } else if (format === "md") {
+      const mdContent = generateMarkdownTemplate(item);
+      const element = document.createElement("a");
+      const file = new Blob([mdContent], { type: "text/markdown" });
+      element.href = URL.createObjectURL(file);
+      element.download = `researchmate_item_${item.id.substring(0, 8)}.md`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
     } else if (format === "txt") {
       // Simple TXT download
       const textContent = `Title: ${item.sourceTitle || "Untitled"}\n\n${item.citation ? `Citation: ${item.citation}\n\n` : ""}${item.aiSummary ? `Summary:\n${item.aiSummary}\n\nOriginal Text:\n` : ""}${item.text}\n\nSource: ${item.sourceUrl || "-"}`;
@@ -266,6 +293,15 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       document.body.removeChild(element);
     }
   };
+
+  // Helper to get exact hex for detailed view badge
+  let colorHex = "#D1D5DB"; // default gray
+  let colorName = "None";
+  if (item.color === "yellow") { colorHex = "#FBBF24"; colorName = "Yellow"; }
+  if (item.color === "green") { colorHex = "#34D399"; colorName = "Green"; }
+  if (item.color === "blue") { colorHex = "#60A5FA"; colorName = "Blue"; }
+  if (item.color === "red") { colorHex = "#F87171"; colorName = "Red"; }
+  if (item.color === "purple") { colorHex = "#A78BFA"; colorName = "Purple"; }
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
@@ -376,6 +412,20 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
             </button>
           )}
 
+          <div className="relative group">
+            <button
+              onClick={handleCopyMarkdown}
+              aria-label="Copy as Markdown"
+              className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors text-gray-400 hover:text-emerald-500 flex items-center gap-1"
+              title="Copy as Markdown"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-file-type-2"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M2.5 15h3"/><path d="M4 13v6"/><path d="M9 13v6"/><path d="M11 16l-2-3"/><path d="M11 19l-2-3"/><path d="M16 13v6"/><path d="M14 15h3"/></svg>
+            </button>
+            <div className="absolute right-0 top-full mt-2 w-max px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Copy as Markdown
+            </div>
+          </div>
+
           <button
             onClick={handleDelete}
             disabled={isDeleting}
@@ -383,7 +433,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
             className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-gray-400 hover:text-red-500"
             title="Delete item"
           >
-            <TrashIcon size={20} dangerHover shakeOnClick className="w-5 h-5" />
+            <Trash className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -391,6 +441,18 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
         {/* Source Info */}
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          {item.color && (
+            <div 
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider"
+              style={{ backgroundColor: `${colorHex}20`, color: colorHex }}
+            >
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colorHex }}></div>
+              {colorName}
+            </div>
+          )}
+        </div>
+        
         {/* Smart Pen / Image Content */}
         {item.imageUrl && (
           <div className="mb-6 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -579,8 +641,44 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
           </div>
         )}
 
-        {/* Tags */}
-        <div className="mt-6">
+        {/* Tags & Color */}
+        <div className="mt-6 space-y-4">
+          {/* Color Picker Section */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Color Tag
+            </h3>
+            <div className="flex gap-2">
+              {([
+                { name: "yellow", hex: "#FBBF24" },
+                { name: "green", hex: "#34D399" },
+                { name: "blue", hex: "#60A5FA" },
+                { name: "red", hex: "#F87171" },
+                { name: "purple", hex: "#A78BFA" },
+              ] as const).map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => handleColorChange(c.name)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${
+                    itemColor === c.name
+                      ? "border-gray-900 dark:border-white scale-110 shadow-sm"
+                      : "border-transparent hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                  title={`Mark as ${c.name}`}
+                />
+              ))}
+              {itemColor && (
+                <button
+                  onClick={() => handleColorChange("")}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors uppercase font-bold tracking-tighter"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2 items-center">
             {tags.map((tag) => (
               <span
@@ -644,8 +742,8 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[2px] animation-fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-2xl border border-gray-100 dark:border-gray-700 w-full max-w-[280px] transform transition-all scale-100">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-full text-red-500 dark:text-red-400 mb-1">
-                <TrashIcon size={24} dangerHover />
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-full text-red-500 dark:text-red-400">
+                <Trash className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">

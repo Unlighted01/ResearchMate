@@ -501,7 +501,18 @@ function SidePanel() {
                   </p>
                 </div>
               ) : (
-                filteredItems.map((item) => (
+                filteredItems.map((item) => {
+                  
+                  // Helper to map color to tailwind border subclass
+                  let colorBorderClass = "border-l-[4px] border-l-gray-300 dark:border-l-gray-600"; // default
+                  let colorBgClass = "";
+                  if (item.color === "yellow") { colorBorderClass = "border-l-[4px] border-l-yellow-400"; colorBgClass = "bg-yellow-50/10 dark:bg-yellow-900/10" }
+                  if (item.color === "green") { colorBorderClass = "border-l-[4px] border-l-emerald-400"; colorBgClass = "bg-emerald-50/10 dark:bg-emerald-900/10" }
+                  if (item.color === "blue") { colorBorderClass = "border-l-[4px] border-l-blue-400"; colorBgClass = "bg-blue-50/10 dark:bg-blue-900/10" }
+                  if (item.color === "red") { colorBorderClass = "border-l-[4px] border-l-red-400"; colorBgClass = "bg-red-50/10 dark:bg-red-900/10" }
+                  if (item.color === "purple") { colorBorderClass = "border-l-[4px] border-l-purple-400"; colorBgClass = "bg-purple-50/10 dark:bg-purple-900/10" }
+
+                  return (
                   <motion.div
                     key={item.id}
                     onClick={() => handleItemClick(item)}
@@ -509,7 +520,7 @@ function SidePanel() {
                       hidden: { opacity: 0, y: 10 },
                       show: { opacity: 1, y: 0 },
                     }}
-                    className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border transition-all cursor-pointer group hover-lift relative ${
+                    className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border-r border-y transition-all cursor-pointer group hover-lift relative ${colorBorderClass} ${colorBgClass} ${
                       selectedIds.has(item.id) 
                         ? "border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/10" 
                         : "border-gray-100 dark:border-gray-700"
@@ -628,7 +639,7 @@ function SidePanel() {
                       )}
                     </div>
                   </motion.div>
-                ))
+                )})
               )}
             </motion.div>
             )}
