@@ -284,6 +284,7 @@ export interface SmartPenDevice {
   battery_level?: number;
   firmware_version?: string;
   is_connected: boolean;
+  pen_id?: string;
 }
 
 // ============================================

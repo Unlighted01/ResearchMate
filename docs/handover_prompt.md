@@ -11,9 +11,10 @@ ResearchMate is a high-fidelity research tool designed to bridge the gap between
     - Logic located in `content/index.tsx` inside `handleSelection`.
     - Constraints: **isCollapsed == false**, **words >= 3**, and **chars >= 15**.
     - **Rationale:** This prevents the "Save" button from appearing on simple clicks or tiny selections (like numbers or single words), preserving an unobtrusive UX.
-3.  **Local vs. Cloud States:**
-    - The extension supports an offline-first "Local Save" fallback. `sidebarService` and `storageService` handle checking if a user is authenticated before attempting a Supabase sync.
-4.  **Security/Compliance Hack:**
+3.  **RLS-Safe Pairing Flow (NEW):**
+    - To avoid **406 Not Acceptable** errors (RLS blocks on direct table reads), the extension uses `supabase.functions.invoke("smart-pen", { body: { action: "list" } })` to fetch paired devices.
+    - **Pairing Logic:** Moved entirely to the Edge Function. `smartPenService.ts` now only invokes the function, ensuring consistent logic with the website and firmware.
+4.  **Local vs. Cloud States:**
     - The project uses a custom Vite plugin `remove-jspdf-cdn-plugin` in `vite.config.ts`. This strips out the `jspdf` CDN string during build to comply with Chrome Store "No Remote Code" policies.
 
 ### 🛠️ Core Workflows

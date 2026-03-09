@@ -31,67 +31,70 @@ export async function pairDevice(
   userId: string,
   code: string,
 ): Promise<PairingResult> {
-  // 1. Verify Code
-  const { data: codeData, error: codeError } = await supabase
-    .from("pairing_codes")
-    .select("*")
-    .eq("code", code)
-    .single(); // Assuming code is unique
-
-  if (codeError || !codeData) {
-    return { success: false, message: "Invalid pairing code." };
-  }
-
-  // Check if expired? (Optional, if table has expires_at)
-  // Check if already used? (If table has is_used)
-
-  const deviceId = codeData.device_id || codeData.id; // Fallback
-  const deviceName = codeData.device_name || "Smart Pen";
-
-  // 2. Link User to Device (paired_pens)
-  // Check if already paired
-  const { data: existing } = await supabase
-    .from("paired_pens")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("device_id", deviceId) // Assuming column name is device_id or similar
-    .single();
-
-  if (existing) {
-    return {
-      success: true,
-      device: existing as SmartPenDevice,
-      message: "Device already paired.",
-    };
-  }
-
-  // Insert
-  const { data: newPair, error: pairError } = await supabase
-    .from("paired_pens")
-    .insert([
-      {
+  try {
+    const { data, error: funcError } = await supabase.functions.invoke("smart-pen", {
+      body: {
+        action: "confirm",
+        code: code,
         user_id: userId,
-        device_id: deviceId, // You might need to check your exact schema
-        device_name: deviceName,
-        is_connected: true,
-        last_sync: new Date().toISOString(),
       },
-    ])
-    .select()
-    .single();
+    });
 
-  if (pairError) {
-    console.error("Pairing failed:", pairError);
-    return {
-      success: false,
-      message: "Failed to pair device. Please try again.",
+    if (funcError) throw funcError;
+
+    if (data.success) {
+      // Fetch the device record using the Edge Function 'list' action to bypass RLS if needed,
+      // or just trust the confirmed status and return a minimal object.
+      // Website uses 'list', let's do the same to ensure consistency.
+      const { data: listData, error: listError } = await supabase.functions.invoke("smart-pen", {
+        body: {
+          action: "list",
+          user_id: userId,
+        },
+      });
+
+      if (listError || !listData.success) {
+        // Fallback: created a minimal device object if fetch fails
+        return { 
+          success: true, 
+          device: {
+            id: data.pen_id,
+            pen_id: data.pen_id,
+            user_id: userId,
+            device_name: "ResearchMate Pen",
+            last_sync: new Date().toISOString(),
+            is_connected: true
+          } as SmartPenDevice,
+          message: "Device paired successfully!" 
+        };
+      }
+
+      const pairedDevice = listData.pens?.find((p: any) => p.pen_id === data.pen_id);
+
+      return { 
+        success: true, 
+        device: pairedDevice ? {
+          ...pairedDevice,
+          id: pairedDevice.id || pairedDevice.pen_id,
+          device_name: "ResearchMate Pen",
+          is_connected: true,
+          last_sync: pairedDevice.paired_at
+        } as SmartPenDevice : undefined,
+        message: "Device paired successfully!" 
+      };
+    } else {
+      return { 
+        success: false, 
+        message: data.error || "Invalid or expired code." 
+      };
+    }
+  } catch (error) {
+    console.error("Pairing error:", error);
+    return { 
+      success: false, 
+      message: "Network error. Please try again." 
     };
   }
-
-  // 3. Cleanup Code (Optional - delete or mark used)
-  await supabase.from("pairing_codes").delete().eq("code", code);
-
-  return { success: true, device: newPair as SmartPenDevice };
 }
 
 export async function unpairDevice(id: string): Promise<boolean> {
