@@ -1,4 +1,5 @@
 // Content script to handle text selection and highlighting
+import { QUICK_SAVE_TAG } from "../constants";
 console.log("ResearchMate Content Script Loaded");
 
 // Overlay State
@@ -362,7 +363,7 @@ const handleSelection = (e?: Event) => {
         text,
         sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
         sourceTitle: document.title || "Unknown Title",
-        tags: ["quick-save"],
+        tags: [QUICK_SAVE_TAG],
         deviceSource: "extension",
       };
 

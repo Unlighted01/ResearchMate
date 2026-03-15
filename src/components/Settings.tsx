@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getCurrentUser, signOut, supabase } from "../services/supabaseClient";
+import { useToast } from "./Toast";
 import {
   LogOut,
   Download,
@@ -27,6 +28,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ onBack }) => {
+  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "system");
@@ -116,7 +118,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const handleExportMarkdown = async () => {
     const items = await getAllItems();
     if (!items || items.length === 0) {
-      alert("No research items found to export.");
+      toast("No research items found to export.", "info");
       return;
     }
     const mdContent = items
@@ -147,28 +149,56 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     setImporting(true);
     try {
       const text = await file.text();
-      const items = JSON.parse(text);
-      if (!Array.isArray(items)) throw new Error("Invalid format");
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        toast("Failed to import — file is not valid JSON.", "error");
+        return;
+      }
+
+      if (!Array.isArray(parsed)) {
+        toast("Failed to import — expected a JSON array.", "error");
+        return;
+      }
 
       let count = 0;
-      for (const item of items) {
-        // Basic validation
-        if (item.text) {
-          await addItem({
-            text: item.text,
-            note: item.note,
-            sourceUrl: item.sourceUrl,
-            sourceTitle: item.sourceTitle,
-            tags: item.tags,
-            aiSummary: item.aiSummary,
-          });
-          count++;
+      let skipped = 0;
+      let cloudFallbacks = 0;
+
+      for (const item of parsed) {
+        // Strict type-checking on each field before passing to addItem
+        if (typeof item?.text !== "string" || !item.text.trim()) {
+          skipped++;
+          continue;
         }
+        await addItem(
+          {
+            text: item.text.trim(),
+            note: typeof item.note === "string" ? item.note : undefined,
+            sourceUrl: typeof item.sourceUrl === "string" ? item.sourceUrl : undefined,
+            sourceTitle: typeof item.sourceTitle === "string" ? item.sourceTitle : undefined,
+            tags: Array.isArray(item.tags)
+              ? item.tags.filter((t: unknown) => typeof t === "string")
+              : undefined,
+            aiSummary: typeof item.aiSummary === "string" ? item.aiSummary : undefined,
+          },
+          () => cloudFallbacks++,
+        );
+        count++;
       }
-      alert(`Successfully imported ${count} items!`);
-      window.location.reload(); // Refresh to show items
+
+      if (cloudFallbacks > 0) {
+        toast(
+          `Imported ${count} items (${cloudFallbacks} saved locally — cloud sync failed).`,
+          "info",
+        );
+      } else {
+        toast(`Successfully imported ${count} items!${skipped > 0 ? ` (${skipped} skipped — no text)` : ""}`);
+      }
+      window.location.reload();
     } catch (e) {
-      alert("Failed to import. Invalid JSON file.");
+      toast("Failed to import. Please check the file and try again.", "error");
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

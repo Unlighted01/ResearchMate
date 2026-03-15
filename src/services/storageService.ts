@@ -1,5 +1,6 @@
 import { supabase, isAuthenticated } from "./supabaseClient";
 import { DeviceSource } from "../types";
+import { STORAGE_KEY } from "../constants";
 
 export interface StorageItem {
   id: string;
@@ -140,9 +141,9 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
   }
 
   const localItems = await new Promise<StorageItem[]>((resolve) => {
-    storage.get(["researchMateItems"], (result) => {
+    storage.get([STORAGE_KEY], (result) => {
       resolve(
-        result.researchMateItems ? JSON.parse(result.researchMateItems) : [],
+        result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : [],
       );
     });
   });
@@ -150,7 +151,7 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
   localItems.unshift(newItem);
 
   await new Promise<void>((resolve) => {
-    storage.set({ researchMateItems: JSON.stringify(localItems) }, () =>
+    storage.set({ [STORAGE_KEY]: JSON.stringify(localItems) }, () =>
       resolve(),
     );
   });
@@ -158,27 +159,33 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
   return newItem;
 }
 
-// Helper to remove duplicated local items after successful cloud sync
-async function purgeLocalDuplicates(text: string): Promise<void> {
+// Helper to remove duplicated local items after successful cloud sync.
+// Matches on both text AND sourceUrl to avoid deleting intentional same-text saves from different sources.
+async function purgeLocalDuplicates(text: string, sourceUrl: string): Promise<void> {
   const storage = getLocalStorage();
   if (!storage) return;
 
   const localItems = await new Promise<StorageItem[]>((resolve) => {
-    storage.get(["researchMateItems"], (result) => {
-      resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+    storage.get([STORAGE_KEY], (result) => {
+      resolve(result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : []);
     });
   });
 
-  const filtered = localItems.filter((i) => i.text !== text);
+  const filtered = localItems.filter(
+    (i) => !(i.text === text && i.sourceUrl === sourceUrl),
+  );
 
   if (filtered.length !== localItems.length) {
     await new Promise<void>((resolve) => {
-      storage.set({ researchMateItems: JSON.stringify(filtered) }, () => resolve());
+      storage.set({ [STORAGE_KEY]: JSON.stringify(filtered) }, () => resolve());
     });
   }
 }
 
-export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
+export async function addItem(
+  item: AddItemInput,
+  onCloudFallback?: () => void,
+): Promise<StorageItem | null> {
   const authenticated = await isAuthenticated();
 
   if (authenticated) {
@@ -199,7 +206,7 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
           .single();
 
         if (error) throw error;
-        await purgeLocalDuplicates(item.text); // Cleanup
+        await purgeLocalDuplicates(item.text, item.sourceUrl || ""); // Cleanup
         return transformDatabaseItem(data);
       } catch (insertError: any) {
         // Check for "Column not found" error (Schema mismatch)
@@ -235,7 +242,7 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
              throw retryError;
           }
           
-          await purgeLocalDuplicates(item.text); // Cleanup
+          await purgeLocalDuplicates(item.text, item.sourceUrl || ""); // Cleanup
           return transformDatabaseItem(retryData);
         }
 
@@ -243,7 +250,7 @@ export async function addItem(item: AddItemInput): Promise<StorageItem | null> {
       }
     } catch (error) {
       console.error("Cloud save failed, falling back to local:", error);
-      // Fallback to local storage if cloud fails
+      onCloudFallback?.();
       return saveToLocalStorage(item);
     }
   } else {
@@ -275,9 +282,9 @@ export async function syncLocalItemsToCloud(): Promise<{
 
   // 1. Get Local Items
   const localItems = await new Promise<StorageItem[]>((resolve) => {
-    storage.get(["researchMateItems"], (result) => {
+    storage.get([STORAGE_KEY], (result) => {
       resolve(
-        result.researchMateItems ? JSON.parse(result.researchMateItems) : [],
+        result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : [],
       );
     });
   });
@@ -344,7 +351,7 @@ export async function syncLocalItemsToCloud(): Promise<{
 
     // 3. Clear Local Storage on success
     await new Promise<void>((resolve) => {
-      storage.remove("researchMateItems", () => resolve());
+      storage.remove(STORAGE_KEY, () => resolve());
     });
     console.log("Sync complete and local items cleared.");
     return { success: true, count: localItems.length };
@@ -368,7 +375,7 @@ export async function getAllItems(): Promise<StorageItem[]> {
       .from("items")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(500);
 
     if (error) {
       console.error("Error fetching items:", error);
@@ -383,9 +390,9 @@ export async function getAllItems(): Promise<StorageItem[]> {
 
   if (storage) {
     localItems = await new Promise<StorageItem[]>((resolve) => {
-      storage.get(["researchMateItems"], (result) => {
-        const stored = result.researchMateItems
-          ? JSON.parse(result.researchMateItems)
+      storage.get([STORAGE_KEY], (result) => {
+        const stored = result[STORAGE_KEY]
+          ? JSON.parse(result[STORAGE_KEY])
           : [];
         resolve(stored);
       });
@@ -425,15 +432,15 @@ export async function deleteItem(id: string): Promise<void> {
     if (!storage) return;
 
     const localItems = await new Promise<StorageItem[]>((resolve) => {
-      storage.get(["researchMateItems"], (result) => {
+      storage.get([STORAGE_KEY], (result) => {
         resolve(
-          result.researchMateItems ? JSON.parse(result.researchMateItems) : [],
+          result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : [],
         );
       });
     });
     const newItems = localItems.filter((i) => i.id !== id);
     await new Promise<void>((resolve) => {
-      storage.set({ researchMateItems: JSON.stringify(newItems) }, () =>
+      storage.set({ [STORAGE_KEY]: JSON.stringify(newItems) }, () =>
         resolve(),
       );
     });
@@ -459,13 +466,13 @@ export async function deleteItems(ids: string[]): Promise<void> {
     const storage = getLocalStorage();
     if (storage) {
       const localItems = await new Promise<StorageItem[]>((resolve) => {
-        storage.get(["researchMateItems"], (result) => {
-          resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+        storage.get([STORAGE_KEY], (result) => {
+          resolve(result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : []);
         });
       });
       const newItems = localItems.filter((i) => !localIds.includes(i.id));
       await new Promise<void>((resolve) => {
-        storage.set({ researchMateItems: JSON.stringify(newItems) }, () => resolve());
+        storage.set({ [STORAGE_KEY]: JSON.stringify(newItems) }, () => resolve());
       });
     }
   }
@@ -492,8 +499,8 @@ export async function updateItemsCollection(ids: string[], collectionId: string 
     const storage = getLocalStorage();
     if (storage) {
       const localItems = await new Promise<StorageItem[]>((resolve) => {
-        storage.get(["researchMateItems"], (result) => {
-          resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+        storage.get([STORAGE_KEY], (result) => {
+          resolve(result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : []);
         });
       });
       
@@ -502,7 +509,7 @@ export async function updateItemsCollection(ids: string[], collectionId: string 
       );
 
       await new Promise<void>((resolve) => {
-        storage.set({ researchMateItems: JSON.stringify(newItems) }, () => resolve());
+        storage.set({ [STORAGE_KEY]: JSON.stringify(newItems) }, () => resolve());
       });
     }
   }
@@ -531,40 +538,51 @@ export async function updateItem(
   const authenticated = await isAuthenticated();
 
   if (id.startsWith("local_")) {
+    const storage = getLocalStorage();
+    if (!storage) return;
     const localItems = await new Promise<StorageItem[]>((resolve) => {
-      chrome.storage.local.get(["researchMateItems"], (result) => {
+      storage.get([STORAGE_KEY], (result) => {
         resolve(
-          result.researchMateItems ? JSON.parse(result.researchMateItems) : [],
+          result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : [],
         );
       });
     });
-    // @ts-ignore
-    const newItems = localItems.map((i) =>
-      i.id === id ? { ...i, ...updates } : i,
-    );
+    const newItems = localItems.map((i): StorageItem => {
+      if (i.id !== id) return i;
+      const merged = { ...i, ...updates };
+      // Re-derive color from tags when tags are updated, so color field stays in sync
+      if (updates.tags !== undefined) {
+        const colorTag = updates.tags.find((t) => t.startsWith("color:"));
+        merged.color = colorTag
+          ? (colorTag.split(":")[1] as StorageItem["color"])
+          : undefined;
+      }
+      return merged;
+    });
     await new Promise<void>((resolve) => {
-      chrome.storage.local.set(
-        { researchMateItems: JSON.stringify(newItems) },
-        () => resolve(),
+      storage.set({ [STORAGE_KEY]: JSON.stringify(newItems) }, () =>
+        resolve(),
       );
     });
   } else if (authenticated) {
     // Map updates to DB columns
-    const dbUpdates: any = {};
-    if (updates.aiSummary !== undefined)
-      dbUpdates.ai_summary = updates.aiSummary;
+    const dbUpdates: Record<string, any> = {};
+    if (updates.aiSummary !== undefined) dbUpdates.ai_summary = updates.aiSummary;
     if (updates.citation !== undefined) dbUpdates.citation = updates.citation;
-    if (updates.citationFormat !== undefined)
-      dbUpdates.citation_format = updates.citationFormat;
+    if (updates.citationFormat !== undefined) dbUpdates.citation_format = updates.citationFormat;
     if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
     if (updates.note !== undefined) dbUpdates.note = updates.note;
-    if (updates.preferredView !== undefined)
-      dbUpdates.preferred_view = updates.preferredView;
+    if (updates.preferredView !== undefined) dbUpdates.preferred_view = updates.preferredView;
+    if (updates.sourceTitle !== undefined) dbUpdates.source_title = updates.sourceTitle;
+    if (updates.sourceUrl !== undefined) dbUpdates.source_url = updates.sourceUrl;
 
     const { error } = await supabase
       .from("items")
       .update(dbUpdates)
       .eq("id", id);
-    if (error) console.error("Error updating item:", error);
+    if (error) {
+      console.error("Error updating item:", error);
+      throw error;
+    }
   }
 }

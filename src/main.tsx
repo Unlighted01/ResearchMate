@@ -1,7 +1,40 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import SidePanel from "./SidePanel";
+import { ToastProvider } from "./components/Toast";
 import "./index.css";
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 24, fontFamily: "sans-serif", color: "#ef4444" }}>
+          <strong>Something went wrong.</strong>
+          <p style={{ fontSize: 12, marginTop: 8, color: "#6b7280" }}>
+            {this.state.message}
+          </p>
+          <button
+            style={{ marginTop: 12, fontSize: 12, cursor: "pointer" }}
+            onClick={() => this.setState({ hasError: false, message: "" })}
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Theme Initialization
 const initializeTheme = () => {
@@ -47,6 +80,10 @@ initializeTheme();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <SidePanel />
+    <ErrorBoundary>
+      <ToastProvider>
+        <SidePanel />
+      </ToastProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

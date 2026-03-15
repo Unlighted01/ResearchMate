@@ -1,5 +1,6 @@
 import { supabase, isAuthenticated } from "./supabaseClient";
 import type { Collection } from "../types";
+import { STORAGE_KEY } from "../constants";
 
 export interface CreateCollectionInput {
   name: string;
@@ -86,8 +87,8 @@ export async function addItemsToCollection(itemIds: string[], collectionId: stri
   const localIds = itemIds.filter(id => id.startsWith("local_"));
   if (localIds.length > 0 && typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
     const localItems = await new Promise<any[]>((resolve) => {
-      chrome.storage.local.get(["researchMateItems"], (result) => {
-        resolve(result.researchMateItems ? JSON.parse(result.researchMateItems) : []);
+      chrome.storage.local.get([STORAGE_KEY], (result) => {
+        resolve(result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : []);
       });
     });
 
@@ -97,7 +98,7 @@ export async function addItemsToCollection(itemIds: string[], collectionId: stri
 
     await new Promise<void>((resolve) => {
       chrome.storage.local.set(
-        { researchMateItems: JSON.stringify(newItems) },
+        { [STORAGE_KEY]: JSON.stringify(newItems) },
         () => resolve()
       );
     });

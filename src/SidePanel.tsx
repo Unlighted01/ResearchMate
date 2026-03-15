@@ -17,6 +17,8 @@ import {
   ExternalLink,
   CloudOff,
   RefreshCw,
+  Folder,
+  X,
 } from "lucide-react";
 import { Auth } from "./components/Auth";
 import Settings from "./components/Settings";
@@ -28,50 +30,67 @@ import { CheckSquare, Check, FolderPlus } from "lucide-react";
 import { CollectionSelector } from "./components/CollectionSelector";
 import { CollectionsView } from "./components/CollectionsView";
 import { Welcome } from "./components/Welcome";
+import { useToast } from "./components/Toast";
+import { STORAGE_KEY } from "./constants";
 
 function SidePanel() {
+  // Data & auth
   const [items, setItems] = useState<StorageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<{
-    msg: string;
-    type: "success" | "error";
-  } | null>(null);
-
-  // Navigation State
-  const [currentView, setCurrentView] = useState<
-    "list" | "collections" | "detail" | "settings" | "smartpen"
-  >("list");
-  const [selectedItem, setSelectedItem] = useState<StorageItem | null>(null);
-
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-  // Multi-select state
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showCollectionSelector, setShowCollectionSelector] = useState(false);
+  // Search & collection filter
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeCollection, setActiveCollection] = useState<{ id: string; name: string } | null>(null);
+
+  // Debounce search input — only re-filter after 300ms of no typing
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Navigation (grouped — view and selected item always change together)
+  const [nav, setNav] = useState<{
+    view: "list" | "collections" | "detail" | "settings" | "smartpen";
+    item: StorageItem | null;
+  }>({ view: "list", item: null });
+
+  // Sync (grouped — running flag and status message are always paired)
+  const [sync, setSync] = useState<{
+    running: boolean;
+    status: { msg: string; type: "success" | "error" } | null;
+  }>({ running: false, status: null });
+
+  // Selection (grouped — these three always change together)
+  const [selection, setSelection] = useState<{
+    active: boolean;
+    ids: Set<string>;
+    showCollectionPicker: boolean;
+  }>({ active: false, ids: new Set(), showCollectionPicker: false });
+
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Check for welcome screen
-    // FORCE WELCOME FOR DEMO
-    // chrome.storage.session.get(["hasSeenWelcome"], (result) => {
-    //   if (!result.hasSeenWelcome) {
-    setShowWelcome(true);
-    //     chrome.storage.session.set({ hasSeenWelcome: true });
-    //   }
-    // });
+    // Check for welcome screen — only show once per browser session
+    if (typeof chrome !== "undefined" && chrome.storage?.session) {
+      chrome.storage.session.get(["hasSeenWelcome"], (result) => {
+        if (!result.hasSeenWelcome) {
+          setShowWelcome(true);
+          chrome.storage.session.set({ hasSeenWelcome: true });
+        }
+      });
+    }
 
     fetchItems();
     getCurrentUser().then((currentUser) => {
       setUser(currentUser);
       setIsAuthLoading(false);
       if (currentUser) {
-        // Auto-sync on open/mount if logged in
         syncLocalItemsToCloud().then((res) => {
           if (res.success && res.count > 0) {
             console.log("Auto-synced on open:", res.count);
@@ -88,10 +107,10 @@ function SidePanel() {
       if (event === "SIGNED_IN" && session) {
         setUser(session.user);
         setShowAuth(false);
-        fetchItems(); // Re-fetch to get cloud items
+        fetchItems();
       } else if (event === "SIGNED_OUT") {
         setUser(null);
-        fetchItems(); // Re-fetch to get local items only
+        fetchItems();
       }
     });
 
@@ -99,7 +118,7 @@ function SidePanel() {
     const handleStorageChange = (changes: {
       [key: string]: chrome.storage.StorageChange;
     }) => {
-      if (changes.researchMateItems) {
+      if (changes[STORAGE_KEY]) {
         fetchItems();
       }
     };
@@ -124,6 +143,14 @@ function SidePanel() {
     const data = await getAllItems();
     setItems(data);
     setLoading(false);
+    // Keep nav.item in sync so ItemDetail always has fresh data (color, tags, etc.)
+    setNav((prev) => {
+      if (prev.view === "detail" && prev.item) {
+        const fresh = data.find((i) => i.id === prev.item!.id);
+        return fresh ? { ...prev, item: fresh } : prev;
+      }
+      return prev;
+    });
   };
 
   const handleSync = async () => {
@@ -131,32 +158,23 @@ function SidePanel() {
       setShowAuth(true);
       return;
     }
-    setIsSyncing(true);
-    setSyncStatus(null);
+    setSync({ running: true, status: null });
     try {
       const result = await syncLocalItemsToCloud();
       if (result.success) {
         if (result.count > 0) {
-          setSyncStatus({
-            msg: `Synced ${result.count} items!`,
-            type: "success",
-          });
+          setSync({ running: false, status: { msg: `Synced ${result.count} items!`, type: "success" } });
           fetchItems();
         } else {
-          setSyncStatus({ msg: "Nothing to sync.", type: "success" });
+          setSync({ running: false, status: { msg: "Nothing to sync.", type: "success" } });
         }
       } else {
-        setSyncStatus({
-          msg: result.error || "Sync failed",
-          type: "error",
-        });
+        setSync({ running: false, status: { msg: result.error || "Sync failed", type: "error" } });
       }
     } catch (e) {
-      setSyncStatus({ msg: "Sync error occurred.", type: "error" });
+      setSync({ running: false, status: { msg: "Sync error occurred.", type: "error" } });
     } finally {
-      setIsSyncing(false);
-      // Clear status after 3 seconds
-      setTimeout(() => setSyncStatus(null), 3000);
+      setTimeout(() => setSync((p) => ({ ...p, status: null })), 3000);
     }
   };
 
@@ -169,68 +187,72 @@ function SidePanel() {
     if (itemToDelete) {
       await deleteItem(itemToDelete);
       fetchItems();
-      if (selectedItem?.id === itemToDelete) {
-        setCurrentView("list");
-        setSelectedItem(null);
+      if (nav.item?.id === itemToDelete) {
+        setNav({ view: "list", item: null });
       }
       setItemToDelete(null);
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.size > 0) {
-      setIsSyncing(true); // Re-use loading state
+    if (selection.ids.size > 0) {
+      setSync((p) => ({ ...p, running: true }));
       try {
-        await deleteItems(Array.from(selectedIds));
+        await deleteItems(Array.from(selection.ids));
         await fetchItems();
-        setSelectedIds(new Set());
-        setIsSelectionMode(false);
+        setSelection({ active: false, ids: new Set(), showCollectionPicker: false });
       } catch (err) {
         console.error("Failed to delete bulk items", err);
+        toast("Failed to delete selected items", "error");
       } finally {
-        setIsSyncing(false);
+        setSync((p) => ({ ...p, running: false }));
       }
     }
   };
 
   const toggleSelection = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const newSet = new Set(selectedIds);
+    const newSet = new Set(selection.ids);
     if (newSet.has(id)) {
       newSet.delete(id);
     } else {
       newSet.add(id);
     }
-    setSelectedIds(newSet);
+    setSelection((p) => ({ ...p, ids: newSet }));
   };
 
   const handleItemClick = (item: StorageItem) => {
-    if (isSelectionMode) {
-      const newSet = new Set(selectedIds);
+    if (selection.active) {
+      const newSet = new Set(selection.ids);
       if (newSet.has(item.id)) {
         newSet.delete(item.id);
       } else {
         newSet.add(item.id);
       }
-      setSelectedIds(newSet);
+      setSelection((p) => ({ ...p, ids: newSet }));
       return;
     }
-    setSelectedItem(item);
-    setCurrentView("detail");
+    setNav({ view: "detail", item });
   };
 
-  const filteredItems = items.filter(
-    (item) =>
-      item.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.note?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sourceTitle?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredItems = items.filter((item) => {
+    if (activeCollection && item.collectionId !== activeCollection.id) return false;
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      return (
+        item.text.toLowerCase().includes(q) ||
+        item.note?.toLowerCase().includes(q) ||
+        item.sourceTitle?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   // Render Logic
   // Render Logic
   // Wrap content in AnimatePresence for smooth transitions
   const renderContent = () => {
-    switch (currentView) {
+    switch (nav.view) {
       case "settings":
         return (
           <motion.div
@@ -241,7 +263,7 @@ function SidePanel() {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="h-full"
           >
-            <Settings onBack={() => setCurrentView("list")} />
+            <Settings onBack={() => setNav({ view: "list", item: null })} />
           </motion.div>
         );
       case "smartpen":
@@ -255,16 +277,13 @@ function SidePanel() {
             className="h-full"
           >
             <SmartPenView
-              onBack={() => setCurrentView("list")}
-              onItemClick={(item) => {
-                setSelectedItem(item);
-                setCurrentView("detail");
-              }}
+              onBack={() => setNav({ view: "list", item: null })}
+              onItemClick={(item) => setNav({ view: "detail", item })}
             />
           </motion.div>
         );
       case "detail":
-        if (selectedItem) {
+        if (nav.item) {
           return (
             <motion.div
               key="detail"
@@ -275,16 +294,13 @@ function SidePanel() {
               className="h-full"
             >
               <ItemDetail
-                item={selectedItem}
-                onBack={() => setCurrentView("list")}
+                item={nav.item}
+                onBack={() => setNav({ view: "list", item: null })}
                 onDelete={() => {
                   fetchItems();
-                  setCurrentView("list");
+                  setNav({ view: "list", item: null });
                 }}
-                onUpdate={() => {
-                  // Refresh the list so it has the latest data (summary, citation, etc.)
-                  fetchItems();
-                }}
+                onUpdate={() => fetchItems()}
               />
             </motion.div>
           );
@@ -295,7 +311,7 @@ function SidePanel() {
       default:
         return (
           <motion.div
-            key={currentView}
+            key={nav.view}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -315,17 +331,17 @@ function SidePanel() {
                 <div className="flex gap-2 items-center">
                   {/* Status Message */}
                   <AnimatePresence>
-                    {syncStatus && (
+                    {sync.status && (
                       <motion.div
                         initial={{ opacity: 0, x: 10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
-                        className={`text-[10px] px-2 py-1 rounded-md font-medium whitespace-nowrap ${syncStatus.type === "success"
+                        className={`text-[10px] px-2 py-1 rounded-md font-medium whitespace-nowrap ${sync.status.type === "success"
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
                           }`}
                       >
-                        {syncStatus.msg}
+                        {sync.status.msg}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -333,7 +349,7 @@ function SidePanel() {
                   {/* Sync Button */}
                   <div
                     onClick={handleSync}
-                    className={`p-2 rounded-full transition-colors cursor-pointer ${isSyncing
+                    className={`p-2 rounded-full transition-colors cursor-pointer ${sync.running
                       ? "text-blue-500 bg-blue-50 animate-spin"
                       : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}
@@ -343,14 +359,14 @@ function SidePanel() {
                   </div>
 
                   <div
-                    onClick={() => setCurrentView("smartpen")}
+                    onClick={() => setNav({ view: "smartpen", item: null })}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400 cursor-pointer"
                     title="Smart Pen"
                   >
                     <PenTool size={20} />
                   </div>
                   <div
-                    onClick={() => setCurrentView("settings")}
+                    onClick={() => setNav({ view: "settings", item: null })}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400 cursor-pointer"
                     title="Settings"
                   >
@@ -363,54 +379,70 @@ function SidePanel() {
               <div className="flex gap-4 border-b border-gray-100 dark:border-gray-800 mb-3 px-1">
                 <button
                   onClick={() => {
-                    setCurrentView("list");
-                    setIsSelectionMode(false);
+                    setNav({ view: "list", item: null });
+                    setSelection((p) => ({ ...p, active: false }));
                   }}
                   className={`pb-3 text-sm font-semibold transition-colors relative ${
-                    currentView === "list" 
-                      ? "text-blue-600 dark:text-blue-400" 
+                    nav.view === "list"
+                      ? "text-blue-600 dark:text-blue-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   }`}
                 >
                   Items
-                  {currentView === "list" && (
+                  {nav.view === "list" && (
                     <motion.div layoutId="nav-pill" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
                   )}
                 </button>
                 <button
                   onClick={() => {
-                    setCurrentView("collections");
-                    setIsSelectionMode(false);
+                    setNav({ view: "collections", item: null });
+                    setSelection((p) => ({ ...p, active: false }));
                   }}
                   className={`pb-3 text-sm font-semibold transition-colors relative ${
-                    currentView === "collections" 
-                      ? "text-blue-600 dark:text-blue-400" 
+                    nav.view === "collections"
+                      ? "text-blue-600 dark:text-blue-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   }`}
                 >
                   Collections
-                  {currentView === "collections" && (
+                  {nav.view === "collections" && (
                     <motion.div layoutId="nav-pill" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
                   )}
                 </button>
               </div>
 
-              {/* Search Bar (Only in list view for now) */}
-              {currentView === "list" && (
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search your research..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-apple-blue dark:text-white outline-none"
-                  />
+              {/* Search Bar (Only in list view) */}
+              {nav.view === "list" && (
+                <div className="space-y-2 mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search your research..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-apple-blue dark:text-white outline-none"
+                    />
+                  </div>
+                  {/* Active collection filter chip */}
+                  {activeCollection && (
+                    <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-medium px-2.5 py-1.5 rounded-lg w-fit">
+                      <Folder className="w-3 h-3" />
+                      <span>{activeCollection.name}</span>
+                      <button
+                        onClick={() => setActiveCollection(null)}
+                        className="ml-0.5 hover:text-blue-900 dark:hover:text-blue-100 transition-colors"
+                        title="Clear collection filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Selection Action Bar */}
-              {isSelectionMode && (
+              {selection.active && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -419,24 +451,21 @@ function SidePanel() {
                 >
                   <button
                     onClick={() => {
-                      if (selectedIds.size === filteredItems.length) {
-                        setSelectedIds(new Set());
+                      if (selection.ids.size === filteredItems.length) {
+                        setSelection((p) => ({ ...p, ids: new Set() }));
                       } else {
-                        setSelectedIds(new Set(filteredItems.map(i => i.id)));
+                        setSelection((p) => ({ ...p, ids: new Set(filteredItems.map((i) => i.id)) }));
                       }
                     }}
                     className="text-xs font-medium text-blue-500 hover:text-blue-600"
                   >
-                    {selectedIds.size === filteredItems.length ? "Deselect All" : "Select All"}
+                    {selection.ids.size === filteredItems.length ? "Deselect All" : "Select All"}
                   </button>
                   <span className="text-xs text-gray-500 font-medium">
-                    {selectedIds.size} selected
+                    {selection.ids.size} selected
                   </span>
                   <button
-                    onClick={() => {
-                      setIsSelectionMode(false);
-                      setSelectedIds(new Set());
-                    }}
+                    onClick={() => setSelection({ active: false, ids: new Set(), showCollectionPicker: false })}
                     className="text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     Cancel
@@ -446,17 +475,14 @@ function SidePanel() {
             </div>
 
             {/* Main Content Area */}
-            {currentView === "collections" ? (
-              <CollectionsView 
-                isGuest={!user} 
-                onCollectionClick={(id) => {
-                  // E.g filter items list by collection
-                  // TBD: Could have a 'collection items' view or just filter the list
-                  console.log("Clicked collection", id);
-                  setSearchQuery(""); // Clear search
-                  // Temporarily just switch to list view (filtering logic could go here)
-                  setCurrentView("list");
-                }} 
+            {nav.view === "collections" ? (
+              <CollectionsView
+                isGuest={!user}
+                onCollectionClick={(id, name) => {
+                  setActiveCollection({ id, name });
+                  setSearchQuery("");
+                  setNav({ view: "list", item: null });
+                }}
               />
             ) : (
             <motion.div
@@ -502,15 +528,22 @@ function SidePanel() {
                 </div>
               ) : (
                 filteredItems.map((item) => {
-                  
-                  // Helper to map color to tailwind border subclass
-                  let colorBorderClass = "border-l-[4px] border-l-gray-300 dark:border-l-gray-600"; // default
-                  let colorBgClass = "";
-                  if (item.color === "yellow") { colorBorderClass = "border-l-[4px] border-l-yellow-400"; colorBgClass = "bg-yellow-50/10 dark:bg-yellow-900/10" }
-                  if (item.color === "green") { colorBorderClass = "border-l-[4px] border-l-emerald-400"; colorBgClass = "bg-emerald-50/10 dark:bg-emerald-900/10" }
-                  if (item.color === "blue") { colorBorderClass = "border-l-[4px] border-l-blue-400"; colorBgClass = "bg-blue-50/10 dark:bg-blue-900/10" }
-                  if (item.color === "red") { colorBorderClass = "border-l-[4px] border-l-red-400"; colorBgClass = "bg-red-50/10 dark:bg-red-900/10" }
-                  if (item.color === "purple") { colorBorderClass = "border-l-[4px] border-l-purple-400"; colorBgClass = "bg-purple-50/10 dark:bg-purple-900/10" }
+
+                  const colorHex =
+                    item.color === "yellow" ? "#FBBF24"
+                    : item.color === "green"  ? "#34D399"
+                    : item.color === "blue"   ? "#60A5FA"
+                    : item.color === "red"    ? "#F87171"
+                    : item.color === "purple" ? "#A78BFA"
+                    : null;
+
+                  const colorBgClass =
+                    item.color === "yellow" ? "bg-yellow-50/30 dark:bg-yellow-900/10"
+                    : item.color === "green"  ? "bg-emerald-50/30 dark:bg-emerald-900/10"
+                    : item.color === "blue"   ? "bg-blue-50/30 dark:bg-blue-900/10"
+                    : item.color === "red"    ? "bg-red-50/30 dark:bg-red-900/10"
+                    : item.color === "purple" ? "bg-purple-50/30 dark:bg-purple-900/10"
+                    : "";
 
                   return (
                   <motion.div
@@ -520,19 +553,26 @@ function SidePanel() {
                       hidden: { opacity: 0, y: 10 },
                       show: { opacity: 1, y: 0 },
                     }}
-                    className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border-r border-y transition-all cursor-pointer group hover-lift relative ${colorBorderClass} ${colorBgClass} ${
-                      selectedIds.has(item.id) 
-                        ? "border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/10" 
+                    className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border transition-all cursor-pointer group hover-lift relative overflow-hidden ${colorBgClass} ${
+                      selection.ids.has(item.id)
+                        ? "border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/10"
                         : "border-gray-100 dark:border-gray-700"
                     }`}
                   >
+                    {/* Color indicator bar — absolutely positioned to avoid CSS border-color conflicts */}
+                    {colorHex && (
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-[4px] rounded-l-xl"
+                        style={{ backgroundColor: colorHex }}
+                      />
+                    )}
                     {/* Selection Checkbox */}
-                    {(isSelectionMode || selectedIds.has(item.id)) && (
-                      <div 
+                    {(selection.active || selection.ids.has(item.id)) && (
+                      <div
                         className="absolute -top-2 -left-2 z-10 bg-white dark:bg-gray-800 rounded-full"
                         onClick={(e) => toggleSelection(item.id, e)}
                       >
-                        {selectedIds.has(item.id) ? (
+                        {selection.ids.has(item.id) ? (
                           <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border border-blue-500 shadow-sm">
                             <Check className="w-3 h-3 text-white" />
                           </div>
@@ -575,7 +615,7 @@ function SidePanel() {
                     <div className="flex justify-between items-center">
                       <div className="flex gap-2 items-center">
                         <div className="flex gap-1">
-                          {item.tags?.slice(0, 2).map((tag) => (
+                          {item.tags?.filter((t) => !t.startsWith("color:")).slice(0, 2).map((tag) => (
                             <span
                               key={tag}
                               className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded"
@@ -596,14 +636,13 @@ function SidePanel() {
                         </div>
                       </div>
                       {/* Action Buttons (visible on hover, hidden in selection mode) */}
-                      {!isSelectionMode && (
+                      {!selection.active && (
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-3 right-3 flex gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-lg shadow-sm">
-                          {!isSelectionMode && (
+                          {!selection.active && (
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setIsSelectionMode(true);
-                                setSelectedIds(new Set([item.id]));
+                                setSelection({ active: true, ids: new Set([item.id]), showCollectionPicker: false });
                               }}
                               className="text-gray-400 hover:text-blue-500 cursor-pointer p-0.5"
                               title="Select"
@@ -646,7 +685,7 @@ function SidePanel() {
 
             {/* Bulk Actions Bottom Bar */}
             <AnimatePresence>
-              {isSelectionMode && selectedIds.size > 0 && (
+              {selection.active && selection.ids.size > 0 && (
                 <motion.div
                   initial={{ y: 100, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -655,11 +694,11 @@ function SidePanel() {
                   className="absolute bottom-4 left-4 right-4 bg-white dark:bg-gray-800 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 dark:border-gray-700 p-3 flex justify-between items-center z-40"
                 >
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 ml-2">
-                    {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}
+                    {selection.ids.size} item{selection.ids.size > 1 ? "s" : ""}
                   </span>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setShowCollectionSelector(true)}
+                      onClick={() => setSelection((p) => ({ ...p, showCollectionPicker: true }))}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                     >
                       <FolderPlus size={16} />
@@ -743,13 +782,11 @@ function SidePanel() {
 
       {/* Collection Selector Modal */}
       <CollectionSelector
-        isOpen={showCollectionSelector}
-        onClose={() => setShowCollectionSelector(false)}
-        selectedItemIds={Array.from(selectedIds)}
+        isOpen={selection.showCollectionPicker}
+        onClose={() => setSelection((p) => ({ ...p, showCollectionPicker: false }))}
+        selectedItemIds={Array.from(selection.ids)}
         onComplete={() => {
-          setShowCollectionSelector(false);
-          setIsSelectionMode(false);
-          setSelectedIds(new Set());
+          setSelection({ active: false, ids: new Set(), showCollectionPicker: false });
           fetchItems();
         }}
       />

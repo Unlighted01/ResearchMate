@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useToast } from "./Toast";
 import {
   StorageItem,
   deleteItem,
@@ -21,6 +22,8 @@ import {
   ExternalLink,
   BookOpen,
   Download,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Trash } from "lucide-react";
 import { CopyIcon } from "./icons";
@@ -55,7 +58,19 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const [summarizing, setSummarizing] = useState(false);
   const [summaryMode, setSummaryMode] = useState<SummaryMode>("standard");
   const [loadingCitation, setLoadingCitation] = useState(false);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  // Use a ref instead of state so abort doesn't trigger re-renders and cleanup works on unmount
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Rate-limiting refs — track last call time to prevent rapid re-triggers
+  const lastSummarizeRef = useRef<number>(0);
+  const lastCiteRef = useRef<number>(0);
+  const { toast } = useToast();
+
+  // Abort any in-flight summarization on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // Initialize from preference OR default to showing summary if it exists
   const [showSummaryView, setShowSummaryView] = useState(() => {
@@ -73,6 +88,42 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
   // ISBN Search State
   const [isIdentifyModalOpen, setIsIdentifyModalOpen] = useState(false);
+
+  // Scroll state
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const check = () => {
+      setShowScrollTop(el.scrollTop > 80);
+      setShowScrollBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 80);
+    };
+    el.addEventListener("scroll", check, { passive: true });
+    // Defer initial check until after browser layout is complete
+    const raf = requestAnimationFrame(check);
+    return () => {
+      el.removeEventListener("scroll", check);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Re-check scroll bounds whenever content grows (summary/citation added)
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      setShowScrollBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 80);
+    });
+  }, [summary, citation]);
+
+  const scrollToTop = () =>
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
+  const scrollToBottom = () =>
+    scrollContainerRef.current?.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: "smooth" });
 
   // Sync tags if item prop changes
   useEffect(() => {
@@ -101,57 +152,61 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
   const confirmDelete = async () => {
     setIsDeleting(true);
-    await deleteItem(item.id);
-    onDelete();
-    setShowDeleteConfirm(false);
+    try {
+      await deleteItem(item.id);
+      onDelete();
+    } catch (e) {
+      console.error("Delete failed:", e);
+      toast("Failed to delete item. Please try again.", "error");
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const cancelSummarization = () => {
-    if (abortController) {
-      abortController.abort();
-      setSummarizing(false);
-      setAbortController(null);
-    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setSummarizing(false);
   };
 
-  const handleSummarize = async () => {
-    // If summary exists, just toggle view to it
-    if (summary && !showSummaryView) {
-      await handleToggleView(true);
+  const handleSummarize = async (overrideMode?: SummaryMode) => {
+    const now = Date.now();
+    if (now - lastSummarizeRef.current < 3000) {
+      toast("Please wait a moment before summarizing again.", "info");
       return;
     }
-
-    // If already showing summary, verify if we want to re-generate?
-    // For now, let's assume button implies "View AI Summary" if it exists.
-    if (summary && showSummaryView) {
-      // Maybe nothing? Or regenerate?
-      return;
-    }
-
+    lastSummarizeRef.current = now;
+    const modeToUse = overrideMode ?? summaryMode;
     const controller = new AbortController();
-    setAbortController(controller);
+    abortControllerRef.current = controller;
     setSummarizing(true);
+    setSummary(""); // Clear existing so loading overlay appears
+    setShowSummaryView(false);
     try {
-      const result = await summarizeText(item.text, controller.signal, summaryMode);
+      const result = await summarizeText(item.text, controller.signal, modeToUse);
       if (result.ok) {
         setSummary(result.summary);
         setShowSummaryView(true);
-        // Persist
-        await updateItem(item.id, {
-          aiSummary: result.summary,
-          preferredView: "summary",
-        });
-        onUpdate();
+        // Persist — failure here is non-critical; don't let it mask a successful summary
+        try {
+          await updateItem(item.id, {
+            aiSummary: result.summary,
+            preferredView: "summary",
+          });
+          onUpdate();
+        } catch (persistError) {
+          console.error("Failed to persist summary:", persistError);
+        }
       } else {
-        alert(result.error || "Failed to generate summary");
+        toast(result.error || "Failed to generate summary", "error");
       }
     } catch (e: any) {
-      if (e.name !== 'AbortError') {
-         alert("Error generating summary");
+      if (e.name !== "AbortError") {
+        toast("Error generating summary", "error");
       }
     } finally {
       setSummarizing(false);
-      setAbortController(null);
+      abortControllerRef.current = null;
     }
   };
 
@@ -159,13 +214,20 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     try {
       const mdContent = generateMarkdownTemplate(item);
       await navigator.clipboard.writeText(mdContent);
-      alert("Markdown copied to clipboard!");
+      toast("Markdown copied to clipboard!");
     } catch (e) {
       console.error("Failed to copy markdown", e);
+      toast("Failed to copy markdown", "error");
     }
   };
 
   const handleCite = async (overrideFormat?: string) => {
+    const now = Date.now();
+    if (now - lastCiteRef.current < 3000) {
+      toast("Please wait a moment before generating another citation.", "info");
+      return;
+    }
+    lastCiteRef.current = now;
     const formatToUse = overrideFormat || citationFormat;
 
     // If we simply clicked the header button and a citation exists,
@@ -200,7 +262,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
         });
         onUpdate();
       } else {
-        alert(result.error || "Failed to generate citation");
+        toast(result.error || "Failed to generate citation", "error");
       }
     } else {
       // Fallback local citation
@@ -216,12 +278,17 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     setLoadingCitation(false);
   };
 
+  // Build the full tags array (display tags + encoded color) for storage
+  const buildTagsForStorage = (displayTags: string[], color: string) => {
+    const base = displayTags.filter((t) => !t.startsWith("color:"));
+    return color ? [...base, `color:${color}`] : base;
+  };
+
   const handleAddTag = async () => {
     if (!newTag.trim()) return;
     const updatedTags = [...tags, newTag.trim()];
     setTags(updatedTags); // Optimistic UI update
-    await updateItem(item.id, { tags: updatedTags });
-    item.tags = updatedTags; // Keep prop in sync
+    await updateItem(item.id, { tags: buildTagsForStorage(updatedTags, itemColor) });
     onUpdate();
     setIsAddingTag(false);
     setNewTag("");
@@ -230,37 +297,32 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const handleDeleteTag = async (tagToDelete: string) => {
     const updatedTags = tags.filter((t) => t !== tagToDelete);
     setTags(updatedTags); // Optimistic UI update
-    await updateItem(item.id, { tags: updatedTags });
-    item.tags = updatedTags; // Keep prop in sync
+    await updateItem(item.id, { tags: buildTagsForStorage(updatedTags, itemColor) });
     onUpdate();
   };
 
   const handleColorChange = async (color: "yellow" | "green" | "red" | "blue" | "purple" | "") => {
     const newColor = itemColor === color ? "" : color;
     setItemColor(newColor);
-    await updateItem(item.id, { color: newColor === "" ? undefined : newColor });
-    item.color = newColor === "" ? undefined : newColor;
+    await updateItem(item.id, { tags: buildTagsForStorage(tags, newColor) });
     onUpdate();
   };
 
   const handleBookSelect = async (book: BookMetadata) => {
-    // 1. Construct Citation (Mock generic style for now, or use existing generator if adaptable)
     const authors = book.authors?.join(", ") || "Unknown";
     const year = book.publishedDate?.split("-")[0] || "n.d.";
-    const citation = `${authors} (${year}). *${book.title}*. ${book.publisher || "Publisher"}.`;
+    const newCitation = `${authors} (${year}). *${book.title}*. ${book.publisher || "Publisher"}.`;
 
-    // 2. Update Item
     await updateItem(item.id, {
       sourceTitle: book.title,
-      citation: citation,
+      citation: newCitation,
       sourceUrl: book.previewLink || book.infoLink || "",
-      citationFormat: "apa", // Default
+      citationFormat: "apa",
     });
 
-    // 3. Update Local State (Optimistic)
-    item.sourceTitle = book.title;
-    item.citation = citation;
-    item.sourceUrl = book.previewLink || book.infoLink || "";
+    // Update local state via setState (no prop mutation)
+    setCitation(newCitation);
+    setCitationFormat("apa");
 
     onUpdate();
     setIsIdentifyModalOpen(false);
@@ -304,7 +366,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   if (item.color === "purple") { colorHex = "#A78BFA"; colorName = "Purple"; }
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-white dark:bg-gray-900 relative">
       <ISBNSearchModal
         isOpen={isIdentifyModalOpen}
         onClose={() => setIsIdentifyModalOpen(false)}
@@ -365,7 +427,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
           {/* Summarize Button - Persistent */}
           <button
-            onClick={handleSummarize}
+            onClick={() => handleSummarize()}
             disabled={summarizing}
             aria-label="Summarize content"
             className={`p-2 rounded-lg transition-colors ${summary ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
@@ -381,9 +443,15 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
           {/* Summary Mode Selector */}
           <select
             value={summaryMode}
-            onChange={(e) => setSummaryMode(e.target.value as SummaryMode)}
+            onChange={(e) => {
+              const newMode = e.target.value as SummaryMode;
+              setSummaryMode(newMode);
+              // If a summary already exists, regenerate immediately with the new mode
+              if (summary) handleSummarize(newMode);
+            }}
+            disabled={summarizing}
             aria-label="Summary Mode"
-            className="appearance-none px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[10px] font-medium text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+            className="appearance-none px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[10px] font-medium text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="ultra-short">⚡ Short</option>
             <option value="standard">📝 Standard</option>
@@ -439,7 +507,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-5 scrollbar-hide relative">
         {/* Source Info */}
         <div className="mb-6 flex flex-wrap items-center gap-2">
           {item.color && (
@@ -514,11 +582,11 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
               </h3>
             </div>
 
-            {/* Inline Toggle for Summary vs Original - Only visible when summary view is active */}
-            {showSummaryView && summary && (
+            {/* Toggle between Summary and Original - visible whenever a summary exists */}
+            {summary && (
               <button
-                onClick={() => handleToggleView(false)}
-                aria-label="View original content"
+                onClick={() => handleToggleView(!showSummaryView)}
+                aria-label={showSummaryView ? "View original content" : "View summary"}
                 className="text-[10px] font-bold uppercase tracking-wider text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
               >
                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100">
@@ -532,9 +600,9 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <path d="M9 14 4 9l5-5" />
+                    <path d={showSummaryView ? "M9 14 4 9l5-5" : "M15 10l5 5-5 5"} />
                   </svg>
-                  View Original
+                  {showSummaryView ? "View Original" : "View Summary"}
                 </div>
               </button>
             )}
@@ -735,7 +803,32 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
             )}
           </div>
         </div>
+
       </div>
+
+      {/* Scroll shortcut buttons — outside scroll container so they always stay visible */}
+      {(showScrollTop || showScrollBottom) && (
+        <div className="absolute bottom-6 right-4 flex flex-col gap-1.5 z-20">
+          {showScrollTop && (
+            <button
+              onClick={scrollToTop}
+              aria-label="Scroll to top"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md text-gray-500 dark:text-gray-400 hover:text-apple-blue dark:hover:text-apple-blue hover:border-apple-blue transition-all"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          )}
+          {showScrollBottom && (
+            <button
+              onClick={scrollToBottom}
+              aria-label="Scroll to bottom"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md text-gray-500 dark:text-gray-400 hover:text-apple-blue dark:hover:text-apple-blue hover:border-apple-blue transition-all"
+            >
+              <ArrowDown className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

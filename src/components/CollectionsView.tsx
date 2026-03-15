@@ -5,7 +5,7 @@ import { Folder, MoreVertical, LayoutGrid, List } from "lucide-react";
 import { motion } from "motion/react";
 
 interface CollectionsViewProps {
-  onCollectionClick: (collectionId: string) => void;
+  onCollectionClick: (collectionId: string, collectionName: string) => void;
   isGuest: boolean;
 }
 
@@ -93,7 +93,7 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
               <motion.div
                 key={col.id}
                 variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-                onClick={() => onCollectionClick(col.id)}
+                onClick={() => onCollectionClick(col.id, col.name)}
                 className={`bg-white dark:bg-gray-800 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 cursor-pointer group hover:-translate-y-0.5 transition-all
                   ${viewMode === "grid" ? "p-4 aspect-square flex flex-col justify-between" : "p-3 flex items-center gap-3"}
                 `}

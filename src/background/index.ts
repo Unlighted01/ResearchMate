@@ -1,5 +1,6 @@
 // Background service worker
 import { addItem } from "../services/storageService";
+import { QUICK_SAVE_TAG } from "../constants";
 
 console.log("ResearchMate Background Loaded");
 
@@ -58,7 +59,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       sourceTitle: tab?.title || "Unknown Title",
       createdAt: new Date().toISOString(),
       deviceSource: "extension" as const,
-      tags: ["quick-save"],
+      tags: [QUICK_SAVE_TAG],
       note: "",
     };
 

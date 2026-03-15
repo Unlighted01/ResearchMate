@@ -36,7 +36,7 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
 
     // Naive ISBN check (numbers and dashes, length 10 or 13)
     const cleanQuery = query.replace(/[-\s]/g, "");
-    const isISBN = /^\d{10}|\d{13}$/.test(cleanQuery);
+    const isISBN = /^(\d{10}|\d{13})$/.test(cleanQuery);
 
     let result;
     if (isISBN) {
