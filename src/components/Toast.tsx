@@ -1,17 +1,28 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
 
 type ToastType = "success" | "error" | "info";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   message: string;
   type: ToastType;
+  action?: ToastAction;
+}
+
+interface ToastOptions {
+  action?: ToastAction;
+  duration?: number;
 }
 
 interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => void;
+  toast: (message: string, type?: ToastType, options?: ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
@@ -22,16 +33,22 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const timerMapRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-  const toast = useCallback((message: string, type: ToastType = "success") => {
+  const toast = useCallback((message: string, type: ToastType = "success", options?: ToastOptions) => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
+    const duration = options?.duration ?? 3500;
+    setToasts((prev) => [...prev, { id, message, type, action: options?.action }]);
+    const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+      timerMapRef.current.delete(id);
+    }, duration);
+    timerMapRef.current.set(id, timer);
   }, []);
 
   const dismiss = useCallback((id: number) => {
+    clearTimeout(timerMapRef.current.get(id));
+    timerMapRef.current.delete(id);
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -63,8 +80,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               )}
               <span className="flex-1">{t.message}</span>
+              {t.action && (
+                <button
+                  onClick={() => {
+                    t.action!.onClick();
+                    dismiss(t.id);
+                  }}
+                  className="ml-2 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide bg-current/10 hover:bg-current/20 transition-colors border border-current/20 shrink-0"
+                >
+                  {t.action.label}
+                </button>
+              )}
               <button
                 onClick={() => dismiss(t.id)}
+                aria-label="Dismiss notification"
                 className="ml-1 p-0.5 rounded opacity-60 hover:opacity-100 transition-opacity"
               >
                 <X className="w-3 h-3" />

@@ -33,6 +33,16 @@ Colors are **not** a separate DB column. They are stored as `color:<name>` entri
 - **List view** filters `color:*` from displayed tag chips (`SidePanel.tsx`).
 - **Visual indicator** in list view: absolute-positioned `<div>` with inline `backgroundColor` style (not Tailwind border classes — border shorthand overrides `border-l-*` color).
 
+### Citation Lookup Waterfall
+```
+Tier 1   → ISBN → Open Library API
+Tier 1.5 → DOI (meta tag / URL / DOM scan) → CrossRef DOI lookup
+Tier 1.75→ No DOI but title present → CrossRef title search
+Tier 2   → Local meta tags (author + title) → rule-based formatting
+Tier 3   → AI (only if useAiCitation=true or all above fail)
+```
+CrossRef API: free, no key needed, CORS-enabled. DOM scan checks body text + all `<a href>` attributes for `10.\d{4,}/...` patterns. Title search strips `(PDF)` prefixes and `| SiteName` suffixes before querying.
+
 ### RLS / Edge Function Pairing
 Direct Supabase table reads for paired devices return 406 (RLS blocks). Smart pen pairing uses `supabase.functions.invoke("smart-pen", { body: { action: "list" } })` exclusively.
 
@@ -45,16 +55,18 @@ Direct Supabase table reads for paired devices return 406 (RLS blocks). Smart pe
 
 | File | Role |
 |------|------|
-| `src/SidePanel.tsx` | Main list view, navigation state, collection filtering, bulk actions |
+| `src/SidePanel.tsx` | Main list view, navigation, collection filtering, bulk actions, auth modal |
 | `src/components/ItemDetail.tsx` | Detail view: AI summary, citation, tags, color, export |
-| `src/services/storageService.ts` | All CRUD — dual local+cloud logic, transform helpers |
+| `src/services/storageService.ts` | All CRUD — dual local+cloud logic, pagination (`getItemsPage`), transform helpers |
+| `src/services/geminiService.ts` | Citation generation (CrossRef waterfall) + AI summarization |
+| `src/services/citationService.ts` | ISBN lookup via Open Library |
 | `src/services/collectionService.ts` | Collections CRUD (cloud-only) |
-| `src/services/geminiService.ts` | AI summarization via Gemini API |
-| `src/services/citationService.ts` | Citation generation logic |
 | `src/services/smartPenService.ts` | Smart pen device pairing (Edge Function) |
 | `src/content/index.tsx` | Selection capture, floating save button (Shadow DOM) |
 | `src/background/index.ts` | Context menu save, message routing |
-| `src/components/Toast.tsx` | Toast notification system (Context + hook) |
+| `src/components/Toast.tsx` | Toast notification system (Context + hook) — supports `action: { label, onClick }` for undo |
+| `src/components/CollectionSelector.tsx` | Modal: assign items to a collection — has `useFocusTrap` |
+| `src/hooks/useFocusTrap.ts` | Reusable focus-trap hook for modals (Tab cycle, Escape to close, focus restore) |
 | `src/constants.ts` | Magic string constants (`STORAGE_KEY`, `QUICK_SAVE_TAG`, `CITATION_FORMATS`) |
 | `src/types.ts` | Shared TypeScript types (DB snake_case + camelCase variants) |
 
@@ -70,7 +82,7 @@ sync    = { running: boolean, status: { msg, type } | null }
 selection = { active: boolean, ids: Set<string>, showCollectionPicker: boolean }
 ```
 
-Other state: `items`, `loading`, `user`, `searchQuery`, `debouncedSearch` (300ms debounce), `activeCollection`.
+Other state: `items`, `loading`, `user`, `searchQuery`, `debouncedSearch` (300ms debounce), `activeCollection`, `hasMore`, `nextOffset`, `isFetchingMore`.
 
 `fetchItems()` also refreshes `nav.item` so ItemDetail always has fresh data after any update.
 
@@ -78,11 +90,22 @@ Other state: `items`, `loading`, `user`, `searchQuery`, `debouncedSearch` (300ms
 
 ## UI Patterns
 
-- **Toast:** `useToast()` hook from `Toast.tsx`. Never use `alert()`. Provider is at app root in `main.tsx`.
+- **Toast:** `useToast()` hook from `Toast.tsx`. Never use `alert()`. Provider is at app root in `main.tsx`. Supports `options.action` for undo buttons.
+- **Undo delete:** Optimistic remove from state → 5s toast with Undo → `setTimeout(5100ms)` → actual `deleteItem()`. Pattern used in both list (`handleDelete`) and detail (`handleDelete`).
 - **Scroll buttons:** In `ItemDetail.tsx`, buttons are positioned `absolute bottom-6 right-4` on the **root div** (not inside the scroll container) — `sticky` inside `overflow-y: auto` is unreliable.
 - **Animations:** `motion/react` (Framer Motion v12). Use `AnimatePresence` for view transitions.
 - **Design language:** Apple-inspired. `backdrop-blur`, smooth transitions, Lucide React icons.
 - **Dark mode:** Tailwind `dark:` variants throughout. No separate theme provider.
+- **Modal accessibility:** Use `useFocusTrap(ref, isOpen, onClose)` + `role="dialog"` + `aria-modal="true"` + `aria-labelledby` on every modal overlay.
+
+---
+
+## Pagination / Infinite Scroll
+
+- `PAGE_SIZE = 30` in `storageService.ts`
+- `getItemsPage(offset, pageSize)` returns `{ items, hasMore, nextOffset }`
+- `IntersectionObserver` watches a sentinel `<div ref={sentinelRef}>` at list bottom; calls `loadMore()` with `rootMargin: "200px"` lookahead
+- Search mode bypasses pagination and calls `getAllItems()` instead (so all results are searchable)
 
 ---
 
@@ -92,8 +115,6 @@ Selection threshold in `src/content/index.tsx` `handleSelection()`:
 - `isCollapsed === false`
 - `wordCount >= 3`
 - `charCount >= 15`
-
-This prevents the floating button from appearing on trivial clicks.
 
 ---
 
@@ -136,6 +157,8 @@ interface StorageItem {
 5. **Rate limiting:** `handleSummarize` and `handleCite` use `useRef` timestamps with 3-second cooldowns. Don't add state-based cooldowns (causes unnecessary re-renders).
 
 6. **Color tags in tag chips:** Always `.filter(t => !t.startsWith("color:"))` before rendering tags in list view.
+
+7. **`useFocusTrap` in serialized executeScript callbacks** — the hook lives in the React layer only. The `executeScript` func callback is serialized and runs in the page context, so it cannot access React hooks or any outer scope variables.
 
 ---
 

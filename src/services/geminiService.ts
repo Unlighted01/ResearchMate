@@ -27,6 +27,18 @@ export interface CitationResult {
   error?: string;
 }
 
+interface CrossRefAuthor { given: string; family: string; }
+interface CrossRefWork {
+  DOI: string;
+  title: string[];
+  author?: CrossRefAuthor[];
+  published?: { "date-parts": number[][] };
+  "container-title"?: string[];
+  volume?: string;
+  issue?: string;
+  page?: string;
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -42,6 +54,205 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   }
 
   return headers;
+}
+
+// Extract a DOI from any URL string
+function extractDOIFromUrl(url: string): string {
+  const match = url.match(/10\.\d{4,}\/[^\s"<>[\]{}|\\^~`]+/);
+  return match ? match[0] : "";
+}
+
+// Fetch authoritative metadata from CrossRef by DOI
+async function lookupCrossRef(doi: string): Promise<CrossRefWork | null> {
+  try {
+    const res = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json?.message as CrossRefWork) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Search CrossRef by title when no DOI is available
+async function searchCrossRefByTitle(title: string, year?: string | number): Promise<CrossRefWork | null> {
+  try {
+    const query = encodeURIComponent(title);
+    const res = await fetch(`https://api.crossref.org/works?query.bibliographic=${query}&rows=3`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const items: CrossRefWork[] = json?.message?.items ?? [];
+    // Normalise title for comparison
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const titleNorm = norm(title);
+    for (const item of items) {
+      const itemTitle = item.title?.[0] ?? "";
+      // Accept if 60%+ of the query title appears inside the candidate title
+      const overlap = titleNorm.length > 0 && norm(itemTitle).includes(titleNorm.slice(0, Math.floor(titleNorm.length * 0.6)));
+      const yearMatch = !year || item.published?.["date-parts"]?.[0]?.[0]?.toString() === String(year);
+      if (overlap && yearMatch && (item.author?.length ?? 0) > 0) return item;
+    }
+    // Looser fallback: just take top result if it has authors
+    if (items[0] && (items[0].author?.length ?? 0) > 0) return items[0];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// "Scott W." → "S. W."
+function toInitials(given: string): string {
+  return given
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + ".")
+    .join(" ");
+}
+
+// Format an author list per citation style
+function formatAuthors(authors: CrossRefAuthor[], style: string): string {
+  if (authors.length === 0) return "Unknown Author";
+
+  switch (style) {
+    case "apa": {
+      const formatted = authors.map((a) => `${a.family}, ${toInitials(a.given)}`);
+      if (formatted.length === 1) return formatted[0];
+      if (formatted.length === 2) return `${formatted[0]}, & ${formatted[1]}`;
+      return formatted.slice(0, -1).join(", ") + ", & " + formatted[formatted.length - 1];
+    }
+    case "mla": {
+      if (authors.length === 1) return `${authors[0].family}, ${authors[0].given}`;
+      if (authors.length === 2) return `${authors[0].family}, ${authors[0].given}, and ${authors[1].given} ${authors[1].family}`;
+      return `${authors[0].family}, ${authors[0].given}, et al.`;
+    }
+    case "chicago": {
+      const formatted = authors.map((a, i) =>
+        i === 0 ? `${a.family}, ${a.given}` : `${a.given} ${a.family}`
+      );
+      if (formatted.length <= 2) return formatted.join(", and ");
+      return formatted.slice(0, -1).join(", ") + ", and " + formatted[formatted.length - 1];
+    }
+    case "harvard": {
+      const formatted = authors.map((a) => `${a.family}, ${toInitials(a.given)}`);
+      if (formatted.length === 1) return formatted[0];
+      if (formatted.length === 2) return `${formatted[0]} and ${formatted[1]}`;
+      return formatted.slice(0, -1).join(", ") + " and " + formatted[formatted.length - 1];
+    }
+    case "ieee": {
+      const formatted = authors.map((a) => `${toInitials(a.given)} ${a.family}`);
+      if (formatted.length === 1) return formatted[0];
+      if (formatted.length === 2) return `${formatted[0]} and ${formatted[1]}`;
+      return formatted.slice(0, -1).join(", ") + ", and " + formatted[formatted.length - 1];
+    }
+    case "bibtex": {
+      return authors.map((a) => `${a.family}, ${a.given}`).join(" and ");
+    }
+    default: {
+      const formatted = authors.map((a) => `${a.family}, ${toInitials(a.given)}`);
+      if (formatted.length === 1) return formatted[0];
+      if (formatted.length === 2) return `${formatted[0]}, & ${formatted[1]}`;
+      return formatted.slice(0, -1).join(", ") + ", & " + formatted[formatted.length - 1];
+    }
+  }
+}
+
+// Build a complete citation string from a CrossRef work object
+function formatCrossRefCitation(work: CrossRefWork, style: string, url: string): string {
+  const authors = work.author ?? [];
+  const authorStr = formatAuthors(authors, style);
+  const year = work.published?.["date-parts"]?.[0]?.[0]?.toString() ?? "n.d.";
+  const title = work.title?.[0] ?? "Untitled";
+  const journal = work["container-title"]?.[0] ?? "";
+  const vol = work.volume ?? "";
+  const issue = work.issue ?? "";
+  const pages = work.page ?? "";
+  const doiUrl = `https://doi.org/${work.DOI}`;
+
+  const volIssue = vol ? (issue ? `*${vol}*(${issue})` : `*${vol}*`) : "";
+  const volIssuePage = [volIssue, pages].filter(Boolean).join(", ");
+
+  switch (style) {
+    case "apa": {
+      let cit = `${authorStr}. (${year}). ${title}.`;
+      if (journal) cit += ` *${journal}*`;
+      if (volIssuePage) cit += `, ${volIssuePage}`;
+      cit += `. ${doiUrl}`;
+      return cit;
+    }
+    case "mla": {
+      let cit = `${authorStr}. "${title}."`;
+      if (journal) cit += ` *${journal}*,`;
+      if (vol) cit += ` vol. ${vol},`;
+      if (issue) cit += ` no. ${issue},`;
+      cit += ` ${year}`;
+      if (pages) cit += `, pp. ${pages}`;
+      cit += `.`;
+      return cit;
+    }
+    case "chicago": {
+      let cit = `${authorStr}. "${title}."`;
+      if (journal) cit += ` *${journal}*`;
+      if (vol) cit += ` ${vol}`;
+      if (issue) cit += `, no. ${issue}`;
+      cit += ` (${year})`;
+      if (pages) cit += `: ${pages}`;
+      cit += `. ${doiUrl}.`;
+      return cit;
+    }
+    case "harvard": {
+      let cit = `${authorStr} (${year}) '${title}',`;
+      if (journal) cit += ` *${journal}*,`;
+      if (vol) cit += ` vol. ${vol},`;
+      if (issue) cit += ` no. ${issue},`;
+      if (pages) cit += ` pp. ${pages},`;
+      cit += ` doi: ${work.DOI}.`;
+      return cit;
+    }
+    case "ieee": {
+      const dateAccess = new Date();
+      const months = ["Jan.", "Feb.", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec."];
+      const accessed = `${months[dateAccess.getMonth()]} ${dateAccess.getDate()}, ${dateAccess.getFullYear()}`;
+      let cit = `${authorStr}, "${title},"`;
+      if (journal) cit += ` *${journal}*,`;
+      if (vol) cit += ` vol. ${vol},`;
+      if (issue) cit += ` no. ${issue},`;
+      if (pages) cit += ` pp. ${pages},`;
+      cit += ` ${year}. doi: ${work.DOI}. [Accessed: ${accessed}].`;
+      return cit;
+    }
+    case "bibtex": {
+      const firstAuthor = authors[0]?.family.toLowerCase() ?? "unknown";
+      const key = `${firstAuthor}${year}`;
+      let entry = `@article{${key},\n`;
+      entry += `  author = {${authorStr}},\n`;
+      entry += `  title = {${title}},\n`;
+      if (journal) entry += `  journal = {${journal}},\n`;
+      if (vol) entry += `  volume = {${vol}},\n`;
+      if (issue) entry += `  number = {${issue}},\n`;
+      if (pages) entry += `  pages = {${pages}},\n`;
+      entry += `  year = {${year}},\n`;
+      entry += `  doi = {${work.DOI}},\n`;
+      entry += `  url = {${url}}\n}`;
+      return entry;
+    }
+    default:
+      return `${authorStr}. (${year}). ${title}. ${doiUrl}`;
+  }
+}
+
+// Robustly parse a year from various date string formats
+function extractYear(dateStr: string): string | number {
+  if (!dateStr) return "n.d.";
+  // Exact 4-digit year
+  const exact = dateStr.match(/^\d{4}$/);
+  if (exact) return parseInt(exact[0], 10);
+  // Any 4-digit year embedded in the string
+  const embedded = dateStr.match(/\d{4}/);
+  if (embedded) return parseInt(embedded[0], 10);
+  // Last resort: native Date parse
+  const d = new Date(dateStr);
+  if (!isNaN(d.getFullYear())) return d.getFullYear();
+  return "n.d.";
 }
 
 /**
@@ -130,21 +341,46 @@ async function extractPageMetadata(tabId: number): Promise<any> {
           }
         } catch (e) {}
 
+        // Collect all citation_author meta tags (one per author on academic pages)
+        const authorMetas = Array.from(
+          document.querySelectorAll('meta[name="citation_author"]')
+        )
+          .map((m) => m.getAttribute("content"))
+          .filter(Boolean) as string[];
+
+        // DOI: meta tags first, then <a href="https://doi.org/..."> links, then body text scan
+        const doiPattern = /10\.\d{4,}\/[^\s"'<>[\]{}|\\^~`,;)]+/;
+        let doi = getMeta(["citation_doi", "doi", "dc.identifier"]) || "";
+        if (!doi) {
+          // Check for doi.org links in <a> tags
+          const doiLink = document.querySelector('a[href*="doi.org/10."]') as HTMLAnchorElement | null;
+          if (doiLink) {
+            const m = doiLink.href.match(doiPattern);
+            if (m) doi = m[0];
+          }
+        }
+        if (!doi) {
+          // Scan visible page text (catches DOI printed as plain text on the page)
+          const bodyText = (document.body?.innerText ?? "").slice(0, 50000);
+          const m = bodyText.match(doiPattern);
+          if (m) doi = m[0].replace(/[.,;)]+$/, "");
+        }
+        if (!doi) {
+          // Scan all <a href> attributes
+          const allLinks = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+          for (const a of allLinks) {
+            const m = a.href.match(doiPattern);
+            if (m) { doi = m[0]; break; }
+          }
+        }
+
         return {
           title: document.title || getMeta(["title"]),
           description: getMeta(["description"]),
-          // Prioritize specific author tags over generic ones
           author:
+            (authorMetas.length > 0 ? authorMetas.join("; ") : null) ||
             jsonIdAuthor ||
-            getMeta([
-              "citation_author",
-              "author",
-              "article:author",
-              "dc.creator",
-              "byl", // Bloomberg etc
-              "parsely-author",
-            ]),
-          // Fallback corporate author if no person is found (Tier 2 improvement)
+            getMeta(["author", "article:author", "dc.creator", "byl", "parsely-author"]),
           siteName: getMeta([
             "og:site_name",
             "site_name",
@@ -161,12 +397,18 @@ async function extractPageMetadata(tabId: number): Promise<any> {
             "citation_journal_title",
             "journal_title",
             "site_name",
-            "site_name",
             "og:site_name",
             "dc.publisher",
           ]),
-          doi: getMeta(["citation_doi", "doi", "dc.identifier"]),
-          isbn: getMeta(["citation_isbn", "isbn", "dc.identifier.isbn"]), // New
+          doi,
+          isbn: getMeta(["citation_isbn", "isbn", "dc.identifier.isbn"]),
+          volume: getMeta(["citation_volume"]),
+          issue: getMeta(["citation_issue"]),
+          pages: (() => {
+            const f = getMeta(["citation_firstpage"]);
+            const l = getMeta(["citation_lastpage"]);
+            return f ? (l ? `${f}-${l}` : f) : "";
+          })(),
           url: window.location.href,
         };
       },
@@ -185,7 +427,7 @@ export async function generateCitation(
 ): Promise<CitationResult> {
   try {
     const style =
-      styleProp || (localStorage.getItem("citationStyle") as any) || "apa";
+      styleProp || (localStorage.getItem("citationStyle") as any) || "mla";
 
     // 1. Extract Local Metadata (Tier 2 Candidate)
     let localMetadata: any = null;
@@ -202,7 +444,7 @@ export async function generateCitation(
     }
 
     // --- Tier 1: Deterministic ID (Free & Perfect) ---
-    // Check for ISBN (DOI later if supported by custom API)
+    // Check for ISBN
     if (localMetadata?.isbn) {
       console.log(
         "Found ISBN locally, attempting Tier 1 lookup:",
@@ -211,16 +453,14 @@ export async function generateCitation(
       const isbnResult = await lookupISBN(localMetadata.isbn);
       if (isbnResult.ok && isbnResult.data && isbnResult.data.length > 0) {
         const book = isbnResult.data[0];
-        // Construct Citation from Book Data
         const author = book.authors?.join(", ") || "Unknown Author";
         const year = book.publishedDate?.split("-")[0] || "n.d.";
         const title = book.title || "Untitled";
         const pub = book.publisher || "Publisher";
 
         let citation = "";
-        // Reuse formatting logic (maybe refactor to shared helper later)
         if (style === "apa") {
-          citation = `${author}. (${year}). *${title}*. ${pub}.`; // Simple Book Cit
+          citation = `${author}. (${year}). *${title}*. ${pub}.`;
         } else if (style === "mla") {
           citation = `${author}. *${title}*. ${pub}, ${year}.`;
         } else {
@@ -231,60 +471,69 @@ export async function generateCitation(
       }
     }
 
-    // --- Tier 2: Structured Metadata (Free & Good) ---
-    // If we have Author, Title, AND Date/Year from meta tags, use them.
-    // [MODIFIED] Relaxed check: logic below handles "corporate author" fallback
+    // --- Tier 1.5: DOI → CrossRef (Free & Authoritative) ---
+    const doi = localMetadata?.doi || extractDOIFromUrl(url);
+    if (doi) {
+      console.log("Found DOI, attempting CrossRef lookup:", doi);
+      const work = await lookupCrossRef(doi);
+      if (work && work.title?.length && (work.author?.length ?? 0) > 0) {
+        console.log("Tier 1.5 Success: Used CrossRef DOI lookup");
+        return { ok: true, citation: formatCrossRefCitation(work, style, url) };
+      }
+    }
 
-    // Check for "Human" author first
+    // --- Tier 1.75: CrossRef title search (Free, no DOI needed) ---
+    const rawTitle = localMetadata?.title ?? "";
+    // Strip common site-name suffixes added by ResearchGate/Springer ("(PDF) ...", "| SpringerLink")
+    const cleanTitle = rawTitle
+      .replace(/^\(PDF\)\s*/i, "")
+      .replace(/\s*[\|–—]\s*.+$/, "")
+      .trim();
+    if (cleanTitle.length > 20) {
+      console.log("Attempting CrossRef title search:", cleanTitle);
+      const yearHint = extractYear(localMetadata?.publishDate ?? "");
+      const work = await searchCrossRefByTitle(cleanTitle, yearHint !== "n.d." ? yearHint : undefined);
+      if (work && work.title?.length && (work.author?.length ?? 0) > 0) {
+        console.log("Tier 1.75 Success: Used CrossRef title search");
+        return { ok: true, citation: formatCrossRefCitation(work, style, url) };
+      }
+    }
+
+    // --- Tier 2: Structured Metadata (Free & Good) ---
     let hasAuthor =
       localMetadata &&
       localMetadata.author &&
       localMetadata.author.length > 2 &&
       !localMetadata.author.toLowerCase().includes("unknown");
 
-    // If no human author, can we use Site Name as Corporate Author? (e.g. NASA, MDN)
-    if (!hasAuthor && localMetadata && localMetadata.siteName) {
-      // Corporate Fallback
+    // Only use site name as corporate author when no DOI was found
+    const hasDoi = !!(localMetadata?.doi || extractDOIFromUrl(url));
+    if (!hasAuthor && localMetadata?.siteName && !hasDoi) {
       localMetadata.author = localMetadata.siteName;
       hasAuthor = true;
       console.log("Using Site Name as Corporate Author:", localMetadata.author);
     }
 
     const hasTitle = localMetadata && localMetadata.title;
-    // Date is nice, but not strictly required for a "decent" free citation if we have author+title
-    // But let's keep it somewhat strict to avoid bad citations.
-    // Date is nice, but not strictly required for a "decent" free citation if we have author+title
-    // But let's keep it somewhat strict to avoid bad citations.
-    // const hasDate = localMetadata && (localMetadata.publishDate || localMetadata.active);
 
     if (hasTitle && hasAuthor) {
       console.log("Tier 2 Success: Used Local Metadata (Human or Corporate)");
-      // We rely on the "Merge Strategies" block below to pick this up
     }
 
     const headers = (await getAuthHeaders()) as Record<string, string>;
 
-    // Check if user enabled "Enhanced AI Citation"
     const useAI = localStorage.getItem("useAiCitation") === "true";
-
-    // DECISION: If Tier 1 failed, do we call Tier 3 (AI) immediately?
-    // User wants to SAVE credits.
-    // If Tier 2 looks good, we should SKIP AI unless user forced it.
 
     let apiData = null;
 
-    const tier2LooksGood = hasTitle && hasAuthor; // Date is optional for "Good Enough" to save credits
+    const tier2LooksGood = hasTitle && hasAuthor;
 
-    // Only call AI if:
-    // 1. User forced it (useAiCitation = true)
-    // 2. OR Tier 2 is bad (missing fields)
     if (useAI || !tier2LooksGood) {
-      // --- Tier 3: AI Analysis (Paid & Smart) ---
       console.log("Tier 1 & 2 insufficient, calling Tier 3 (AI)...");
       const response = await fetch(`${API_BASE_URL}/extract-citation`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ url, useAI: true }), // Force AI if we are here
+        body: JSON.stringify({ url, useAI: true }),
       });
 
       if (response.ok) {
@@ -296,7 +545,6 @@ export async function generateCitation(
     }
 
     // 3. Merge Strategies
-    // Use API data if robust, fallback to local if API is generic/blocked or skipped
     let finalMetadata = apiData || localMetadata;
 
     const isApiGeneric =
@@ -305,7 +553,6 @@ export async function generateCitation(
       apiData.title === "Access Denied" ||
       apiData.title === "Just a moment...";
 
-    // If API failed/generic but we have local, use local
     if (
       isApiGeneric &&
       localMetadata &&
@@ -322,9 +569,7 @@ export async function generateCitation(
 
     // 4. Generate Citation String (Local Rule-Based)
     const author = finalMetadata.author || "Unknown Author";
-    const year = finalMetadata.publishDate
-      ? new Date(finalMetadata.publishDate).getFullYear()
-      : "n.d.";
+    const year = extractYear(finalMetadata.publishDate ?? "");
     const title = finalMetadata.title || "Untitled";
     const site = finalMetadata.publisher || finalMetadata.siteName || "Website";
 
@@ -338,7 +583,6 @@ export async function generateCitation(
     } else if (style === "harvard") {
       citation = `${author} (${year}) '${title}', ${site}. Available at: ${url}.`;
     } else if (style === "ieee") {
-      // IEEE Format: J. K. Author, "Title," Site, Year. [Online]. Available: URL. [Accessed: Abbrev. Month. Day, Year].
       const dateAccess = new Date();
       const months = [
         "Jan.",

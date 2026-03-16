@@ -531,6 +531,62 @@ export async function updateItemsCollection(ids: string[], collectionId: string 
   }
 }
 
+export const PAGE_SIZE = 30;
+
+export interface PaginatedResult {
+  items: StorageItem[];
+  hasMore: boolean;
+  nextOffset: number;
+}
+
+export async function getItemsPage(
+  offset: number,
+  pageSize: number = PAGE_SIZE,
+): Promise<PaginatedResult> {
+  const authenticated = await isAuthenticated();
+  let cloudItems: StorageItem[] = [];
+  let cloudTotal = 0;
+
+  if (authenticated) {
+    const { count } = await supabase
+      .from("items")
+      .select("*", { count: "exact", head: true });
+    cloudTotal = count ?? 0;
+
+    const { data, error } = await supabase
+      .from("items")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (!error && data) {
+      cloudItems = data.map(transformDatabaseItem);
+    }
+  }
+
+  let localItems: StorageItem[] = [];
+  const storage = getLocalStorage();
+  if (storage) {
+    localItems = await new Promise<StorageItem[]>((resolve) => {
+      storage.get([STORAGE_KEY], (result) => {
+        resolve(result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : []);
+      });
+    });
+  }
+
+  const cloudTexts = new Set(cloudItems.map((i) => i.text));
+  const filteredLocal = localItems.filter((l) => !cloudTexts.has(l.text));
+  // Local items are small (context-menu saves); include them only on page 0 to avoid duplication
+  const combined = offset === 0 ? [...filteredLocal, ...cloudItems] : [...cloudItems];
+  const sorted = combined.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+  const hasMore = authenticated ? offset + pageSize < cloudTotal : false;
+
+  return { items: sorted, hasMore, nextOffset: offset + pageSize };
+}
+
 export async function updateItem(
   id: string,
   updates: Partial<StorageItem>,

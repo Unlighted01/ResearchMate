@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Plus, Folder, Loader2 } from "lucide-react";
 import { Collection } from "../types";
 import { getCollections, createCollection, addItemsToCollection } from "../services/collectionService";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface CollectionSelectorProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ export function CollectionSelector({ isOpen, onClose, selectedItemIds, onComplet
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen, onClose);
   
   // Create New State
   const [isCreating, setIsCreating] = useState(false);
@@ -72,13 +75,21 @@ export function CollectionSelector({ isOpen, onClose, selectedItemIds, onComplet
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animation-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-[320px] shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col max-h-[80vh] overflow-hidden transform transition-all scale-100">
-        
+    <div
+      className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animation-fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="collection-selector-title"
+        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-[320px] shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col max-h-[80vh] overflow-hidden transform transition-all scale-100"
+      >
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="font-bold text-gray-900 dark:text-white">Save to Collection</h3>
-          <button title="Close" onClick={onClose} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <h3 id="collection-selector-title" className="font-bold text-gray-900 dark:text-white">Save to Collection</h3>
+          <button aria-label="Close" onClick={onClose} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <X size={18} />
           </button>
         </div>
