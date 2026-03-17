@@ -18,6 +18,8 @@ export interface StorageItem {
   collectionId?: string;
   imageUrl?: string;
   ocrText?: string;
+  ocrConfidence?: number;
+  ocrEdited?: boolean;
   preferredView?: "original" | "summary";
   color?: "yellow" | "green" | "red" | "blue" | "purple";
 }
@@ -623,6 +625,7 @@ export async function updateItem(
   } else if (authenticated) {
     // Map updates to DB columns
     const dbUpdates: Record<string, any> = {};
+    if (updates.text !== undefined) dbUpdates.text = updates.text;
     if (updates.aiSummary !== undefined) dbUpdates.ai_summary = updates.aiSummary;
     if (updates.citation !== undefined) dbUpdates.citation = updates.citation;
     if (updates.citationFormat !== undefined) dbUpdates.citation_format = updates.citationFormat;

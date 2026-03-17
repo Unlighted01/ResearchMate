@@ -420,6 +420,54 @@ async function extractPageMetadata(tabId: number): Promise<any> {
   }
 }
 
+export interface OcrResult {
+  ok: boolean;
+  ocrText?: string;
+  ocrConfidence?: number;
+  aiSummary?: string;
+  error?: string;
+}
+
+/**
+ * Run OCR on a remote image URL via the ResearchMate API
+ */
+export async function runOCR(imageUrl: string): Promise<OcrResult> {
+  try {
+    // Fetch the image and convert to base64 data URL
+    const imgResponse = await fetch(imageUrl);
+    if (!imgResponse.ok) throw new Error("Failed to fetch image");
+    const blob = await imgResponse.blob();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Failed to read image"));
+      reader.readAsDataURL(blob);
+    });
+
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/ocr`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ image: base64, includeSummary: false }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: data.error || "OCR failed" };
+    }
+
+    return {
+      ok: true,
+      ocrText: data.ocrText,
+      ocrConfidence: data.ocrConfidence,
+      aiSummary: data.aiSummary,
+    };
+  } catch (error: any) {
+    return { ok: false, error: error.message };
+  }
+}
+
 export async function generateCitation(
   url: string,
   // But this runs in the context of the popup usually.

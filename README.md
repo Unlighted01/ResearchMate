@@ -7,7 +7,7 @@ A high-fidelity research tool for Chrome that allows capturing and structuring d
 - **Smart Capture** - Highlight text and save it with one click.
 - **AI Integration** - Generate summaries and tags using Gemini.
 - **Cloud Sync** - Instant sync with the ResearchMate Web Dashboard via Supabase.
-- **Smart Pen Support** - Manage paired smart pens and view scans.
+- **Smart Pen Support** - Manage paired smart pens and view scans. OCR confidence score displayed per capture; inline text editing and one-tap OCR retry available in the detail view.
 - **Export Options** - Export research items to Markdown with proper citations.
 
 ## 📋 Prerequisites

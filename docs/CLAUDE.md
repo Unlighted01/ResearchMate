@@ -58,7 +58,7 @@ Direct Supabase table reads for paired devices return 406 (RLS blocks). Smart pe
 | `src/SidePanel.tsx` | Main list view, navigation, collection filtering, bulk actions, auth modal |
 | `src/components/ItemDetail.tsx` | Detail view: AI summary, citation, tags, color, export |
 | `src/services/storageService.ts` | All CRUD — dual local+cloud logic, pagination (`getItemsPage`), transform helpers |
-| `src/services/geminiService.ts` | Citation generation (CrossRef waterfall) + AI summarization |
+| `src/services/geminiService.ts` | Citation generation (CrossRef waterfall) + AI summarization + `runOCR(imageUrl)` |
 | `src/services/citationService.ts` | ISBN lookup via Open Library |
 | `src/services/collectionService.ts` | Collections CRUD (cloud-only) |
 | `src/services/smartPenService.ts` | Smart pen device pairing (Edge Function) |
@@ -137,6 +137,8 @@ interface StorageItem {
   collectionId?: string;
   imageUrl?: string;        // smart pen captures
   ocrText?: string;
+  ocrConfidence?: number;   // 0–100 integer; heuristic from api/ocr.ts word count
+  ocrEdited?: boolean;      // true once user has manually corrected the OCR text
   preferredView?: "original" | "summary";
   color?: "yellow" | "green" | "red" | "blue" | "purple";
 }
@@ -159,6 +161,12 @@ interface StorageItem {
 6. **Color tags in tag chips:** Always `.filter(t => !t.startsWith("color:"))` before rendering tags in list view.
 
 7. **`useFocusTrap` in serialized executeScript callbacks** — the hook lives in the React layer only. The `executeScript` func callback is serialized and runs in the page context, so it cannot access React hooks or any outer scope variables.
+
+8. **OCR editing in `ItemDetail.tsx`** — smart pen items (`deviceSource === "smart_pen"`) show a confidence badge (`ocrConfidence`), an Edit button (enter textarea edit mode), and a Retry OCR button. On Save, `updateItem({ text, ocrEdited: true })` persists the correction to Supabase via the `text` column. On Retry, `runOCR(item.imageUrl)` fetches the image → converts to base64 DataURL → calls `api/ocr` and replaces both `text` and `ocrConfidence` in state.
+
+9. **`runOCR` requires a public image URL** — the function fetches `imageUrl` directly. It will fail with a CORS error if the Supabase Storage bucket is not set to public. Ensure bucket policy allows unauthenticated GET.
+
+10. **Book date parsing** — `handleBookSelect()` in `ItemDetail.tsx` uses `/\d{4}/.exec(rawDate)?.[0]` instead of `new Date(x).getFullYear()`. The native `Date` constructor silently returns `NaN` for partial dates like `"2024-12"`. Always use the regex approach for year extraction.
 
 ---
 

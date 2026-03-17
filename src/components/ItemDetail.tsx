@@ -5,7 +5,7 @@ import {
   deleteItem,
   updateItem,
 } from "../services/storageService";
-import { summarizeText, generateCitation } from "../services/geminiService";
+import { summarizeText, generateCitation, runOCR } from "../services/geminiService";
 import type { SummaryMode } from "../services/geminiService";
 import {
   exportSingleItemToPdf,
@@ -24,6 +24,10 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
+  Pencil,
+  RefreshCw,
+  Save,
+  X,
 } from "lucide-react";
 import { Trash } from "lucide-react";
 import { CopyIcon } from "./icons";
@@ -63,6 +67,12 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const lastSummarizeRef = useRef<number>(0);
   const lastCiteRef = useRef<number>(0);
   const { toast } = useToast();
+
+  // OCR editing state (smart_pen items only)
+  const [isEditingOcr, setIsEditingOcr] = useState(false);
+  const [editedOcrText, setEditedOcrText] = useState(item.text);
+  const [ocrEdited, setOcrEdited] = useState(item.ocrEdited ?? false);
+  const [isRetryingOcr, setIsRetryingOcr] = useState(false);
 
   // Abort any in-flight summarization on unmount
   useEffect(() => {
@@ -314,9 +324,48 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     onUpdate();
   };
 
+  const handleSaveOcrEdit = async () => {
+    if (!editedOcrText.trim()) return;
+    try {
+      await updateItem(item.id, { text: editedOcrText, ocrEdited: true });
+      setOcrEdited(true);
+      setIsEditingOcr(false);
+      onUpdate();
+      toast("OCR text updated", "success");
+    } catch {
+      toast("Failed to save changes", "error");
+    }
+  };
+
+  const handleRetryOcr = async () => {
+    if (!item.imageUrl) return;
+    setIsRetryingOcr(true);
+    try {
+      const result = await runOCR(item.imageUrl);
+      if (result.ok && result.ocrText) {
+        await updateItem(item.id, {
+          text: result.ocrText,
+          ocrEdited: false,
+        });
+        setEditedOcrText(result.ocrText);
+        setOcrEdited(false);
+        setIsEditingOcr(false);
+        onUpdate();
+        toast("OCR re-processed successfully", "success");
+      } else {
+        toast(result.error || "OCR retry failed", "error");
+      }
+    } catch {
+      toast("OCR retry failed", "error");
+    }
+    setIsRetryingOcr(false);
+  };
+
   const handleBookSelect = async (book: BookMetadata) => {
     const authors = book.authors?.join(", ") || "Unknown";
-    const year = book.publishedDate?.split("-")[0] || "n.d.";
+    const rawDate = book.publishedDate || "";
+    const yearMatch = rawDate.match(/\d{4}/);
+    const year = yearMatch ? yearMatch[0] : "n.d.";
     const newCitation = `${authors} (${year}). *${book.title}*. ${book.publisher || "Publisher"}.`;
 
     await updateItem(item.id, {
@@ -585,36 +634,95 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
                   ? "Transcribed Text (OCR)"
                   : "Research Content"}
               </h3>
+              {/* OCR badges */}
+              {item.deviceSource === "smart_pen" && (
+                <div className="flex items-center gap-1.5 ml-2">
+                  {item.ocrConfidence !== undefined && (
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${item.ocrConfidence >= 80 ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : item.ocrConfidence >= 60 ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-500"}`}>
+                      {item.ocrConfidence}% conf.
+                    </span>
+                  )}
+                  {ocrEdited && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                      Edited
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Toggle between Summary and Original - visible whenever a summary exists */}
-            {summary && (
-              <button
-                onClick={() => handleToggleView(!showSummaryView)}
-                aria-label={showSummaryView ? "View original content" : "View summary"}
-                className="text-[10px] font-bold uppercase tracking-wider text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
-              >
-                <div className="flex items-center gap-1 opacity-70 hover:opacity-100">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+            <div className="flex items-center gap-2">
+              {/* OCR edit / retry controls */}
+              {item.deviceSource === "smart_pen" && !isEditingOcr && !showSummaryView && (
+                <>
+                  <button
+                    onClick={() => { setEditedOcrText(item.text); setIsEditingOcr(true); }}
+                    aria-label="Edit OCR text"
+                    className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                    title="Edit OCR text"
                   >
-                    <path d={showSummaryView ? "M9 14 4 9l5-5" : "M15 10l5 5-5 5"} />
-                  </svg>
-                  {showSummaryView ? "View Original" : "View Summary"}
-                </div>
-              </button>
-            )}
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
+                  {item.imageUrl && (
+                    <button
+                      onClick={handleRetryOcr}
+                      disabled={isRetryingOcr}
+                      aria-label="Retry OCR"
+                      className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-orange-500 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      title="Re-run OCR"
+                    >
+                      {isRetryingOcr ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Retry OCR
+                    </button>
+                  )}
+                </>
+              )}
+              {/* Toggle between Summary and Original */}
+              {summary && !isEditingOcr && (
+                <button
+                  onClick={() => handleToggleView(!showSummaryView)}
+                  aria-label={showSummaryView ? "View original content" : "View summary"}
+                  className="text-[10px] font-bold uppercase tracking-wider text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+                >
+                  <div className="flex items-center gap-1 opacity-70 hover:opacity-100">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={showSummaryView ? "M9 14 4 9l5-5" : "M15 10l5 5-5 5"} />
+                    </svg>
+                    {showSummaryView ? "View Original" : "View Summary"}
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="relative group min-h-[60px]">
-            {showSummaryView && summary ? (
+            {isEditingOcr ? (
+              /* OCR editing mode */
+              <div className="space-y-2">
+                <textarea
+                  value={editedOcrText}
+                  onChange={(e) => setEditedOcrText(e.target.value)}
+                  aria-label="Edit OCR text"
+                  className="w-full min-h-[140px] p-3 text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 border border-indigo-300 dark:border-indigo-700 rounded-xl resize-y outline-none focus:ring-2 focus:ring-indigo-400/30 font-serif leading-relaxed"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setIsEditingOcr(false)}
+                    aria-label="Cancel editing"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <X className="w-3 h-3" /> Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveOcrEdit}
+                    aria-label="Save OCR edits"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                  >
+                    <Save className="w-3 h-3" /> Save
+                  </button>
+                </div>
+              </div>
+            ) : showSummaryView && summary ? (
               <div className="animation-fade-in bg-purple-50/50 dark:bg-purple-900/10 rounded-xl p-4 border border-purple-100 dark:border-purple-900/30">
                 <p className="text-gray-800 dark:text-gray-200 text-base leading-relaxed whitespace-pre-wrap font-serif">
                   {summary}
