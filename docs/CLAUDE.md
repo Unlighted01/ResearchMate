@@ -55,8 +55,8 @@ Direct Supabase table reads for paired devices return 406 (RLS blocks). Smart pe
 
 | File | Role |
 |------|------|
-| `src/SidePanel.tsx` | Main list view, navigation, collection filtering, bulk actions, auth modal |
-| `src/components/ItemDetail.tsx` | Detail view: AI summary, citation, tags, color, export |
+| `src/SidePanel.tsx` | Main list view, navigation, collection filtering, bulk actions, auth modal; search includes text + note + sourceTitle + tags |
+| `src/components/ItemDetail.tsx` | Detail view: AI summary, citation (bibliography + in-text), tags, color, note editing, OCR edit/retry, export |
 | `src/services/storageService.ts` | All CRUD — dual local+cloud logic, pagination (`getItemsPage`), transform helpers |
 | `src/services/geminiService.ts` | Citation generation (CrossRef waterfall) + AI summarization + `runOCR(imageUrl)` |
 | `src/services/citationService.ts` | ISBN lookup via Open Library |
@@ -167,6 +167,41 @@ interface StorageItem {
 9. **`runOCR` requires a public image URL** — the function fetches `imageUrl` directly. It will fail with a CORS error if the Supabase Storage bucket is not set to public. Ensure bucket policy allows unauthenticated GET.
 
 10. **Book date parsing** — `handleBookSelect()` in `ItemDetail.tsx` uses `/\d{4}/.exec(rawDate)?.[0]` instead of `new Date(x).getFullYear()`. The native `Date` constructor silently returns `NaN` for partial dates like `"2024-12"`. Always use the regex approach for year extraction.
+
+11. **Note editing in `ItemDetail.tsx`** — `itemNote` state is initialized from `item.note`. The Edit/Save/Cancel inline editor calls `updateItem(item.id, { note: itemNote })`. The `note` column exists in Supabase `items` table — no migration needed.
+
+12. **In-text citation** — `CitationResult` now includes `inTextCitation?: string` alongside `citation` (bibliography). Generated only when CrossRef data is available (Tier 1.5 and 1.75). AI-only and fallback tiers do not return an in-text form. The citation card shows a separate "In-text" row with its own copy button.
+
+13. **Tag search in `SidePanel.tsx`** — `filteredItems` filter includes `item.tags` in the search pass. Internal tags (`color:*`, `ocr:*`) are excluded from matching so they don't pollute results.
+
+---
+
+## ⚠️ Known Gaps — Requires External Setup
+
+These are architectural features that cannot be fixed by code alone — they need configuration or schema changes outside the codebase.
+
+### 🔴 Realtime Cross-Device Sync — `NEEDS SUPABASE SETUP`
+
+**What's missing:** No `supabase.channel(...).on(...).subscribe()` call exists anywhere in the extension. Changes made on one device (Device A) only appear on another device (Device B) after a manual sync button press or page reload.
+
+**What's needed to fix:**
+1. **Supabase Dashboard** → your `items` table → Replication → enable `INSERT`, `UPDATE`, `DELETE` events on the `items` table.
+2. Add a channel subscription in `SidePanel.tsx` `useEffect`:
+```ts
+// Add inside the main useEffect, after fetchItems():
+if (user) {
+  const channel = supabase
+    .channel("items-realtime")
+    .on("postgres_changes", { event: "*", schema: "public", table: "items", filter: `user_id=eq.${user.id}` },
+      () => fetchItems()
+    )
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}
+```
+3. The cleanup return must also cancel the existing `supabase.auth.onAuthStateChange` subscription — combine both cleanups into one `useEffect` return.
+
+**Test cases blocked:** 9.5 #1, #2, #3 (cross-device sync, offline reconnect, delete propagation).
 
 ---
 

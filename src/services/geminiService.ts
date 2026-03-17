@@ -24,6 +24,7 @@ export interface TagsResult {
 export interface CitationResult {
   ok: boolean;
   citation: string;
+  inTextCitation?: string; // Short parenthetical form, e.g. "(Smith & Jones, 2024)"
   error?: string;
 }
 
@@ -152,6 +153,35 @@ function formatAuthors(authors: CrossRefAuthor[], style: string): string {
       if (formatted.length === 1) return formatted[0];
       if (formatted.length === 2) return `${formatted[0]}, & ${formatted[1]}`;
       return formatted.slice(0, -1).join(", ") + ", & " + formatted[formatted.length - 1];
+    }
+  }
+}
+
+// Build the short parenthetical in-text citation from CrossRef author/year data
+function formatInTextCitation(authors: CrossRefAuthor[], year: string, style: string): string {
+  if (authors.length === 0) return style === "ieee" ? "[1]" : `(Unknown, ${year})`;
+  const first = authors[0].family;
+  switch (style) {
+    case "apa":
+    case "harvard": {
+      if (authors.length === 1) return `(${first}, ${year})`;
+      if (authors.length === 2) return `(${first} & ${authors[1].family}, ${year})`;
+      return `(${first} et al., ${year})`;
+    }
+    case "mla": {
+      if (authors.length === 1) return `(${first})`;
+      if (authors.length === 2) return `(${first} and ${authors[1].family})`;
+      return `(${first} et al.)`;
+    }
+    case "chicago": {
+      if (authors.length === 1) return `(${first} ${year})`;
+      if (authors.length === 2) return `(${first} and ${authors[1].family} ${year})`;
+      return `(${first} et al. ${year})`;
+    }
+    case "ieee": return "[1]";
+    default: {
+      if (authors.length === 1) return `(${first}, ${year})`;
+      return `(${first} et al., ${year})`;
     }
   }
 }
@@ -526,7 +556,8 @@ export async function generateCitation(
       const work = await lookupCrossRef(doi);
       if (work && work.title?.length && (work.author?.length ?? 0) > 0) {
         console.log("Tier 1.5 Success: Used CrossRef DOI lookup");
-        return { ok: true, citation: formatCrossRefCitation(work, style, url) };
+        const year = work.published?.["date-parts"]?.[0]?.[0]?.toString() ?? "n.d.";
+        return { ok: true, citation: formatCrossRefCitation(work, style, url), inTextCitation: formatInTextCitation(work.author ?? [], year, style) };
       }
     }
 
@@ -543,7 +574,8 @@ export async function generateCitation(
       const work = await searchCrossRefByTitle(cleanTitle, yearHint !== "n.d." ? yearHint : undefined);
       if (work && work.title?.length && (work.author?.length ?? 0) > 0) {
         console.log("Tier 1.75 Success: Used CrossRef title search");
-        return { ok: true, citation: formatCrossRefCitation(work, style, url) };
+        const year = work.published?.["date-parts"]?.[0]?.[0]?.toString() ?? "n.d.";
+        return { ok: true, citation: formatCrossRefCitation(work, style, url), inTextCitation: formatInTextCitation(work.author ?? [], year, style) };
       }
     }
 

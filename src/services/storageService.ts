@@ -46,9 +46,14 @@ function transformDatabaseItem(item: any): StorageItem {
   
   // Extract color tag if present (e.g., "color:green")
   let extractedColor: "yellow" | "green" | "red" | "blue" | "purple" | undefined = undefined;
+  let extractedOcrEdited = false;
   const filteredTags = allTags.filter((tag: string) => {
     if (tag.startsWith("color:")) {
       extractedColor = tag.split(":")[1] as any;
+      return false; // Remove it from the standard tags array
+    }
+    if (tag === "ocr:edited") {
+      extractedOcrEdited = true;
       return false; // Remove it from the standard tags array
     }
     return true;
@@ -70,6 +75,7 @@ function transformDatabaseItem(item: any): StorageItem {
     collectionId: item.collection_id,
     imageUrl: item.image_url,
     ocrText: item.ocr_text,
+    ocrEdited: extractedOcrEdited || undefined,
     preferredView: item.preferred_view || undefined,
     color: extractedColor,
   };

@@ -385,7 +385,8 @@ function SidePanel() {
       return (
         item.text.toLowerCase().includes(q) ||
         item.note?.toLowerCase().includes(q) ||
-        item.sourceTitle?.toLowerCase().includes(q)
+        item.sourceTitle?.toLowerCase().includes(q) ||
+        item.tags.some((t) => !t.startsWith("color:") && !t.startsWith("ocr:") && t.toLowerCase().includes(q))
       );
     }
     return true;

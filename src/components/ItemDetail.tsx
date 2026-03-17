@@ -53,6 +53,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   // Local State initialized from Item (for immediate UI updates)
   const [summary, setSummary] = useState(item.aiSummary || "");
   const [citation, setCitation] = useState(item.citation || "");
+  const [inTextCitation, setInTextCitation] = useState("");
   const [citationFormat, setCitationFormat] = useState(
     item.citationFormat || "mla",
   );
@@ -92,6 +93,21 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   // Tag State
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState("");
+
+  // Note editing state
+  const [itemNote, setItemNote] = useState(item.note || "");
+  const [isEditingNote, setIsEditingNote] = useState(false);
+
+  const handleSaveNote = async () => {
+    try {
+      await updateItem(item.id, { note: itemNote });
+      setIsEditingNote(false);
+      onUpdate();
+      toast("Note saved", "success");
+    } catch {
+      toast("Failed to save note", "error");
+    }
+  };
 
   // ISBN Search State
   const [isIdentifyModalOpen, setIsIdentifyModalOpen] = useState(false);
@@ -271,6 +287,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
       const result = await generateCitation(item.sourceUrl, formatToUse);
       if (result.ok) {
         setCitation(result.citation);
+        if (result.inTextCitation) setInTextCitation(result.inTextCitation);
         setCitationFormat(formatToUse);
         await updateItem(item.id, {
           citation: result.citation,
@@ -327,7 +344,9 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const handleSaveOcrEdit = async () => {
     if (!editedOcrText.trim()) return;
     try {
-      await updateItem(item.id, { text: editedOcrText, ocrEdited: true });
+      // Encode ocrEdited as "ocr:edited" tag so it persists without a DB migration
+      const newTags = [...item.tags.filter((t) => t !== "ocr:edited"), "ocr:edited"];
+      await updateItem(item.id, { text: editedOcrText, tags: newTags });
       setOcrEdited(true);
       setIsEditingOcr(false);
       onUpdate();
@@ -343,9 +362,11 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     try {
       const result = await runOCR(item.imageUrl);
       if (result.ok && result.ocrText) {
+        // Remove "ocr:edited" tag — text is now fresh from OCR
+        const newTags = item.tags.filter((t) => t !== "ocr:edited");
         await updateItem(item.id, {
           text: result.ocrText,
-          ocrEdited: false,
+          tags: newTags,
         });
         setEditedOcrText(result.ocrText);
         setOcrEdited(false);
@@ -829,11 +850,73 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
                     <CopyIcon size={12} className="w-3 h-3" />
                     Copy
                   </button>
+                  {inTextCitation && (
+                    <div className="mt-3 pt-3 border-t border-blue-100 dark:border-blue-900/40">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mb-1">In-text</p>
+                      <p className="text-sm text-blue-800 dark:text-blue-200 font-mono">{inTextCitation}</p>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(inTextCitation);
+                          toast("In-text citation copied!", "success");
+                        }}
+                        aria-label="Copy in-text citation"
+                        className="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+                      >
+                        <CopyIcon size={12} className="w-3 h-3" />
+                        Copy
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
         )}
+
+        {/* Note / Annotation */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Note</h3>
+            {!isEditingNote ? (
+              <button
+                onClick={() => setIsEditingNote(true)}
+                aria-label="Edit note"
+                className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
+              >
+                <Pencil className="w-3 h-3" /> Edit
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveNote}
+                  className="text-[10px] font-bold uppercase tracking-wider text-green-600 hover:text-green-700 transition-colors flex items-center gap-1"
+                >
+                  <Save className="w-3 h-3" /> Save
+                </button>
+                <button
+                  onClick={() => { setItemNote(item.note || ""); setIsEditingNote(false); }}
+                  className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Cancel
+                </button>
+              </div>
+            )}
+          </div>
+          {isEditingNote ? (
+            <textarea
+              autoFocus
+              value={itemNote}
+              onChange={(e) => setItemNote(e.target.value)}
+              rows={3}
+              className="w-full text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 resize-none focus:ring-2 focus:ring-indigo-500 outline-none"
+              placeholder="Add a note…"
+            />
+          ) : (
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed min-h-[2rem]">
+              {itemNote || <span className="italic text-gray-400 dark:text-gray-600">No note yet. Click Edit to add one.</span>}
+            </p>
+          )}
+        </div>
 
         {/* Tags & Color */}
         <div className="mt-6 space-y-4">

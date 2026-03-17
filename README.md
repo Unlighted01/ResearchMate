@@ -6,8 +6,11 @@ A high-fidelity research tool for Chrome that allows capturing and structuring d
 
 - **Smart Capture** - Highlight text and save it with one click.
 - **AI Integration** - Generate summaries and tags using Gemini.
-- **Cloud Sync** - Instant sync with the ResearchMate Web Dashboard via Supabase.
+- **Cloud Sync** - Sync with the ResearchMate Web Dashboard via Supabase. *(Realtime cross-device push requires Supabase Replication enabled on `items` table — see `docs/CLAUDE.md` → Known Gaps.)*
 - **Smart Pen Support** - Manage paired smart pens and view scans. OCR confidence score displayed per capture; inline text editing and one-tap OCR retry available in the detail view.
+- **Citation Generation** - APA, MLA, Chicago, Harvard, IEEE, BibTeX via CrossRef waterfall. Displays both the full bibliography entry and the short in-text citation (e.g. `(Smith & Jones, 2024)`) with separate copy buttons.
+- **Note Editing** - Add and edit personal annotations on any saved item directly from the detail view.
+- **Tag Search** - Search bar matches item text, notes, source title, and tags simultaneously.
 - **Export Options** - Export research items to Markdown with proper citations.
 
 ## 📋 Prerequisites
