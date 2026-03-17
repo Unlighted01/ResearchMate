@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   getPairedDevice,
   pairDevice,
@@ -15,8 +15,11 @@ import {
   RefreshCw,
   XCircle,
   ArrowLeft,
+  Upload,
 } from "lucide-react";
-import { StorageItem } from "../services/storageService";
+import { StorageItem, addItem } from "../services/storageService";
+import { runOCR } from "../services/geminiService";
+import { useToast } from "./Toast";
 
 interface SmartPenViewProps {
   onBack: () => void;
@@ -31,6 +34,9 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
   const [isPairing, setIsPairing] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     init();
@@ -79,6 +85,50 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
     await unpairDevice(device.id);
     setDevice(null);
     setScans([]);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Only image files are supported for upload", "error");
+      e.target.value = "";
+      return;
+    }
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64DataUrl = reader.result as string;
+        const result = await runOCR(base64DataUrl);
+        if (result.ok && result.ocrText) {
+          await addItem({
+            text: result.ocrText,
+            sourceUrl: "",
+            sourceTitle: file.name,
+            tags: [],
+            note: "",
+            deviceSource: "extension",
+            imageUrl: base64DataUrl,
+            ocrConfidence: result.ocrConfidence,
+          });
+          toast("Image imported and OCR'd successfully", "success");
+        } else {
+          toast("OCR failed — try a clearer image", "error");
+        }
+      } catch {
+        toast("Upload failed", "error");
+      } finally {
+        setIsUploading(false);
+        e.target.value = "";
+      }
+    };
+    reader.onerror = () => {
+      toast("Failed to read file", "error");
+      setIsUploading(false);
+      e.target.value = "";
+    };
+    reader.readAsDataURL(file);
   };
 
   // Convert generic scan to StorageItem structure for detail view
@@ -205,6 +255,22 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
               <div className="flex gap-2 mt-4">
                 <button className="flex-1 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 rounded-lg text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors flex items-center justify-center gap-2">
                   <RefreshCw className="w-4 h-4" /> Sync Now
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  aria-label="Upload image for OCR"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  {isUploading ? "Uploading..." : "Upload Image"}
                 </button>
                 <button
                   onClick={handleUnpair}

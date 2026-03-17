@@ -346,11 +346,15 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     try {
       // Encode ocrEdited as "ocr:edited" tag so it persists without a DB migration
       const newTags = [...item.tags.filter((t) => t !== "ocr:edited"), "ocr:edited"];
-      await updateItem(item.id, { text: editedOcrText, tags: newTags });
+      await updateItem(item.id, { text: editedOcrText, tags: newTags, ocrConfidence: null });
       setOcrEdited(true);
       setIsEditingOcr(false);
       onUpdate();
       toast("OCR text updated", "success");
+      // Auto-regenerate citation so it matches the corrected text
+      if (citation) {
+        await handleCite(citationFormat);
+      }
     } catch {
       toast("Failed to save changes", "error");
     }
@@ -367,6 +371,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
         await updateItem(item.id, {
           text: result.ocrText,
           tags: newTags,
+          ocrConfidence: result.ocrConfidence,
         });
         setEditedOcrText(result.ocrText);
         setOcrEdited(false);
@@ -658,7 +663,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
               {/* OCR badges */}
               {item.deviceSource === "smart_pen" && (
                 <div className="flex items-center gap-1.5 ml-2">
-                  {item.ocrConfidence !== undefined && (
+                  {item.ocrConfidence != null && (
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${item.ocrConfidence >= 80 ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : item.ocrConfidence >= 60 ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-500"}`}>
                       {item.ocrConfidence}% conf.
                     </span>

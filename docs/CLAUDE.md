@@ -62,6 +62,7 @@ Direct Supabase table reads for paired devices return 406 (RLS blocks). Smart pe
 | `src/services/citationService.ts` | ISBN lookup via Open Library |
 | `src/services/collectionService.ts` | Collections CRUD (cloud-only) |
 | `src/services/smartPenService.ts` | Smart pen device pairing (Edge Function) |
+| `src/components/SmartPenView.tsx` | Smart pen UI: device pairing, scan list, and image upload (→ OCR → `addItem()`) |
 | `src/content/index.tsx` | Selection capture, floating save button (Shadow DOM) |
 | `src/background/index.ts` | Context menu save, message routing |
 | `src/components/Toast.tsx` | Toast notification system (Context + hook) — supports `action: { label, onClick }` for undo |
@@ -137,7 +138,7 @@ interface StorageItem {
   collectionId?: string;
   imageUrl?: string;        // smart pen captures
   ocrText?: string;
-  ocrConfidence?: number;   // 0–100 integer; heuristic from api/ocr.ts word count
+  ocrConfidence?: number | null; // 0–100 integer; null = manually edited (badge hidden); heuristic from api/ocr.ts word count
   ocrEdited?: boolean;      // true once user has manually corrected the OCR text
   preferredView?: "original" | "summary";
   color?: "yellow" | "green" | "red" | "blue" | "purple";
@@ -162,7 +163,7 @@ interface StorageItem {
 
 7. **`useFocusTrap` in serialized executeScript callbacks** — the hook lives in the React layer only. The `executeScript` func callback is serialized and runs in the page context, so it cannot access React hooks or any outer scope variables.
 
-8. **OCR editing in `ItemDetail.tsx`** — smart pen items (`deviceSource === "smart_pen"`) show a confidence badge (`ocrConfidence`), an Edit button (enter textarea edit mode), and a Retry OCR button. On Save, `updateItem({ text, ocrEdited: true })` persists the correction to Supabase via the `text` column. On Retry, `runOCR(item.imageUrl)` fetches the image → converts to base64 DataURL → calls `api/ocr` and replaces both `text` and `ocrConfidence` in state.
+8. **OCR editing in `ItemDetail.tsx`** — smart pen items (`deviceSource === "smart_pen"`) show a confidence badge (`ocrConfidence`), an Edit button (enter textarea edit mode), and a Retry OCR button. On Save, `updateItem({ text, tags, ocrConfidence: null })` persists the correction and clears the stale confidence badge. On Retry, `runOCR(item.imageUrl)` fetches the image → converts to base64 DataURL → calls `api/ocr` and persists both `text` and `ocrConfidence`. After save, if a citation exists, `handleCite(citationFormat)` is auto-called to keep it consistent with the corrected text. The confidence badge checks `item.ocrConfidence != null` (not `!== undefined`) since the field is `number | null`.
 
 9. **`runOCR` requires a public image URL** — the function fetches `imageUrl` directly. It will fail with a CORS error if the Supabase Storage bucket is not set to public. Ensure bucket policy allows unauthenticated GET.
 

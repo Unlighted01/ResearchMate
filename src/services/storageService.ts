@@ -18,7 +18,7 @@ export interface StorageItem {
   collectionId?: string;
   imageUrl?: string;
   ocrText?: string;
-  ocrConfidence?: number;
+  ocrConfidence?: number | null;
   ocrEdited?: boolean;
   preferredView?: "original" | "summary";
   color?: "yellow" | "green" | "red" | "blue" | "purple";
@@ -38,6 +38,8 @@ export interface AddItemInput {
   preferredView?: "original" | "summary";
   createdAt?: string;
   color?: "yellow" | "green" | "red" | "blue" | "purple";
+  imageUrl?: string;
+  ocrConfidence?: number;
 }
 
 // Transform helpers
@@ -108,6 +110,8 @@ function transformToDatabase(
   if (item.collectionId !== undefined && item.collectionId !== null) payload.collection_id = item.collectionId;
   if (item.preferredView !== undefined) payload.preferred_view = item.preferredView;
   if (item.createdAt !== undefined) payload.created_at = item.createdAt;
+  if (item.imageUrl !== undefined) payload.image_url = item.imageUrl;
+  if (item.ocrConfidence !== undefined) payload.ocr_confidence = item.ocrConfidence;
 
   return payload;
 }
@@ -140,6 +144,8 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
     deviceSource: "extension",
     collectionId: item.collectionId,
     color: item.color,
+    imageUrl: item.imageUrl,
+    ocrConfidence: item.ocrConfidence,
   };
 
   const storage = getLocalStorage();
@@ -640,6 +646,7 @@ export async function updateItem(
     if (updates.preferredView !== undefined) dbUpdates.preferred_view = updates.preferredView;
     if (updates.sourceTitle !== undefined) dbUpdates.source_title = updates.sourceTitle;
     if (updates.sourceUrl !== undefined) dbUpdates.source_url = updates.sourceUrl;
+    if ("ocrConfidence" in updates) dbUpdates.ocr_confidence = updates.ocrConfidence ?? null;
 
     const { error } = await supabase
       .from("items")

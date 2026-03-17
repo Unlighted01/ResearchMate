@@ -7,7 +7,7 @@ The authoritative technical reference for continuing work is **`docs/CLAUDE.md`*
 
 ---
 
-## Current State (as of 2026-03-16)
+## Current State (as of 2026-03-17)
 
 ### What's Working
 - Save items from any page via right-click context menu or floating button on text selection
@@ -40,6 +40,9 @@ The authoritative technical reference for continuing work is **`docs/CLAUDE.md`*
 - Citation: DOM scan for DOI in body text + `<a href>` links (catches embedded DOIs)
 - Accessibility: `useFocusTrap` hook + applied to auth modal and CollectionSelector
 - Accessibility: `aria-pressed` on color swatches, `aria-live` on sync status
+- **T-2**: Smart Capture Import — "Upload Image" button added to `SmartPenView.tsx`; reads file as base64 DataURL → `runOCR()` → `addItem()` with `deviceSource: "extension"`
+- **T-3**: OCR confidence cleared on manual edit (`ocrConfidence: null`), persisted on Retry OCR; `StorageItem.ocrConfidence` widened to `number | null`; `updateItem()` cloud branch now maps `ocr_confidence`
+- **T-4**: Citation auto-regenerated after OCR edit save if a citation already exists (`handleCite(citationFormat)` called at end of `handleSaveOcrEdit()`)
 
 ---
 
@@ -84,6 +87,15 @@ All prior backlog items (#4, #7, #8, #9, #14, #P2) are resolved. The remaining w
 | CS-2 | Store | Store listing assets: screenshots (1280×800 or 640×400), promo tile (440×280) |
 | CS-3 | Store | Justify `<all_urls>` host permission in store listing description |
 | CS-4 | UX | ISBNSearchModal has no focus trap (lower priority — rarely opened) |
+
+### ✅ Failed Test Fixes (From Test Suite — Tables 8.3, 8.5, 9.1, 9.3) — ALL RESOLVED
+
+| # | Test | Fix |
+|---|------|-----|
+| T-1 | 8.3-7 | Citation date parsing: `/\d{4}/.exec(rawDate)?.[0]` replaces broken `new Date(x).getFullYear()` in `handleBookSelect()` |
+| T-2 | 8.5-10 | Smart Capture Import: "Upload Image" button in `SmartPenView.tsx` (image → base64 → `runOCR()` → `addItem()`) |
+| T-3 | 8.5-11, 9.1-5 | OCR confidence: cleared on manual edit (`ocrConfidence: null`), persisted on Retry; `StorageItem.ocrConfidence` is `number \| null`; `updateItem()` maps `ocr_confidence` via `"ocrConfidence" in updates` |
+| T-4 | 9.3-4 | Citation auto-regenerated after OCR edit save if citation already exists (`handleCite(citationFormat)` at end of `handleSaveOcrEdit()`) |
 
 ---
 
