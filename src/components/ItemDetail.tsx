@@ -473,6 +473,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
         onClose={() => setIsIdentifyModalOpen(false)}
         onSelectBook={handleBookSelect}
         initialQuery={extractSearchQuery(item.sourceTitle, item.text)}
+        itemText={item.text}
       />
       {/* Header */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur z-10">

@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, Book, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import { Search, X, Book, Loader2, AlertCircle, ExternalLink, Sparkles } from "lucide-react";
 import {
   searchBooks,
   lookupISBN,
+  identifySource,
   BookMetadata,
+  IdentifyResult,
 } from "../services/citationService";
 
 interface ISBNSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectBook: (book: BookMetadata) => void;
-  initialQuery?: string; // pre-populated from OCR text
+  initialQuery?: string;
+  itemText?: string; // full OCR text for AI identification
 }
 
 const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
@@ -29,22 +32,53 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
   onClose,
   onSelectBook,
   initialQuery = "",
+  itemText = "",
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BookMetadata[]>([]);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<IdentifyResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
-  // Auto-search when modal opens with an initial query
   useEffect(() => {
-    if (isOpen && initialQuery.trim()) {
+    if (!isOpen) {
+      setResults([]);
+      setSearched(false);
+      setError("");
+      setAiSuggestion(null);
+      return;
+    }
+
+    // If we have full OCR text, use AI to identify first
+    if (itemText.trim().length > 30) {
+      runAiIdentify(itemText);
+    } else if (initialQuery.trim()) {
       setQuery(initialQuery);
       runSearch(initialQuery);
     }
-  }, [isOpen, initialQuery]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const runAiIdentify = async (text: string) => {
+    setAiLoading(true);
+    const result = await identifySource(text);
+    setAiLoading(false);
+    if (result.ok && result.title) {
+      setAiSuggestion(result);
+      const q = result.searchQuery || `${result.title} ${result.authors?.[0] || ""}`.trim();
+      setQuery(q);
+      runSearch(q);
+    } else {
+      // Fall back to keyword search
+      if (initialQuery.trim()) {
+        setQuery(initialQuery);
+        runSearch(initialQuery);
+      }
+    }
+  };
 
   const runSearch = async (q: string) => {
     if (!q.trim()) return;
@@ -55,7 +89,6 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
 
     const cleanQuery = q.replace(/[-\s]/g, "");
     const isISBN = /^(\d{10}|\d{13})$/.test(cleanQuery);
-
     const result = isISBN ? await lookupISBN(cleanQuery) : await searchBooks(q);
 
     setLoading(false);
@@ -73,10 +106,15 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
     runSearch(query);
   };
 
+  const confidenceColor =
+    (aiSuggestion?.confidence || 0) >= 70 ? "text-green-600 dark:text-green-400" :
+    (aiSuggestion?.confidence || 0) >= 40 ? "text-yellow-600 dark:text-yellow-400" :
+    "text-red-500";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -90,6 +128,40 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
           </button>
         </div>
 
+        {/* AI Suggestion Banner */}
+        {aiLoading && (
+          <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800 flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-indigo-500 flex-shrink-0" />
+            <span className="text-sm text-indigo-600 dark:text-indigo-400">AI is analyzing your text to identify the source…</span>
+          </div>
+        )}
+
+        {!aiLoading && aiSuggestion && (
+          <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800">
+            <div className="flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
+                  AI Identified · <span className={confidenceColor}>{aiSuggestion.confidence}% confidence</span>
+                </p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight truncate">
+                  {aiSuggestion.title}
+                </p>
+                {aiSuggestion.authors && aiSuggestion.authors.length > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    by {aiSuggestion.authors.join(", ")}{aiSuggestion.year ? ` · ${aiSuggestion.year}` : ""}
+                  </p>
+                )}
+                {aiSuggestion.reasoning && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 italic line-clamp-2">
+                    {aiSuggestion.reasoning}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Search Input */}
         <div className="p-4 bg-gray-50 dark:bg-gray-800/50">
           <form onSubmit={handleSearch} className="relative">
@@ -99,7 +171,7 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
               className="w-full pl-10 pr-20 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none shadow-sm text-sm"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              autoFocus
+              autoFocus={!itemText}
             />
             <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
             <button
@@ -111,16 +183,16 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
             </button>
           </form>
           <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-            Searches books, academic papers <span className="text-blue-500">&</span> movies simultaneously
+            Searches books, academic papers & movies simultaneously
           </p>
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto p-2 min-h-[260px]">
+        <div className="flex-1 overflow-y-auto p-2 min-h-[200px]">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-10 text-gray-400">
               <Loader2 className="w-8 h-8 animate-spin mb-3 text-indigo-500" />
-              <p className="text-sm">Searching books & academic papers…</p>
+              <p className="text-sm">Searching books, papers & movies…</p>
             </div>
           )}
 
@@ -147,7 +219,6 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
                 onClick={() => onSelectBook(book)}
                 className="flex gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl cursor-pointer transition-colors group border-b last:border-0 border-gray-50 dark:border-gray-800/50"
               >
-                {/* Cover / Type icon */}
                 <div className="w-14 h-20 bg-gray-100 dark:bg-gray-700 rounded shadow-sm overflow-hidden flex-shrink-0">
                   {book.imageLinks?.thumbnail ? (
                     <img src={book.imageLinks.thumbnail} alt={book.title} className="w-full h-full object-cover" />
@@ -157,11 +228,9 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
                     </div>
                   )}
                 </div>
-
-                {/* Details */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-1.5 mb-1">
-                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 ${badge.color}`}>
+                  <div className="mb-1">
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${badge.color}`}>
                       {badge.label}
                     </span>
                   </div>
@@ -172,9 +241,7 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
                     {book.authors?.join(", ") || "Unknown Author"}
                   </p>
                   {book.journal && (
-                    <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5 truncate italic">
-                      {book.journal}
-                    </p>
+                    <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5 italic truncate">{book.journal}</p>
                   )}
                   <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-gray-400">
                     {book.publishedDate && <span>{book.publishedDate.split("-")[0]}</span>}

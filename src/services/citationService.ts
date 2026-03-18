@@ -42,6 +42,40 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers;
 }
 
+export interface IdentifyResult {
+  ok: boolean;
+  title?: string;
+  authors?: string[];
+  year?: string;
+  type?: string;
+  publisher?: string;
+  isbn?: string;
+  doi?: string;
+  confidence?: number;
+  reasoning?: string;
+  searchQuery?: string;
+  error?: string;
+}
+
+/**
+ * Use AI to identify what source a block of text comes from
+ */
+export async function identifySource(text: string): Promise<IdentifyResult> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/identify-source`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text }),
+    });
+    const data = await response.json();
+    if (!response.ok) return { ok: false, error: data.error || "Identification failed" };
+    return { ok: true, ...data };
+  } catch (error: any) {
+    return { ok: false, error: error.message };
+  }
+}
+
 /**
  * Search for books by query (Title, Author, or ISBN)
  */
