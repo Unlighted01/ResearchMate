@@ -12,7 +12,10 @@ export interface BookMetadata {
   imageLinks?: { smallThumbnail?: string; thumbnail?: string };
   previewLink?: string;
   infoLink?: string;
-  isbn?: string; // Normalized ISBN-13
+  isbn?: string;
+  sourceType?: "book" | "journal" | "conference" | "article" | "report" | "thesis";
+  journal?: string;
+  doi?: string;
 }
 
 export interface SearchResult {

@@ -44,6 +44,21 @@ interface ItemDetailProps {
   onUpdate: () => void;
 }
 
+// Extract the most meaningful search query from an item's title and OCR text.
+// Priority: sourceTitle → first H1/H2 heading → first non-trivial sentence.
+function extractSearchQuery(sourceTitle?: string, text?: string): string {
+  if (sourceTitle && sourceTitle.length > 4 && !sourceTitle.match(/\.(png|jpg|jpeg|pdf)$/i)) {
+    return sourceTitle.replace(/\.[^.]+$/, "").trim();
+  }
+  if (text) {
+    const heading = text.match(/^#{1,2}\s+(.+)/m);
+    if (heading) return heading[1].replace(/[*_`]/g, "").trim().slice(0, 80);
+    const sentence = text.split(/[.\n]/)[0].replace(/[#*_`]/g, "").trim();
+    if (sentence.length > 10) return sentence.slice(0, 80);
+  }
+  return "";
+}
+
 const ItemDetail: React.FC<ItemDetailProps> = ({
   item,
   onBack,
@@ -72,7 +87,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const { toast } = useToast();
 
   // True for any item that went through OCR — not just smart_pen
-  const hasOcrData = item.ocrConfidence != null || !!item.imageUrl;
+  const hasOcrData = item.deviceSource === "smart_pen" || item.ocrConfidence != null || !!item.imageUrl;
 
   // OCR editing state
   const [isEditingOcr, setIsEditingOcr] = useState(false);
@@ -351,7 +366,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     try {
       // Encode ocrEdited as "ocr:edited" tag so it persists without a DB migration
       const newTags = [...item.tags.filter((t) => t !== "ocr:edited"), "ocr:edited"];
-      await updateItem(item.id, { text: editedOcrText, tags: newTags, ocrConfidence: null });
+      await updateItem(item.id, { text: editedOcrText, tags: newTags });
       setOcrEdited(true);
       setIsEditingOcr(false);
       onUpdate();
@@ -457,6 +472,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
         isOpen={isIdentifyModalOpen}
         onClose={() => setIsIdentifyModalOpen(false)}
         onSelectBook={handleBookSelect}
+        initialQuery={extractSearchQuery(item.sourceTitle, item.text)}
       />
       {/* Header */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur z-10">
@@ -546,16 +562,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
           <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
-          {item.sourceUrl ? (
-            <button
-              onClick={() => window.open(item.sourceUrl, "_blank")}
-              aria-label="Visit source"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-600 dark:text-gray-400"
-              title="Visit Source"
-            >
-              <ExternalLink className="w-5 h-5" />
-            </button>
-          ) : (
+          {hasOcrData ? (
             <button
               onClick={() => setIsIdentifyModalOpen(true)}
               aria-label="Identify Source"
@@ -564,7 +571,16 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
             >
               <BookOpen className="w-5 h-5" />
             </button>
-          )}
+          ) : item.sourceUrl ? (
+            <button
+              onClick={() => window.open(item.sourceUrl, "_blank")}
+              aria-label="Visit source"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-600 dark:text-gray-400"
+              title="Visit Source"
+            >
+              <ExternalLink className="w-5 h-5" />
+            </button>
+          ) : null}
 
           <div className="relative group">
             <button
@@ -611,31 +627,28 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
           <div className="mb-6 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
               <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full text-indigo-600 dark:text-indigo-400">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-pen-tool"
-                >
-                  <path d="m12 19 7-7 3 3-7 7-3-3z" />
-                  <path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-17z" />
-                  <path d="m2 2 7.586 7.586" />
-                  <circle cx="11" cy="11" r="2" />
-                </svg>
+                {item.deviceSource === "smart_pen" ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pen-tool">
+                    <path d="m12 19 7-7 3 3-7 7-3-3z" />
+                    <path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-17z" />
+                    <path d="m2 2 7.586 7.586" />
+                    <circle cx="11" cy="11" r="2" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                )}
               </div>
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Handwritten Note
+                {item.deviceSource === "smart_pen" ? "Handwritten Note" : "Captured Image"}
               </span>
             </div>
             <img
               src={item.imageUrl}
-              alt="Smart Pen Capture"
+              alt={item.deviceSource === "smart_pen" ? "Smart Pen Capture" : "Imported Image"}
               className="w-full h-auto object-cover max-h-[300px] hover:max-h-full transition-all cursor-zoom-in"
             />
           </div>
@@ -682,10 +695,10 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
             <div className="flex items-center gap-2">
               {/* OCR edit / retry controls */}
-              {hasOcrData && !isEditingOcr && !showSummaryView && (
+              {hasOcrData && !isEditingOcr && (
                 <>
                   <button
-                    onClick={() => { setEditedOcrText(item.text); setIsEditingOcr(true); }}
+                    onClick={() => { setEditedOcrText(item.text); setShowSummaryView(false); setIsEditingOcr(true); }}
                     aria-label="Edit OCR text"
                     className="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
                     title="Edit OCR text"

@@ -255,9 +255,18 @@ export async function addItem(
              console.error("Safe payload failed:", retryError);
              throw retryError;
           }
-          
-          await purgeLocalDuplicates(item.text, item.sourceUrl || ""); // Cleanup
-          return transformDatabaseItem(retryData);
+
+          // safePayload omits imageUrl/ocrConfidence/deviceSource.
+          // If the item has image data, save it locally too so the preview works.
+          // Don't purge local — the local copy carries the fields Supabase couldn't store.
+          if (!item.imageUrl && item.ocrConfidence == null) {
+            await purgeLocalDuplicates(item.text, item.sourceUrl || "");
+          } else {
+            await saveToLocalStorage(item); // keeps imageUrl in local storage
+          }
+
+          const cloudItem = transformDatabaseItem(retryData);
+          return { ...cloudItem, imageUrl: item.imageUrl, ocrConfidence: item.ocrConfidence, deviceSource: item.deviceSource || cloudItem.deviceSource };
         }
 
         throw insertError; // Re-throw other errors
@@ -421,9 +430,20 @@ export async function getAllItems(): Promise<StorageItem[]> {
   const finalItems: StorageItem[] = [];
   const cloudItemsTextSet = new Set<string>();
 
-  // Add all Cloud items first
+  // Build a map of local items by text for fast lookup
+  const localByText = new Map<string, StorageItem>();
+  for (const localItem of localItems) {
+    localByText.set(localItem.text, localItem);
+  }
+
+  // Add all Cloud items first, merging imageUrl/ocrConfidence from local if cloud lacks them
   for (const item of items) {
-    finalItems.push(item);
+    const local = localByText.get(item.text);
+    if (local && (local.imageUrl || local.ocrConfidence != null) && !item.imageUrl) {
+      finalItems.push({ ...item, imageUrl: local.imageUrl, ocrConfidence: local.ocrConfidence ?? item.ocrConfidence, deviceSource: local.deviceSource || item.deviceSource });
+    } else {
+      finalItems.push(item);
+    }
     cloudItemsTextSet.add(item.text);
   }
 
