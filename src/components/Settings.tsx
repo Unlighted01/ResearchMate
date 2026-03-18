@@ -18,6 +18,7 @@ import {
   FileText // New icon for Markdown
 } from "lucide-react";
 import { getAllItems, addItem } from "../services/storageService";
+import { runOCRFromDataUrl } from "../services/geminiService";
 import { exportToPdf } from "../services/pdfService"; // Import service
 import { generateMarkdownTemplate } from "../utils/markdownGenerator"; // Import MD Gen
 import { SegmentedControl } from "./SegmentedControl";
@@ -143,65 +144,139 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
     setImporting(true);
-    try {
-      const text = await file.text();
-      let parsed: unknown;
+    let totalImported = 0;
+    let totalSkipped = 0;
+    let cloudFallbacks = 0;
+
+    for (const file of files) {
+      const name = file.name.toLowerCase();
       try {
-        parsed = JSON.parse(text);
-      } catch {
-        toast("Failed to import — file is not valid JSON.", "error");
-        return;
-      }
+        if (name.endsWith(".json")) {
+          // --- JSON import ---
+          const text = await file.text();
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            toast(`"${file.name}" — not valid JSON, skipped.`, "error");
+            continue;
+          }
+          if (!Array.isArray(parsed)) {
+            toast(`"${file.name}" — expected a JSON array, skipped.`, "error");
+            continue;
+          }
+          for (const item of parsed) {
+            if (typeof item?.text !== "string" || !item.text.trim()) {
+              totalSkipped++;
+              continue;
+            }
+            await addItem(
+              {
+                text: item.text.trim(),
+                note: typeof item.note === "string" ? item.note : undefined,
+                sourceUrl: typeof item.sourceUrl === "string" ? item.sourceUrl : undefined,
+                sourceTitle: typeof item.sourceTitle === "string" ? item.sourceTitle : undefined,
+                tags: Array.isArray(item.tags)
+                  ? item.tags.filter((t: unknown) => typeof t === "string")
+                  : undefined,
+                aiSummary: typeof item.aiSummary === "string" ? item.aiSummary : undefined,
+              },
+              () => cloudFallbacks++,
+            );
+            totalImported++;
+          }
 
-      if (!Array.isArray(parsed)) {
-        toast("Failed to import — expected a JSON array.", "error");
-        return;
-      }
+        } else if (name.endsWith(".pdf")) {
+          // --- PDF import (extract text via pdfjs-dist) ---
+          toast(`Extracting text from "${file.name}"…`, "info");
+          const pdfjsLib = await import("pdfjs-dist");
+          // Use a bundled worker URL so Chrome extension CSP is satisfied
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            "pdfjs-dist/build/pdf.worker.min.mjs",
+            import.meta.url,
+          ).href;
 
-      let count = 0;
-      let skipped = 0;
-      let cloudFallbacks = 0;
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-      for (const item of parsed) {
-        // Strict type-checking on each field before passing to addItem
-        if (typeof item?.text !== "string" || !item.text.trim()) {
-          skipped++;
-          continue;
+          let fullText = "";
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText +=
+              textContent.items.map((item: any) => item.str).join(" ") + "\n\n";
+          }
+
+          const cleanText = fullText.trim();
+          if (!cleanText) {
+            toast(`"${file.name}" — no readable text found, skipped.`, "error");
+            continue;
+          }
+
+          await addItem(
+            {
+              text: cleanText,
+              sourceTitle: file.name.replace(/\.pdf$/i, ""),
+              sourceUrl: "",
+              tags: [],
+              note: "",
+              deviceSource: "extension",
+            },
+            () => cloudFallbacks++,
+          );
+          totalImported++;
+
+        } else if (file.type.startsWith("image/")) {
+          // --- Image import via OCR ---
+          toast(`Running OCR on "${file.name}"…`, "info");
+          const base64DataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("Failed to read file"));
+            reader.readAsDataURL(file);
+          });
+
+          const result = await runOCRFromDataUrl(base64DataUrl);
+          if (!result.ok || !result.ocrText) {
+            toast(`"${file.name}" — OCR failed, skipped.`, "error");
+            continue;
+          }
+
+          await addItem(
+            {
+              text: result.ocrText,
+              sourceTitle: file.name,
+              sourceUrl: "",
+              tags: [],
+              note: "",
+              deviceSource: "smart_pen",
+              imageUrl: base64DataUrl,
+              ocrConfidence: result.ocrConfidence,
+            },
+            () => cloudFallbacks++,
+          );
+          totalImported++;
+
+        } else {
+          toast(`"${file.name}" — unsupported file type, skipped.`, "error");
         }
-        await addItem(
-          {
-            text: item.text.trim(),
-            note: typeof item.note === "string" ? item.note : undefined,
-            sourceUrl: typeof item.sourceUrl === "string" ? item.sourceUrl : undefined,
-            sourceTitle: typeof item.sourceTitle === "string" ? item.sourceTitle : undefined,
-            tags: Array.isArray(item.tags)
-              ? item.tags.filter((t: unknown) => typeof t === "string")
-              : undefined,
-            aiSummary: typeof item.aiSummary === "string" ? item.aiSummary : undefined,
-          },
-          () => cloudFallbacks++,
-        );
-        count++;
+      } catch {
+        toast(`Failed to import "${file.name}".`, "error");
       }
+    }
 
-      if (cloudFallbacks > 0) {
-        toast(
-          `Imported ${count} items (${cloudFallbacks} saved locally — cloud sync failed).`,
-          "info",
-        );
-      } else {
-        toast(`Successfully imported ${count} items!${skipped > 0 ? ` (${skipped} skipped — no text)` : ""}`);
-      }
+    setImporting(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    if (totalImported > 0) {
+      const fallbackNote = cloudFallbacks > 0 ? ` (${cloudFallbacks} saved locally — cloud sync failed)` : "";
+      const skipNote = totalSkipped > 0 ? ` (${totalSkipped} skipped — no text)` : "";
+      toast(`Imported ${totalImported} item${totalImported > 1 ? "s" : ""}${fallbackNote}${skipNote}`, "success");
       window.location.reload();
-    } catch (e) {
-      toast("Failed to import. Please check the file and try again.", "error");
-    } finally {
-      setImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -431,22 +506,23 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             <button
               onClick={handleImportClick}
               disabled={importing}
-              aria-label="Import items from JSON"
+              aria-label="Import items from file"
               className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <Upload size={16} className="text-gray-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-200">
-                  {importing ? "Importing..." : "Import from JSON"}
+                  {importing ? "Importing..." : "Import Files (JSON / PDF / Image)"}
                 </span>
               </div>
             </button>
             <input
               type="file"
               ref={fileInputRef}
-              title="Upload JSON file"
+              title="Upload file(s) to import"
               className="hidden"
-              accept=".json"
+              accept=".json,.pdf,.png,.jpg,.jpeg"
+              multiple
               onChange={handleFileChange}
             />
           </div>

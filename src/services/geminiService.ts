@@ -498,6 +498,35 @@ export async function runOCR(imageUrl: string): Promise<OcrResult> {
   }
 }
 
+/**
+ * Run OCR on a local file already loaded as a base64 data URL (skips the fetch step)
+ */
+export async function runOCRFromDataUrl(base64DataUrl: string): Promise<OcrResult> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/ocr`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ image: base64DataUrl, includeSummary: false }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { ok: false, error: data.error || "OCR failed" };
+    }
+
+    return {
+      ok: true,
+      ocrText: data.ocrText,
+      ocrConfidence: data.ocrConfidence,
+      aiSummary: data.aiSummary,
+    };
+  } catch (error: any) {
+    return { ok: false, error: error.message };
+  }
+}
+
 export async function generateCitation(
   url: string,
   // But this runs in the context of the popup usually.

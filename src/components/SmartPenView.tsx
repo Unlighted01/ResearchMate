@@ -35,6 +35,7 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -88,18 +89,36 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    const rejected = files.length - imageFiles.length;
+    if (imageFiles.length === 0) {
       toast("Only image files are supported for upload", "error");
       e.target.value = "";
       return;
     }
+    if (rejected > 0) {
+      toast(`${rejected} non-image file(s) skipped`, "info");
+    }
+
     setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
+    setUploadProgress({ current: 0, total: imageFiles.length });
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      setUploadProgress({ current: i + 1, total: imageFiles.length });
       try {
-        const base64DataUrl = reader.result as string;
+        const base64DataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
         const result = await runOCR(base64DataUrl);
         if (result.ok && result.ocrText) {
           await addItem({
@@ -108,27 +127,28 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
             sourceTitle: file.name,
             tags: [],
             note: "",
-            deviceSource: "extension",
+            deviceSource: "smart_pen",
             imageUrl: base64DataUrl,
             ocrConfidence: result.ocrConfidence,
           });
-          toast("Image imported and OCR'd successfully", "success");
+          succeeded++;
         } else {
-          toast("OCR failed — try a clearer image", "error");
+          failed++;
         }
       } catch {
-        toast("Upload failed", "error");
-      } finally {
-        setIsUploading(false);
-        e.target.value = "";
+        failed++;
       }
-    };
-    reader.onerror = () => {
-      toast("Failed to read file", "error");
-      setIsUploading(false);
-      e.target.value = "";
-    };
-    reader.readAsDataURL(file);
+    }
+
+    setIsUploading(false);
+    setUploadProgress(null);
+    e.target.value = "";
+
+    if (failed === 0) {
+      toast(`Imported ${succeeded} of ${imageFiles.length} image${imageFiles.length > 1 ? "s" : ""} successfully`, "success");
+    } else {
+      toast(`Imported ${succeeded} of ${imageFiles.length} — ${failed} failed (try clearer images)`, "info");
+    }
   };
 
   // Convert generic scan to StorageItem structure for detail view
@@ -260,17 +280,20 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={handleFileUpload}
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  aria-label="Upload image for OCR"
+                  aria-label="Upload images for OCR"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                  {isUploading ? "Uploading..." : "Upload Image"}
+                  {isUploading && uploadProgress
+                    ? `Processing ${uploadProgress.current} of ${uploadProgress.total}...`
+                    : "Upload Images"}
                 </button>
                 <button
                   onClick={handleUnpair}

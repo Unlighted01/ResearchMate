@@ -6,33 +6,45 @@ export interface CreateCollectionInput {
   name: string;
   description?: string;
   color?: string;
-  icon?: string;
 }
 
 export async function getCollections(): Promise<Collection[]> {
   const authenticated = await isAuthenticated();
-  if (!authenticated) {
-    return []; // Return empty if not authenticated, as collections are strictly cloud-synced for now
-  }
+  if (!authenticated) return [];
 
-  const { data, error } = await supabase
-    .from("collections")
-    .select(`
-      *,
-      items (count)
-    `)
-    .order("created_at", { ascending: false });
+  try {
+    // Fetch collections without relying on a FK join (not configured in Supabase)
+    const { data: cols, error: colError } = await supabase
+      .from("collections")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (error) {
+    if (colError) throw colError;
+    if (!cols || cols.length === 0) return [];
+
+    // Manually count items per collection to avoid relationship errors
+    const { data: items } = await supabase
+      .from("items")
+      .select("collection_id")
+      .not("collection_id", "is", null);
+
+    const counts: Record<string, number> = {};
+    if (items) {
+      items.forEach((i) => {
+        if (i.collection_id) {
+          counts[i.collection_id] = (counts[i.collection_id] || 0) + 1;
+        }
+      });
+    }
+
+    return cols.map((row) => ({
+      ...row,
+      item_count: counts[row.id] || 0,
+    })) as Collection[];
+  } catch (error) {
     console.error("Error fetching collections:", error);
     return [];
   }
-
-  // Transform data to ensure item_count is mapped correctly if it's nested
-  return (data || []).map((col: any) => ({
-    ...col,
-    item_count: col.items?.[0]?.count || 0
-  })) as Collection[];
 }
 
 export async function createCollection(input: CreateCollectionInput): Promise<Collection | null> {
@@ -48,9 +60,8 @@ export async function createCollection(input: CreateCollectionInput): Promise<Co
       {
         user_id: user.id,
         name: input.name,
-        description: input.description,
-        color: input.color,
-        icon: input.icon,
+        description: input.description || "",
+        color: input.color || "#4F46E5",
       }
     ])
     .select()
@@ -64,18 +75,32 @@ export async function createCollection(input: CreateCollectionInput): Promise<Co
   return { ...data, item_count: 0 } as Collection;
 }
 
+export async function deleteCollection(collectionId: string): Promise<void> {
+  // Detach all items from the collection first
+  await supabase
+    .from("items")
+    .update({ collection_id: null })
+    .eq("collection_id", collectionId);
+
+  const { error } = await supabase
+    .from("collections")
+    .delete()
+    .eq("id", collectionId);
+
+  if (error) throw error;
+}
+
 export async function addItemsToCollection(itemIds: string[], collectionId: string | null): Promise<void> {
   const authenticated = await isAuthenticated();
-  
+
   if (authenticated) {
-    // Cloud items update
     const cloudIds = itemIds.filter(id => !id.startsWith("local_"));
     if (cloudIds.length > 0) {
       const { error } = await supabase
         .from("items")
         .update({ collection_id: collectionId })
         .in("id", cloudIds);
-      
+
       if (error) {
         console.error("Error updating cloud items:", error);
         throw error;
