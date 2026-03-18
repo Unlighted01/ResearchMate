@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(cd:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(grep -rn from.*collections 'C:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\researchmate\\\\Researchmate Website\\\\src')",
+      "Bash(find 'C:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\researchmate\\\\Researchmate Website' -path */api/ocr* -o -path */pages/api/ocr*)"
     ]
   }
 }
