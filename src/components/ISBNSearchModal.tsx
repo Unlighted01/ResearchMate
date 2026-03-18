@@ -20,6 +20,8 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   article:    { label: "Article",    color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
   report:     { label: "Report",     color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
   thesis:     { label: "Thesis",     color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400" },
+  movie:      { label: "Movie",      color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  tv:         { label: "TV Series",  color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
 };
 
 const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
@@ -109,7 +111,7 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
             </button>
           </form>
           <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-            Searches books <span className="text-blue-500">and</span> academic papers simultaneously
+            Searches books, academic papers <span className="text-blue-500">&</span> movies simultaneously
           </p>
         </div>
 

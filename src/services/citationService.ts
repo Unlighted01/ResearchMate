@@ -13,9 +13,10 @@ export interface BookMetadata {
   previewLink?: string;
   infoLink?: string;
   isbn?: string;
-  sourceType?: "book" | "journal" | "conference" | "article" | "report" | "thesis";
+  sourceType?: "book" | "journal" | "conference" | "article" | "report" | "thesis" | "movie" | "tv";
   journal?: string;
   doi?: string;
+  imdbId?: string;
 }
 
 export interface SearchResult {
