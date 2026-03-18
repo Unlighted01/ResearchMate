@@ -72,10 +72,12 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
       setQuery(q);
       runSearch(q);
     } else {
-      // Fall back to keyword search
-      if (initialQuery.trim()) {
-        setQuery(initialQuery);
-        runSearch(initialQuery);
+      // Fall back to keyword search using initialQuery or first words of text
+      const fallback = initialQuery.trim() ||
+        text.replace(/[#*_`>]/g, "").split("\n").find(l => l.trim().length > 5)?.trim().slice(0, 60) || "";
+      if (fallback) {
+        setQuery(fallback);
+        runSearch(fallback);
       }
     }
   };
