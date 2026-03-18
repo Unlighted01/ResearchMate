@@ -786,22 +786,22 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
-                        h1: ({ children }) => <h1 className="text-lg font-bold text-gray-900 dark:text-white mt-4 mb-1 border-b border-gray-200 dark:border-gray-700 pb-1">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-base font-bold text-blue-900 dark:text-blue-300 mt-3 mb-1">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-2 mb-1">{children}</h3>,
-                        p: ({ children }) => <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-serif">{children}</p>,
-                        strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
-                        em: ({ children }) => <em className="italic text-gray-600 dark:text-gray-400">{children}</em>,
-                        ul: ({ children }) => <ul className="list-disc list-inside space-y-0.5 text-gray-800 dark:text-gray-200 font-serif">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-inside space-y-0.5 text-gray-800 dark:text-gray-200 font-serif">{children}</ol>,
-                        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                        blockquote: ({ children }) => <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 italic text-gray-500 dark:text-gray-400 text-xs my-1">{children}</blockquote>,
+                        h1: ({ children }: { children?: React.ReactNode }) => <h1 className="text-lg font-bold text-gray-900 dark:text-white mt-4 mb-1 border-b border-gray-200 dark:border-gray-700 pb-1">{children}</h1>,
+                        h2: ({ children }: { children?: React.ReactNode }) => <h2 className="text-base font-bold text-blue-900 dark:text-blue-300 mt-3 mb-1">{children}</h2>,
+                        h3: ({ children }: { children?: React.ReactNode }) => <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-2 mb-1">{children}</h3>,
+                        p: ({ children }: { children?: React.ReactNode }) => <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-serif">{children}</p>,
+                        strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
+                        em: ({ children }: { children?: React.ReactNode }) => <em className="italic text-gray-600 dark:text-gray-400">{children}</em>,
+                        ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc list-inside space-y-0.5 text-gray-800 dark:text-gray-200 font-serif">{children}</ul>,
+                        ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal list-inside space-y-0.5 text-gray-800 dark:text-gray-200 font-serif">{children}</ol>,
+                        li: ({ children }: { children?: React.ReactNode }) => <li className="leading-relaxed">{children}</li>,
+                        blockquote: ({ children }: { children?: React.ReactNode }) => <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 italic text-gray-500 dark:text-gray-400 text-xs my-1">{children}</blockquote>,
                         hr: () => <hr className="border-gray-200 dark:border-gray-700 my-2" />,
-                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
-                        thead: ({ children }) => <thead className="bg-blue-50 dark:bg-blue-900/30">{children}</thead>,
-                        th: ({ children }) => <th className="border border-gray-200 dark:border-gray-700 px-2 py-1.5 font-semibold text-gray-900 dark:text-white text-left">{children}</th>,
-                        td: ({ children }) => <td className="border border-gray-200 dark:border-gray-700 px-2 py-1.5 text-gray-700 dark:text-gray-300 align-top">{children}</td>,
-                        code: ({ children }) => <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">{children}</code>,
+                        table: ({ children }: { children?: React.ReactNode }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                        thead: ({ children }: { children?: React.ReactNode }) => <thead className="bg-blue-50 dark:bg-blue-900/30">{children}</thead>,
+                        th: ({ children }: { children?: React.ReactNode }) => <th className="border border-gray-200 dark:border-gray-700 px-2 py-1.5 font-semibold text-gray-900 dark:text-white text-left">{children}</th>,
+                        td: ({ children }: { children?: React.ReactNode }) => <td className="border border-gray-200 dark:border-gray-700 px-2 py-1.5 text-gray-700 dark:text-gray-300 align-top">{children}</td>,
+                        code: ({ children }: { children?: React.ReactNode }) => <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">{children}</code>,
                       }}
                     >
                       {item.text}
