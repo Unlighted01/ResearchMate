@@ -71,7 +71,10 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const lastCiteRef = useRef<number>(0);
   const { toast } = useToast();
 
-  // OCR editing state (smart_pen items only)
+  // True for any item that went through OCR — not just smart_pen
+  const hasOcrData = item.ocrConfidence != null || !!item.imageUrl;
+
+  // OCR editing state
   const [isEditingOcr, setIsEditingOcr] = useState(false);
   const [editedOcrText, setEditedOcrText] = useState(item.text);
   const [ocrEdited, setOcrEdited] = useState(item.ocrEdited ?? false);
@@ -658,12 +661,10 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
               </svg>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                {item.deviceSource === "smart_pen"
-                  ? "Transcribed Text (OCR)"
-                  : "Research Content"}
+                {hasOcrData ? "Transcribed Text (OCR)" : "Research Content"}
               </h3>
               {/* OCR badges */}
-              {item.deviceSource === "smart_pen" && (
+              {hasOcrData && (
                 <div className="flex items-center gap-1.5 ml-2">
                   {item.ocrConfidence != null && (
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${item.ocrConfidence >= 80 ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : item.ocrConfidence >= 60 ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-500"}`}>
@@ -681,7 +682,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
             <div className="flex items-center gap-2">
               {/* OCR edit / retry controls */}
-              {item.deviceSource === "smart_pen" && !isEditingOcr && !showSummaryView && (
+              {hasOcrData && !isEditingOcr && !showSummaryView && (
                 <>
                   <button
                     onClick={() => { setEditedOcrText(item.text); setIsEditingOcr(true); }}
