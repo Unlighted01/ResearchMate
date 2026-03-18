@@ -74,7 +74,8 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
     } else {
       // Fall back to keyword search — skip section headers, find first meaningful line
       const SKIP = /^(abstract|introduction|methods?|results?|discussion|conclusion|references?|keywords?|background|related work|methodology|overview|summary|acknowledgements?|appendix)\s*:?\s*$/i;
-      const fallback = initialQuery.trim() || (() => {
+      const safeInitial = SKIP.test(initialQuery.trim()) ? "" : initialQuery.trim();
+      const fallback = safeInitial || (() => {
         const lines = text.replace(/[#*_`>]/g, "").split("\n").map(l => l.trim()).filter(l => l.length > 8);
         return lines.find(l => !SKIP.test(l))?.slice(0, 80) || "";
       })();

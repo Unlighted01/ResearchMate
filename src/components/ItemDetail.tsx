@@ -48,18 +48,14 @@ interface ItemDetailProps {
 const SKIP_HEADERS = /^(abstract|introduction|methods?|results?|discussion|conclusion|references?|keywords?|background|related work|methodology|overview|summary|acknowledgements?|appendix|table of contents?|figures?|tables?)\s*:?\s*$/i;
 
 // Extract the most meaningful search query from an item's title and OCR text.
-// Priority: sourceTitle → first H1/H2 heading → first non-header non-trivial line.
+// Priority: sourceTitle → first non-header heading → first non-header non-trivial line.
 function extractSearchQuery(sourceTitle?: string, text?: string): string {
   if (sourceTitle && sourceTitle.length > 4 && !sourceTitle.match(/\.(png|jpg|jpeg|pdf)$/i)) {
     return sourceTitle.replace(/\.[^.]+$/, "").trim();
   }
   if (text) {
-    // Try first markdown heading
-    const heading = text.match(/^#{1,2}\s+(.+)/m);
-    if (heading) return heading[1].replace(/[*_`]/g, "").trim().slice(0, 80);
-    // Find first meaningful line that's not a section header
-    const lines = text.split("\n").map(l => l.replace(/[#*_`>]/g, "").trim()).filter(l => l.length > 8);
-    const goodLine = lines.find(l => !SKIP_HEADERS.test(l));
+    const cleaned = text.split("\n").map(l => l.replace(/[#*_`>]/g, "").trim()).filter(l => l.length > 8);
+    const goodLine = cleaned.find(l => !SKIP_HEADERS.test(l));
     if (goodLine) return goodLine.slice(0, 80);
   }
   return "";
