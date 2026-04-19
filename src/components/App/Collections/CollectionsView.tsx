@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Collection } from "../types";
-import { getCollections, createCollection, deleteCollection } from "../services/collectionService";
+import { Collection } from "../../../types";
+import { getCollections, createCollection, deleteCollection } from "../../../services/collectionService";
 import { Folder, MoreVertical, LayoutGrid, List, Plus, X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useFocusTrap } from "../hooks/useFocusTrap";
-import { useToast } from "./Toast";
+import { useFocusTrap } from "../../../hooks/useFocusTrap";
+import { useToast } from "../../shared/ui/Toast";
 
 const PRESET_COLORS = [
   { label: "Indigo", value: "#4F46E5" },

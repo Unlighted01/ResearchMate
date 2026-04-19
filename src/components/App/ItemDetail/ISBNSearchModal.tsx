@@ -6,7 +6,7 @@ import {
   identifySource,
   BookMetadata,
   IdentifyResult,
-} from "../services/citationService";
+} from "../../../services/citationService";
 
 interface ISBNSearchModalProps {
   isOpen: boolean;

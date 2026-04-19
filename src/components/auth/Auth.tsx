@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { signInWithGoogle } from "../services/supabaseClient";
+import { signInWithGoogle } from "../../services/supabaseClient";
 import { LogIn, Loader2, AlertCircle } from "lucide-react";
 
 export const Auth: React.FC = () => {

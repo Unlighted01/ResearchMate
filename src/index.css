@@ -1,7 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@tailwind base;  
+@tailwind components;  
+@tailwind utilities;  
 /* ============================================
    RESEARCHMATE - APPLE-INSPIRED DESIGN SYSTEM
    ============================================ */
@@ -61,6 +60,9 @@
   --font-sans:
     "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     Roboto, sans-serif;
+  --font-title:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, sans-serif;
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -104,6 +106,585 @@ body {
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
   line-height: 1.5;
+}
+
+/* App-wide visual theme switch (minimalist | bubble | glass) */
+html[data-ui-theme] {
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, sans-serif;
+  --font-title:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, sans-serif;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 12px;
+  --ui-surface-bg: #ffffff;
+  --ui-surface-border: rgba(15, 23, 42, 0.12);
+  --ui-surface-shadow: none;
+  --ui-input-bg: #ffffff;
+  --ui-input-border: #d1d5db;
+  --ui-search-bg: #ffffff;
+  --ui-search-border: #d1d5db;
+  --ui-title-weight: 700;
+  --ui-title-color: #111827;
+  --ui-stat-accent: #111827;
+  --ui-btn-radius: 10px;
+  --ui-btn-fill: #111827;
+  --ui-btn-fill-hover: #030712;
+  --ui-btn-text: #ffffff;
+  --ui-btn-border: transparent;
+  --ui-btn-shadow: none;
+  --ui-sidebar-bg: rgba(255, 255, 255, 0.98);
+  --ui-sidebar-border: rgba(15, 23, 42, 0.08);
+  --ui-sidebar-text: #374151;
+  --ui-sidebar-icon: #6b7280;
+  --ui-sidebar-active-bg: #111827;
+  --ui-sidebar-active-text: #ffffff;
+  --ui-sidebar-active-icon: #ffffff;
+  --ui-sidebar-active-shadow: none;
+  --ui-header-bg: rgba(245, 245, 247, 0.95);
+  --ui-chrome-border: rgba(15, 23, 42, 0.08);
+  --ui-hover-bg: rgba(15, 23, 42, 0.05);
+  --ui-hover-strong-bg: rgba(15, 23, 42, 0.08);
+  --ui-muted-text: #6b7280;
+  --ui-subtle-surface: rgba(15, 23, 42, 0.04);
+  --ui-subtle-elevated: #ffffff;
+  --ui-tooltip-bg: #111827;
+  --ui-tooltip-text: #ffffff;
+  --ui-overlay-bg: rgba(2, 6, 23, 0.45);
+  --ui-unread-bg: rgba(37, 99, 235, 0.10);
+  --ui-kbd-bg: rgba(15, 23, 42, 0.08);
+  --ui-glass-blur: 0px;
+}
+
+html.dark[data-ui-theme] {
+  --ui-surface-bg: #111827;
+  --ui-surface-border: rgba(148, 163, 184, 0.24);
+  --ui-input-bg: #1f2937;
+  --ui-input-border: #374151;
+  --ui-search-bg: #1f2937;
+  --ui-search-border: #374151;
+  --ui-title-color: #f9fafb;
+  --ui-stat-accent: #f9fafb;
+  --ui-btn-fill: #2563eb;
+  --ui-btn-fill-hover: #1d4ed8;
+  --ui-sidebar-bg: rgba(15, 23, 42, 0.98);
+  --ui-sidebar-border: rgba(148, 163, 184, 0.2);
+  --ui-sidebar-text: #d1d5db;
+  --ui-sidebar-icon: #9ca3af;
+  --ui-header-bg: rgba(2, 6, 23, 0.9);
+  --ui-chrome-border: rgba(148, 163, 184, 0.18);
+  --ui-hover-bg: rgba(255, 255, 255, 0.06);
+  --ui-hover-strong-bg: rgba(255, 255, 255, 0.1);
+  --ui-muted-text: #9ca3af;
+  --ui-subtle-surface: rgba(255, 255, 255, 0.05);
+  --ui-subtle-elevated: rgba(255, 255, 255, 0.08);
+  --ui-tooltip-bg: #f8fafc;
+  --ui-tooltip-text: #111827;
+  --ui-overlay-bg: rgba(0, 0, 0, 0.55);
+  --ui-unread-bg: rgba(59, 130, 246, 0.16);
+  --ui-kbd-bg: rgba(255, 255, 255, 0.08);
+}
+
+/* ── MINIMALIST: Editorial precision — blue accent, hairline borders, no blur ── */
+html[data-ui-theme="minimalist"] {
+  --font-sans:
+    "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    sans-serif;
+  --font-title:
+    "Fraunces", Georgia, Cambria, "Times New Roman", Times, serif;
+  --ui-radius-md: 6px;
+  --ui-radius-lg: 8px;
+  --ui-surface-bg: #ffffff;
+  --ui-surface-border: #e5e7eb;
+  --ui-surface-shadow: none;
+  --ui-input-bg: #ffffff;
+  --ui-input-border: #d1d5db;
+  --ui-search-bg: #f9fafb;
+  --ui-search-border: #e5e7eb;
+  --ui-title-weight: 700;
+  --ui-title-color: #0a0a0a;
+  --ui-stat-accent: #2563eb;
+  --ui-btn-radius: 6px;
+  --ui-btn-fill: #2563eb;
+  --ui-btn-fill-hover: #1d4ed8;
+  --ui-btn-text: #ffffff;
+  --ui-btn-border: transparent;
+  --ui-btn-shadow: none;
+  --ui-sidebar-bg: #ffffff;
+  --ui-sidebar-border: #e5e7eb;
+  --ui-sidebar-text: #374151;
+  --ui-sidebar-icon: #9ca3af;
+  --ui-sidebar-active-bg: #2563eb;
+  --ui-sidebar-active-text: #ffffff;
+  --ui-sidebar-active-icon: #ffffff;
+  --ui-sidebar-active-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  --ui-header-bg: rgba(255, 255, 255, 0.97);
+  --ui-chrome-border: #e5e7eb;
+  --ui-hover-bg: rgba(37, 99, 235, 0.06);
+  --ui-hover-strong-bg: rgba(37, 99, 235, 0.1);
+  --ui-muted-text: #6b7280;
+  --ui-subtle-surface: #f3f4f6;
+  --ui-subtle-elevated: #ffffff;
+  --ui-tooltip-bg: #111827;
+  --ui-tooltip-text: #ffffff;
+  --ui-overlay-bg: rgba(15, 23, 42, 0.4);
+  --ui-unread-bg: rgba(37, 99, 235, 0.08);
+  --ui-kbd-bg: #e5e7eb;
+  --ui-glass-blur: 0px;
+}
+
+html.dark[data-ui-theme="minimalist"] {
+  --ui-surface-bg: #111111;
+  --ui-surface-border: #1f1f1f;
+  --ui-input-bg: #0a0a0a;
+  --ui-input-border: #262626;
+  --ui-search-bg: #0a0a0a;
+  --ui-search-border: #262626;
+  --ui-title-color: #ffffff;
+  --ui-stat-accent: #3b82f6;
+  --ui-btn-fill: #2563eb;
+  --ui-btn-fill-hover: #3b82f6;
+  --ui-sidebar-bg: #000000;
+  --ui-sidebar-border: #1a1a1a;
+  --ui-sidebar-text: #a1a1aa;
+  --ui-sidebar-icon: #52525b;
+  --ui-sidebar-active-bg: #2563eb;
+  --ui-sidebar-active-text: #ffffff;
+  --ui-sidebar-active-icon: #ffffff;
+  --ui-sidebar-active-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  --ui-header-bg: rgba(0, 0, 0, 0.97);
+  --ui-chrome-border: #1f1f1f;
+  --ui-hover-bg: rgba(59, 130, 246, 0.12);
+  --ui-hover-strong-bg: rgba(59, 130, 246, 0.18);
+  --ui-muted-text: #71717a;
+  --ui-subtle-surface: #111111;
+  --ui-subtle-elevated: #18181b;
+  --ui-tooltip-bg: #f8fafc;
+  --ui-tooltip-text: #111827;
+  --ui-overlay-bg: rgba(0, 0, 0, 0.58);
+  --ui-unread-bg: rgba(37, 99, 235, 0.16);
+  --ui-kbd-bg: #18181b;
+}
+
+html[data-ui-theme="minimalist"] body {
+  background: #fafafa;
+}
+
+html.dark[data-ui-theme="minimalist"] body {
+  background: #000000;
+}
+
+/* Editorial letter-spacing on titles in minimalist mode */
+html[data-ui-theme="minimalist"] .theme-title,
+html[data-ui-theme="minimalist"] h1,
+html[data-ui-theme="minimalist"] h2,
+html[data-ui-theme="minimalist"] h3 {
+  letter-spacing: -0.025em;
+}
+
+
+/* ── BUBBLE: Playful premium — rose/lavender palette, iridescent surfaces ── */
+html[data-ui-theme="bubble"] {
+  --font-sans:
+    "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    sans-serif;
+  --font-title:
+    "Fredoka", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --ui-radius-md: 18px;
+  --ui-radius-lg: 24px;
+  --ui-surface-bg: rgba(255, 255, 255, 0.88);
+  --ui-surface-border: rgba(232, 121, 249, 0.22);  /* rose-violet tint */
+  --ui-surface-shadow: 0 8px 32px rgba(196, 181, 253, 0.18);
+  --ui-input-bg: #fdf9ff;
+  --ui-input-border: #e9d5ff;
+  --ui-search-bg: #fdf4ff;
+  --ui-search-border: #f0abfc;
+  --ui-title-weight: 800;
+  --ui-title-color: #4c1d95;   /* deep violet */
+  --ui-stat-accent: #9333ea;
+  --ui-btn-radius: 999px;
+  --ui-btn-fill: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%);
+  --ui-btn-fill-hover: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  --ui-btn-text: #ffffff;
+  --ui-btn-shadow: 0 8px 24px rgba(167, 139, 250, 0.35);
+  --ui-sidebar-bg: rgba(253, 249, 255, 0.92);
+  --ui-sidebar-border: rgba(196, 181, 253, 0.35);
+  --ui-sidebar-text: #5b21b6;
+  --ui-sidebar-icon: #7c3aed;
+  --ui-sidebar-active-bg: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%);
+  --ui-sidebar-active-text: #ffffff;
+  --ui-sidebar-active-icon: #ffffff;
+  --ui-sidebar-active-shadow: 0 6px 18px rgba(167, 139, 250, 0.4);
+  --ui-header-bg: rgba(253, 249, 255, 0.90);
+  --ui-chrome-border: rgba(196, 181, 253, 0.35);
+  --ui-hover-bg: rgba(244, 114, 182, 0.08);
+  --ui-hover-strong-bg: rgba(167, 139, 250, 0.14);
+  --ui-muted-text: #7c3aed;
+  --ui-subtle-surface: rgba(255, 255, 255, 0.55);
+  --ui-subtle-elevated: rgba(255, 255, 255, 0.95);
+  --ui-tooltip-bg: #5b21b6;
+  --ui-tooltip-text: #ffffff;
+  --ui-overlay-bg: rgba(76, 29, 149, 0.28);
+  --ui-unread-bg: rgba(244, 114, 182, 0.12);
+  --ui-kbd-bg: rgba(167, 139, 250, 0.14);
+  --ui-glass-blur: 14px;
+}
+
+html.dark[data-ui-theme="bubble"] {
+  --ui-surface-bg: rgba(24, 12, 38, 0.82);   /* deep violet-black */
+  --ui-surface-border: rgba(216, 180, 254, 0.2);
+  --ui-surface-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --ui-input-bg: #120829;
+  --ui-input-border: #2e1065;
+  --ui-search-bg: #120829;
+  --ui-search-border: #3b0764;
+  --ui-title-color: #e9d5ff;   /* soft lavender */
+  --ui-stat-accent: #c084fc;
+  --ui-btn-fill: linear-gradient(135deg, #e879f9 0%, #a78bfa 100%);
+  --ui-btn-fill-hover: linear-gradient(135deg, #d946ef 0%, #8b5cf6 100%);
+  --ui-sidebar-bg: rgba(13, 8, 20, 0.92);
+  --ui-sidebar-border: rgba(196, 181, 253, 0.15);
+  --ui-sidebar-text: #d8b4fe;
+  --ui-sidebar-icon: #a855f7;
+  --ui-sidebar-active-bg: linear-gradient(135deg, #e879f9 0%, #a78bfa 100%);
+  --ui-sidebar-active-text: #ffffff;
+  --ui-sidebar-active-icon: #ffffff;
+  --ui-sidebar-active-shadow: 0 6px 18px rgba(168, 85, 247, 0.4);
+  --ui-header-bg: rgba(13, 8, 20, 0.88);
+  --ui-chrome-border: rgba(196, 181, 253, 0.15);
+  --ui-hover-bg: rgba(232, 121, 249, 0.1);
+  --ui-hover-strong-bg: rgba(168, 85, 247, 0.18);
+  --ui-muted-text: #c084fc;
+  --ui-subtle-surface: rgba(255, 255, 255, 0.05);
+  --ui-subtle-elevated: rgba(255, 255, 255, 0.09);
+  --ui-tooltip-bg: #f5d0fe;
+  --ui-tooltip-text: #3b0764;
+  --ui-overlay-bg: rgba(13, 8, 20, 0.62);
+  --ui-unread-bg: rgba(232, 121, 249, 0.16);
+  --ui-kbd-bg: rgba(255, 255, 255, 0.08);
+}
+
+html[data-ui-theme="bubble"] body {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(244, 114, 182, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(196, 181, 253, 0.16) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(186, 230, 252, 0.10) 0%, transparent 60%),
+    #fdf9ff;
+}
+
+html.dark[data-ui-theme="bubble"] body {
+  background:
+    radial-gradient(circle at 20% 25%, rgba(232, 121, 249, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 80% 75%, rgba(167, 139, 250, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 55% 45%, rgba(244, 114, 182, 0.08) 0%, transparent 55%),
+    #0d0814;
+}
+
+
+/* === CURSOR — Bubble Theme === */
+/* Cursor is NOT hidden — the glass sphere is ambient background decoration,
+   not a cursor replacement. System cursor remains visible. */
+
+
+
+html[data-ui-theme="glass"] {
+  --font-sans:
+    "Sora", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    sans-serif;
+  --font-title:
+    "Barlow Condensed", "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --ui-radius-md: 14px;
+  --ui-radius-lg: 20px;
+
+  /* === LIGHT MODE GLASS — frosted soft-white, depth via shadows === */
+  --ui-surface-bg: rgba(255, 255, 255, 0.72);
+  --ui-surface-border: rgba(0, 0, 0, 0.05);
+  --ui-surface-shadow: 0 4px 24px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --ui-input-bg: rgba(255, 255, 255, 0.85);
+  --ui-input-border: rgba(0, 0, 0, 0.1);
+  --ui-search-bg: rgba(255, 255, 255, 0.8);
+  --ui-search-border: rgba(0, 0, 0, 0.08);
+  --ui-title-weight: 700;
+  --ui-title-color: #1a1a2e;
+  --ui-stat-accent: #0891b2;
+  --ui-btn-radius: 999px;
+  --ui-btn-fill: rgba(8, 145, 178, 0.9);
+  --ui-btn-fill-hover: rgba(6, 120, 150, 0.95);
+  --ui-btn-text: #ffffff;
+  --ui-btn-border: transparent;
+  --ui-btn-shadow: 0 4px 16px rgba(8, 145, 178, 0.25);
+  --ui-sidebar-bg: rgba(255, 255, 255, 0.65);
+  --ui-sidebar-border: rgba(0, 0, 0, 0.06);
+  --ui-sidebar-text: #334155;
+  --ui-sidebar-icon: #0891b2;
+  --ui-sidebar-active-bg: rgba(8, 145, 178, 0.14);
+  --ui-sidebar-active-text: #0c4a6e;
+  --ui-sidebar-active-icon: #0891b2;
+  --ui-sidebar-active-shadow: 0 4px 16px rgba(8, 145, 178, 0.15);
+  --ui-header-bg: rgba(255, 255, 255, 0.72);
+  --ui-chrome-border: rgba(0, 0, 0, 0.06);
+  --ui-hover-bg: rgba(8, 145, 178, 0.08);
+  --ui-hover-strong-bg: rgba(8, 145, 178, 0.14);
+  --ui-muted-text: #64748b;
+  --ui-subtle-surface: rgba(255, 255, 255, 0.38);
+  --ui-subtle-elevated: rgba(255, 255, 255, 0.82);
+  --ui-tooltip-bg: rgba(15, 23, 42, 0.88);
+  --ui-tooltip-text: #f8fafc;
+  --ui-overlay-bg: rgba(15, 23, 42, 0.32);
+  --ui-unread-bg: rgba(8, 145, 178, 0.12);
+  --ui-kbd-bg: rgba(255, 255, 255, 0.55);
+  --ui-glass-blur: 18px;
+}
+
+html.dark[data-ui-theme="glass"] {
+  /* === DARK MODE GLASS — near-invisible surfaces, vivid glow orbs, hairline ring borders === */
+  --ui-surface-bg: rgba(255, 255, 255, 0.04);
+  --ui-surface-border: rgba(255, 255, 255, 0.09);
+  --ui-surface-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 24px 48px rgba(0, 0, 0, 0.6);
+  --ui-input-bg: rgba(255, 255, 255, 0.07);
+  --ui-input-border: rgba(255, 255, 255, 0.12);
+  --ui-search-bg: rgba(255, 255, 255, 0.06);
+  --ui-search-border: rgba(255, 255, 255, 0.1);
+  --ui-title-color: #f1f5f9;
+  --ui-stat-accent: #22d3ee;
+  --ui-btn-fill: rgba(255, 255, 255, 0.07);
+  --ui-btn-fill-hover: rgba(34, 211, 238, 0.15);
+  --ui-btn-text: #e2e8f0;
+  --ui-btn-shadow: 0 0 24px rgba(34, 211, 238, 0.2);
+  --ui-sidebar-bg: rgba(0, 0, 0, 0.35);
+  --ui-sidebar-border: rgba(255, 255, 255, 0.07);
+  --ui-sidebar-text: #94a3b8;
+  --ui-sidebar-icon: #7dd3fc;
+  --ui-sidebar-active-bg: rgba(34, 211, 238, 0.12);
+  --ui-sidebar-active-text: #e2e8f0;
+  --ui-sidebar-active-icon: #22d3ee;
+  --ui-sidebar-active-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+  --ui-header-bg: rgba(0, 0, 0, 0.45);
+  --ui-chrome-border: rgba(255, 255, 255, 0.07);
+  --ui-hover-bg: rgba(34, 211, 238, 0.08);
+  --ui-hover-strong-bg: rgba(34, 211, 238, 0.14);
+  --ui-muted-text: #94a3b8;
+  --ui-subtle-surface: rgba(255, 255, 255, 0.04);
+  --ui-subtle-elevated: rgba(255, 255, 255, 0.08);
+  --ui-tooltip-bg: rgba(226, 232, 240, 0.95);
+  --ui-tooltip-text: #0f172a;
+  --ui-overlay-bg: rgba(2, 6, 23, 0.62);
+  --ui-unread-bg: rgba(34, 211, 238, 0.16);
+  --ui-kbd-bg: rgba(255, 255, 255, 0.08);
+  --ui-glass-blur: 16px;
+}
+
+html[data-ui-theme="glass"] body {
+  /* Light glass: cool gray-blue base with soft desaturated orbs */
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.07) 0%, transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(167, 139, 250, 0.07) 0%, transparent 45%),
+    #f0f4f8;
+}
+
+html.dark[data-ui-theme="glass"] body {
+  /* Dark glass: near-black with vivid glowing orbs */
+  background:
+    radial-gradient(circle at 15% 20%, rgba(34, 211, 238, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 85% 75%, rgba(167, 139, 250, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 60%),
+    #0a0a0f;
+}
+
+/* === GLASS THEME UTILITY CLASSES === */
+
+/* Saturate backdrop-blur so colors behind glass "pop" */
+html[data-ui-theme="glass"] .theme-surface,
+html[data-ui-theme="glass"] .theme-sidebar,
+html[data-ui-theme="glass"] .theme-headerbar {
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(1.6);
+}
+
+/* Dark glass: cyan glow ring on hover instead of heavy box-shadow */
+html.dark[data-ui-theme="glass"] .hover-lift:hover {
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 32px rgba(34, 211, 238, 0.1);
+  border-color: rgba(34, 211, 238, 0.2) !important;
+  transform: translateY(-4px);
+}
+
+/* Dark glass: subtle headline text glow */
+html.dark[data-ui-theme="glass"] .theme-title {
+  text-shadow: 0 0 30px rgba(34, 211, 238, 0.18);
+}
+
+/* Dark glass: ghost button ring style */
+html.dark[data-ui-theme="glass"] .theme-btn-primary {
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+}
+
+html.dark[data-ui-theme="glass"] .theme-btn-primary:hover {
+  border-color: rgba(34, 211, 238, 0.5) !important;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.2) !important;
+}
+
+.theme-page .theme-title {
+  font-family: var(--font-title) !important;
+  font-weight: var(--ui-title-weight) !important;
+  color: var(--ui-title-color) !important;
+}
+
+.theme-page {
+  font-family: var(--font-sans) !important;
+}
+
+.theme-surface {
+  background: var(--ui-surface-bg) !important;
+  border-color: var(--ui-surface-border) !important;
+  box-shadow: var(--ui-surface-shadow) !important;
+  border-radius: var(--ui-radius-lg) !important;
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}
+
+.theme-input,
+.theme-search {
+  background: var(--ui-input-bg) !important;
+  border: 1px solid var(--ui-input-border) !important;
+  border-radius: var(--ui-radius-md) !important;
+}
+
+.theme-search {
+  background: var(--ui-search-bg) !important;
+  border-color: var(--ui-search-border) !important;
+}
+
+.theme-btn {
+  border-radius: var(--ui-btn-radius) !important;
+}
+
+.theme-btn-primary {
+  background: var(--ui-btn-fill) !important;
+  color: var(--ui-btn-text) !important;
+  border: 1px solid var(--ui-btn-border) !important;
+  box-shadow: var(--ui-btn-shadow) !important;
+}
+
+.theme-btn-primary:hover {
+  background: var(--ui-btn-fill-hover) !important;
+}
+
+.theme-btn-secondary,
+.theme-btn-outline,
+.theme-btn-ghost,
+.theme-btn-destructive {
+  border-radius: var(--ui-btn-radius) !important;
+}
+
+.theme-sidebar {
+  background: var(--ui-sidebar-bg) !important;
+  border-right: 1px solid var(--ui-sidebar-border) !important;
+  backdrop-filter: blur(var(--ui-glass-blur));
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur));
+}
+
+.theme-sidebar-item {
+  color: var(--ui-sidebar-text) !important;
+  border-radius: var(--ui-radius-md) !important;
+}
+
+.theme-sidebar-item .theme-nav-icon {
+  color: var(--ui-sidebar-icon) !important;
+}
+
+.theme-sidebar-item-active {
+  background: var(--ui-sidebar-active-bg) !important;
+  color: var(--ui-sidebar-active-text) !important;
+  box-shadow: var(--ui-sidebar-active-shadow) !important;
+}
+
+/* Bubble themes ship gradients in --ui-sidebar-active-bg; force them explicitly
+   so `background: var(...)` reliably applies the gradient across browsers. */
+html[data-ui-theme="bubble"] .theme-sidebar-item-active {
+  background: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%) !important;
+}
+html.dark[data-ui-theme="bubble"] .theme-sidebar-item-active {
+  background: linear-gradient(135deg, #e879f9 0%, #a78bfa 100%) !important;
+}
+
+.theme-sidebar-item-active .theme-nav-icon {
+  color: var(--ui-sidebar-active-icon) !important;
+}
+
+/* Sidebar group label — used between NAV_GROUPS */
+.theme-sidebar-section-label {
+  color: var(--ui-sidebar-muted-text, #8e8e93);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 14px 12px 6px 14px;
+  user-select: none;
+}
+
+.theme-headerbar {
+  background: var(--ui-header-bg) !important;
+}
+
+.theme-stat {
+  color: var(--ui-stat-accent) !important;
+}
+
+.theme-divider {
+  border-color: var(--ui-chrome-border) !important;
+}
+
+.theme-muted-text {
+  color: var(--ui-muted-text) !important;
+}
+
+.theme-icon-button {
+  color: var(--ui-sidebar-icon) !important;
+}
+
+.theme-icon-button:hover {
+  background: var(--ui-hover-bg) !important;
+  color: var(--ui-title-color) !important;
+}
+
+.theme-hover-surface:hover {
+  background: var(--ui-hover-bg) !important;
+}
+
+.theme-hover-surface-strong:hover {
+  background: var(--ui-hover-strong-bg) !important;
+}
+
+.theme-panel-muted {
+  background: var(--ui-subtle-surface) !important;
+  border: 1px solid var(--ui-chrome-border) !important;
+}
+
+.theme-panel-elevated {
+  background: var(--ui-subtle-elevated) !important;
+  border: 1px solid var(--ui-chrome-border) !important;
+}
+
+.theme-tooltip {
+  background: var(--ui-tooltip-bg) !important;
+  color: var(--ui-tooltip-text) !important;
+}
+
+.theme-overlay {
+  background: var(--ui-overlay-bg) !important;
+}
+
+.theme-dropdown-highlight {
+  background: var(--ui-unread-bg) !important;
+}
+
+.theme-kbd {
+  background: var(--ui-kbd-bg) !important;
+  color: var(--ui-muted-text) !important;
+  border: 1px solid var(--ui-chrome-border) !important;
 }
 
 /* Apple-style text rendering */
@@ -753,7 +1334,7 @@ h6 {
 .bubble {
   position: absolute;
   border-radius: 50%;
-  pointer-events: auto;
+  pointer-events: none;
   cursor: pointer;
   will-change: transform, opacity;
 
@@ -801,6 +1382,7 @@ h6 {
   transition: opacity 1s ease-out;
 }
 
+/* Hover effect - gentle glow (doesn't override animation) */
 .bubble:hover {
   filter: brightness(1.15) contrast(1.1);
   box-shadow:
@@ -827,6 +1409,7 @@ h6 {
 
 /* ============================================
    SMOOTH FLOAT ANIMATION
+   Organic, flowing movement with bezier easing
    ============================================ */
 
 @keyframes bubble-float {
@@ -882,7 +1465,7 @@ h6 {
 }
 
 /* ============================================
-   BUBBLE VARIATIONS
+   BUBBLE VARIATIONS - Different colors
    ============================================ */
 
 /* Purple/pink variant */
@@ -933,12 +1516,12 @@ h6 {
   animation-direction: normal, normal;
 }
 
-/* Slower bubbles */
+/* Slower bubbles - override JS timing */
 .bubble:nth-child(even) {
   --bubble-duration: 30s;
 }
 
-/* Offset timing */
+/* Offset timing - start at different points in animation */
 .bubble:nth-child(2n + 1) {
   --bubble-delay: -5s;
 }
@@ -953,8 +1536,10 @@ h6 {
 
 /* ============================================
    PART 17: STAGGERED ANIMATIONS
+   Premium card entrance effects
    ============================================ */
 
+/* Staggered fade-in-up for card grids */
 .stagger-animate > * {
   animation: fade-in-up 0.4s ease-out forwards;
   opacity: 0;
@@ -999,6 +1584,7 @@ h6 {
 
 /* ============================================
    PART 18: HAMBURGER MENU ANIMATION
+   Smooth hamburger to X transition
    ============================================ */
 
 .hamburger-line {
@@ -1023,3 +1609,374 @@ h6 {
 .hamburger-open .hamburger-line:nth-child(3) {
   transform: translateY(-6px) rotate(-45deg);
 }
+
+/* ============================================
+   PART 19: FLOATING ORBS ANIMATIONS
+   Gentle drift patterns for organic motion
+   ============================================ */
+
+/* Gentle drift pattern 1 - figure-8 like motion */
+@keyframes orb-float-0 {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(calc(-50% + 50px), calc(-50% - 70px)) scale(1.03);
+  }
+  50% {
+    transform: translate(calc(-50% - 40px), calc(-50% - 30px)) scale(0.97);
+  }
+  75% {
+    transform: translate(calc(-50% + 60px), calc(-50% + 40px)) scale(1.01);
+  }
+}
+
+/* Gentle drift pattern 2 - elliptical motion */
+@keyframes orb-float-1 {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  33% {
+    transform: translate(calc(-50% - 60px), calc(-50% - 50px)) scale(1.05);
+  }
+  66% {
+    transform: translate(calc(-50% + 70px), calc(-50% + 60px)) scale(0.95);
+  }
+}
+
+/* Gentle drift pattern 3 - breathing motion with subtle rotation */
+@keyframes orb-float-2 {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate(calc(-50% + 80px), calc(-50% - 60px)) scale(1.08)
+      rotate(180deg);
+  }
+}
+
+/* ============================================
+   DARK MODE POLISH
+   ============================================ */
+
+/* Subtle gradient text for dark mode headers */
+.dark .gradient-text {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.7) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Premium dark mode glow effect */
+.dark .glow-blue {
+  box-shadow:
+    0 0 20px rgba(10, 132, 255, 0.15),
+    0 0 40px rgba(10, 132, 255, 0.1),
+    0 0 80px rgba(10, 132, 255, 0.05);
+}
+
+.dark .glow-purple {
+  box-shadow:
+    0 0 20px rgba(191, 90, 242, 0.15),
+    0 0 40px rgba(191, 90, 242, 0.1),
+    0 0 80px rgba(191, 90, 242, 0.05);
+}
+
+/* Dark mode surface elevation */
+.dark .surface-elevated {
+  background: linear-gradient(
+    145deg,
+    rgba(38, 38, 41, 1) 0%,
+    rgba(28, 28, 30, 1) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Subtle noise texture for dark backgrounds */
+.dark .texture-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
+}
+
+/* Gradient border utility */
+.gradient-border {
+  position: relative;
+  background: var(--bg-secondary);
+  background-clip: padding-box;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--rm-gradient-primary);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Brand gradient backgrounds */
+.bg-gradient-primary {
+  background: var(--rm-gradient-primary);
+}
+
+.bg-gradient-premium {
+  background: var(--rm-gradient-premium);
+}
+
+/* Text using brand colors */
+.text-rm-blue {
+  color: var(--rm-blue);
+}
+
+.text-rm-purple {
+  color: var(--rm-purple);
+}
+
+.text-rm-green {
+  color: var(--rm-green);
+}
+
+/* ============================================
+   TIPTAP / PROSEMIRROR EDITOR STYLES
+   ============================================ */
+
+.ProseMirror {
+  outline: none;
+  min-height: 60vh;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #8e8e93;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror h1 { font-size: 1.875rem; font-weight: 700; margin: 1rem 0 0.5rem; line-height: 1.2; }
+.ProseMirror h2 { font-size: 1.5rem; font-weight: 600; margin: 0.875rem 0 0.375rem; line-height: 1.25; }
+.ProseMirror h3 { font-size: 1.25rem; font-weight: 600; margin: 0.75rem 0 0.25rem; line-height: 1.3; }
+
+.ProseMirror p { margin: 0.5rem 0; line-height: 1.7; }
+
+.ProseMirror ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+.ProseMirror ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+.ProseMirror li { margin: 0.25rem 0; }
+
+.ProseMirror blockquote {
+  border-left: 3px solid #007AFF;
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: #636366;
+}
+.dark .ProseMirror blockquote { color: #8e8e93; border-color: #0A84FF; }
+
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid #e5e5ea;
+  margin: 1.5rem 0;
+}
+.dark .ProseMirror hr { border-color: #3a3a3c; }
+
+.ProseMirror strong { font-weight: 700; }
+.ProseMirror em { font-style: italic; }
+.ProseMirror u { text-decoration: underline; }
+.ProseMirror s { text-decoration: line-through; }
+.ProseMirror sub { font-size: 0.75em; vertical-align: sub; }
+.ProseMirror sup { font-size: 0.75em; vertical-align: super; }
+.ProseMirror mark { border-radius: 2px; padding: 0 2px; }
+
+/* Print styles — clean editor-only output */
+@media print {
+  body * { visibility: hidden !important; }
+  #editor-canvas, #editor-canvas * { visibility: visible !important; }
+  #editor-canvas {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+    padding: 20mm !important;
+  }
+  #editor-canvas .ProseMirror {
+    min-height: auto !important;
+  }
+}
+
+/* Hide scrollbar but keep scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   PDF.js Text Layer (for text selection in PdfReader)
+   Minimal styles ported from pdfjs-dist/web/pdf_viewer.css
+   ============================================ */
+.pdf-page {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.pdf-page canvas {
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.textLayer span,
+.textLayer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+.textLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.25);
+  border-radius: 4px;
+}
+.textLayer ::selection {
+  background: rgba(0, 122, 255, 0.35);
+  color: transparent;
+}
+.textLayer br::selection {
+  background: transparent;
+}
+.textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: -1;
+  cursor: default;
+  user-select: none;
+}
+.textLayer.selecting .endOfContent {
+  top: 0;
+}
+
+/* ============================================
+   PART 10: CUSTOM ANIMATIONS & UI FEEL
+   ============================================ */
+
+/* Flowing Gradient Hero Text */
+.animate-gradient-flow {
+  background-size: 200% auto;
+  animation: bg-pan-left 6s ease-in-out infinite alternate;
+}
+
+@keyframes bg-pan-left {
+  0% { background-position: 0% center; }
+  100% { background-position: 100% center; }
+}
+
+/* Floating animation */
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* Seamless Page Transitions */
+.page-transition-enter {
+  animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slide-up-fade {
+  0% { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered entry classes based on index */
+.stagger-1 { animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+.stagger-2 { animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+.stagger-3 { animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+.stagger-4 { animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both; }
+.stagger-5 { animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both; }
+
+/* Spotlight Glass Card Hover Effect */
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    600px circle at var(--pointer-x, 0px) var(--pointer-y, 0px),
+    rgba(255, 255, 255, 0.1),
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 10;
+}
+
+html.dark .spotlight-card::before {
+  background: radial-gradient(
+    600px circle at var(--pointer-x, 0px) var(--pointer-y, 0px),
+    rgba(255, 255, 255, 0.05),
+    transparent 40%
+  );
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* Magnetic Button (added logic inside JS but transition here) */
+.magnetic-btn {
+  transition: transform 0.1s cubic-bezier(0.33, 1, 0.68, 1), box-shadow 0.3s ease;
+  will-change: transform;
+}

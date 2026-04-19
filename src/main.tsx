@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import SidePanel from "./SidePanel";
-import { ToastProvider } from "./components/Toast";
+import { ToastProvider } from "./components/shared/ui/Toast";
 import "./index.css";
 
 class ErrorBoundary extends React.Component<
@@ -57,12 +57,20 @@ const initializeTheme = () => {
     chrome.storage.local.set({ theme: t });
   };
 
+  const applyVisualTheme = (t: string) => {
+    root.setAttribute("data-ui-theme", t);
+  };
+
   applyTheme(theme);
+  applyVisualTheme(localStorage.getItem("visualTheme") || "minimalist");
 
   // Listen for storage changes from Settings
   window.addEventListener("storage", (e) => {
     if (e.key === "theme" && e.newValue) {
       applyTheme(e.newValue);
+    }
+    if (e.key === "visualTheme" && e.newValue) {
+      applyVisualTheme(e.newValue);
     }
   });
 

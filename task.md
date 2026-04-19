@@ -1,0 +1,32 @@
+# ResearchMate Extension Refactoring Tasks
+
+- [x] **Phase 1: Shared Core & Foundation**
+    - [x] Sync `src/types.ts` with Website's types.
+    - [x] Align `src/services/supabaseClient.ts` with Website's config.
+- [x] **Phase 2: Structural Refactor (SidePanel)**
+    - [x] Create `src/components/layout/SidePanel/` directory.
+    - [x] Extract `useSidePanelData` hook.
+    - [x] Extract `SidePanelHeader`, `SidePanelNav`, and `SidePanelSearch`.
+    - [x] Re-compose `SidePanel.tsx` using modular components.
+- [x] **Phase 3: Structural Refactor (ItemDetail)**
+    - [x] Create `src/components/App/ItemDetail/` directory.
+    - [x] Extract `useItemDetail` hook.
+    - [x] Extract components: `ItemHeader`, `ItemContent`, `ItemMetadata`, `CitationCard`.
+    - [x] Re-compose `ItemDetail.tsx`.
+- [x] **Phase 4: Structural Refactor (Settings & General Components)**
+    - [x] Create `src/components/App/Settings/` directory.
+    - [x] Extract `AccountSection`, `AppearanceSection`, `GeneralSettings`, `DataManagement`.
+    - [x] Re-compose `Settings.tsx` & `ItemDetail.tsx` into `index.tsx` files.
+    - [x] Group UI components into `src/components/shared/ui/` (`AnimatedSwitch`, `SegmentedControl`, `Toast`).
+    - [x] Group auth components into `src/components/auth/` (`Auth`, `AuthProvider`).
+    - [x] Group App views into `src/components/App/` (`SmartPenView`, `Collections`, `Welcome`).
+- [x] **Phase 5: Design Parity**
+    - [x] Copy `index.css` from Website to Extension exactly.
+    - [x] Update `src/components/App/Settings/AppearanceSection.tsx` with Visual Theme toggles.
+    - [x] Apply `visualTheme` to `html` via `SidePanel.tsx` (using useEffect).
+- [x] **Phase 6: The Bridge (True SSO & UI Integrations)**
+    - [x] Update `src/components/App/ItemDetail/ItemHeader.tsx` to add "Open in Website" button.
+    - [x] Update `src/components/App/SmartPenView/SmartPenView.tsx` with specific sync toast messages on save.
+    - [x] *True SSO Auth Component*: Create `src/content.ts` strictly for extracting Supabase tokens from `research-mate-website.vercel.app`.
+    - [x] Update `src/background.ts` to listen for auth token messages and save to `chrome.storage.local`.
+    - [x] Configure `manifest.json` with `content_scripts` targeting `https://research-mate-website.vercel.app/*`.

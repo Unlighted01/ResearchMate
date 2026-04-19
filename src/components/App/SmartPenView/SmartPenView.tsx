@@ -4,9 +4,9 @@ import {
   pairDevice,
   unpairDevice,
   getSmartPenScans,
-} from "../services/smartPenService";
-import { SmartPenDevice, SmartPenScan } from "../types";
-import { getCurrentUser } from "../services/supabaseClient";
+} from "../../../services/smartPenService";
+import { SmartPenDevice, SmartPenScan } from "../../../types";
+import { getCurrentUser } from "../../../services/supabaseClient";
 import {
   Loader2,
   PenTool,
@@ -17,9 +17,9 @@ import {
   ArrowLeft,
   Upload,
 } from "lucide-react";
-import { StorageItem, addItem } from "../services/storageService";
-import { runOCR } from "../services/geminiService";
-import { useToast } from "./Toast";
+import { StorageItem, addItem } from "../../../services/storageService";
+import { runOCR } from "../../../services/geminiService";
+import { useToast } from "../../shared/ui/Toast";
 
 interface SmartPenViewProps {
   onBack: () => void;
@@ -145,9 +145,9 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
     e.target.value = "";
 
     if (failed === 0) {
-      toast(`Imported ${succeeded} of ${imageFiles.length} image${imageFiles.length > 1 ? "s" : ""} successfully`, "success");
+      toast(`Imported ${succeeded} items. Synced to your Web Dashboard!`, "success");
     } else {
-      toast(`Imported ${succeeded} of ${imageFiles.length} — ${failed} failed (try clearer images)`, "info");
+      toast(`Imported ${succeeded} of ${imageFiles.length} — ${failed} failed. Synced remaining to Web.`, "info");
     }
   };
 

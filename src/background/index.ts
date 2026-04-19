@@ -89,4 +89,13 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       });
     return true; // Keep message channel open for async response
   }
+
+  if (request.action === "AUTH_SYNC") {
+    const { key, data } = request.payload;
+    chrome.storage.local.set({ [key]: data }, () => {
+      console.log("Auth token synced from website to extension storage");
+      // Notify any open UI components to check for new session
+      chrome.runtime.sendMessage({ action: "authSynced" }).catch(() => {});
+    });
+  }
 });

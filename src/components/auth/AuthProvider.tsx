@@ -4,7 +4,7 @@ import {
   signInWithGoogle,
   signOut,
   getCurrentUser,
-} from "../services/supabaseClient";
+} from "../../services/supabaseClient";
 import { User } from "@supabase/supabase-js";
 import { LogOut } from "lucide-react";
 
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       // Sync local items to cloud on initial load if user is logged in
       if (u) {
-        import("../services/storageService").then(
+        import("../../services/storageService").then(
           ({ syncLocalItemsToCloud }) => {
             syncLocalItemsToCloud();
           },

@@ -1,3 +1,7 @@
+// ============================================
+// PART 1: IMPORTS & DEPENDENCIES
+// ============================================
+
 import {
   createClient,
   SupabaseClient,
@@ -6,7 +10,10 @@ import {
   AuthChangeEvent,
 } from "@supabase/supabase-js";
 
-// Extension doesn't have process.env available in the same way, but Vite handles import.meta.env
+// ============================================
+// PART 2: CONFIGURATION & CONSTANTS
+// ============================================
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -14,7 +21,10 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn("Supabase credentials missing. Auth will fail.");
 }
 
-// Custom storage adapter for Chrome Extension
+/**
+ * Custom storage adapter for Chrome Extension
+ * Ensures auth persists in chrome.storage.local
+ */
 const chromeStorageAdapter = {
   getItem: (key: string): Promise<string | null> => {
     return new Promise((resolve) => {
@@ -39,20 +49,10 @@ const chromeStorageAdapter = {
   },
 };
 
-export const supabase: SupabaseClient = createClient(
-  SUPABASE_URL || "",
-  SUPABASE_ANON_KEY || "",
-  {
-    auth: {
-      storage: chromeStorageAdapter,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false, // Extensions don't use URL for session
-    },
-  },
-);
+// ============================================
+// PART 3: TYPE DEFINITIONS
+// ============================================
 
-// Types
 export interface AuthResult {
   user: User | null;
   error: Error | null;
@@ -68,10 +68,31 @@ export type AuthEventCallback = (
   session: Session | null,
 ) => void;
 
-// Auth Functions
+// ============================================
+// PART 4: SUPABASE CLIENT INITIALIZATION
+// ============================================
 
-// Auth Functions
+export const supabase: SupabaseClient = createClient(
+  SUPABASE_URL || "",
+  SUPABASE_ANON_KEY || "",
+  {
+    auth: {
+      storage: chromeStorageAdapter,
+      storageKey: "researchmate-auth",
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false, // Extensions don't use URL for session
+    },
+  },
+);
 
+// ============================================
+// PART 5: USER AUTHENTICATION FUNCTIONS
+// ============================================
+
+/**
+ * Get the current authenticated user
+ */
 export async function getCurrentUser(): Promise<User | null> {
   const {
     data: { user },
@@ -84,14 +105,21 @@ export async function getCurrentUser(): Promise<User | null> {
   return user;
 }
 
+/**
+ * Get the current session
+ */
 export async function getSession(): Promise<SessionResult> {
   const {
     data: { session },
     error,
   } = await supabase.auth.getSession();
-  return { session, error };
+  return { session, error: error as Error | null };
 }
 
+/**
+ * Check if user is currently authenticated
+ * Includes fallback logic to wake up session from storage
+ */
 export async function isAuthenticated(): Promise<boolean> {
   // Force the Supabase client to wake up and retrieve the session
   const {
@@ -100,20 +128,17 @@ export async function isAuthenticated(): Promise<boolean> {
 
   if (session) return true;
 
-  // Fallback: If Supabase auth state hasn't initialized yet in the Background Worker context,
-  // manually check our adapter's backing store to see if a token exists.
-  // Supabase prefixes keys with sb-[project-id]-auth-token.
+  // Fallback: If Supabase auth state hasn't initialized yet, manually check storage
   const allData = await new Promise<{ [key: string]: any }>((resolve) => {
     chrome.storage.local.get(null, (result) => resolve(result));
   });
 
   const authKey = Object.keys(allData).find(
-    (key) => key.startsWith("sb-") && key.endsWith("-auth-token")
+    (key) => key === "researchmate-auth" || (key.startsWith("sb-") && key.endsWith("-auth-token"))
   );
 
   if (authKey && allData[authKey]) {
     try {
-      // The custom storage adapter stringifies data, but if it's already an object, use it directly
       const sessionData = typeof allData[authKey] === "string"
         ? JSON.parse(allData[authKey])
         : allData[authKey];
@@ -133,11 +158,61 @@ export async function isAuthenticated(): Promise<boolean> {
   return false;
 }
 
-export async function signInWithGoogle() {
+// ============================================
+// PART 6: EMAIL AUTHENTICATION
+// ============================================
+
+/**
+ * Sign in with email and password
+ */
+export async function signInWithEmail(
+  email: string,
+  password: string
+): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password,
+    });
+    return { user: data.user, error: error as Error | null };
+  } catch (error) {
+    return { user: null, error: error as Error };
+  }
+}
+
+/**
+ * Sign up with email and password
+ */
+export async function signUpWithEmail(
+  email: string,
+  password: string
+): Promise<AuthResult> {
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password,
+      options: {
+        // Extensions usually redirect back via Identity API, but for simple email verification
+        // we point them to the website
+        emailRedirectTo: `https://research-mate-website.vercel.app/auth/callback`,
+      },
+    });
+    return { user: data.user, error: error as Error | null };
+  } catch (error) {
+    return { user: null, error: error as Error };
+  }
+}
+
+// ============================================
+// PART 7: OAUTH AUTHENTICATION
+// ============================================
+
+/**
+ * Sign in with Google using Chrome Identity API
+ */
+export async function signInWithGoogle(): Promise<{ error: Error | null }> {
   try {
     const redirectUrl = chrome.identity.getRedirectURL();
-    console.log("Redirect URL:", redirectUrl);
-
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -149,7 +224,6 @@ export async function signInWithGoogle() {
     if (error) throw error;
     if (!data?.url) throw new Error("No auth URL returned");
 
-    // Launch the auth flow via Chrome Identity API
     const authResponse = await new Promise<string>((resolve, reject) => {
       chrome.identity.launchWebAuthFlow(
         {
@@ -168,9 +242,8 @@ export async function signInWithGoogle() {
       );
     });
 
-    // Parse session from URL (Supabase returns tokens in the hash)
     const url = new URL(authResponse);
-    const params = new URLSearchParams(url.hash.substring(1)); // Remove the #
+    const params = new URLSearchParams(url.hash.substring(1));
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
 
@@ -178,14 +251,12 @@ export async function signInWithGoogle() {
       throw new Error("No tokens found in redirect URL");
     }
 
-    // Set the session manually
     const { error: sessionError } = await supabase.auth.setSession({
       access_token,
       refresh_token,
     });
 
     if (sessionError) throw sessionError;
-
     return { error: null };
   } catch (error: any) {
     console.error("Google Sign-In Error:", error);
@@ -193,15 +264,39 @@ export async function signInWithGoogle() {
   }
 }
 
+// ============================================
+// PART 8: SIGN OUT
+// ============================================
+
 export async function signOut() {
   return await supabase.auth.signOut();
 }
+
+// ============================================
+// PART 9: AUTH STATE LISTENER
+// ============================================
+
+export function onAuthStateChange(callback: AuthEventCallback) {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session);
+  });
+  return subscription;
+}
+
+// ============================================
+// PART 10: EXPORTS
+// ============================================
 
 export default {
   supabase,
   getCurrentUser,
   getSession,
   isAuthenticated,
+  signInWithEmail,
+  signUpWithEmail,
   signInWithGoogle,
   signOut,
+  onAuthStateChange,
 };

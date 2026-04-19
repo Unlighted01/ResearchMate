@@ -14,7 +14,7 @@ export interface User {
 // PART 2: DEVICE SOURCE TYPES
 // ============================================
 
-export type DeviceSource = "extension" | "mobile" | "smart_pen" | "web";
+export type DeviceSource = "extension" | "mobile" | "smart_pen" | "web" | "transcription";
 
 export const DEVICE_SOURCES: Record<
   DeviceSource,
@@ -24,6 +24,7 @@ export const DEVICE_SOURCES: Record<
   mobile: { label: "Mobile App", icon: "Smartphone" },
   smart_pen: { label: "Smart Pen", icon: "PenTool" },
   web: { label: "Web App", icon: "Globe" },
+  transcription: { label: "Media Transcription", icon: "Mic" },
 };
 
 // ============================================
@@ -39,12 +40,14 @@ export interface ResearchItem {
   tags?: string[];
   collection_id?: string;
   ai_summary?: string;
-  citation?: string;
-  citation_format?: string;
   device_source: DeviceSource;
   created_at: string;
   updated_at: string;
   notes?: string;
+  citation?: string;
+  citation_format?: string;
+  preferred_view?: "original" | "summary";
+  color?: "yellow" | "green" | "blue" | "red" | "purple";
   // For smart pen specifically
   image_url?: string;
   ocr_text?: string;
@@ -60,12 +63,14 @@ export interface ResearchItemCamel {
   tags?: string[];
   collectionId?: string;
   aiSummary?: string;
-  citation?: string;
-  citationFormat?: string;
   deviceSource: DeviceSource;
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  citation?: string;
+  citationFormat?: string;
+  preferredView?: "original" | "summary";
+  color?: "yellow" | "green" | "blue" | "red" | "purple";
   imageUrl?: string;
   ocrText?: string;
 }
@@ -284,7 +289,6 @@ export interface SmartPenDevice {
   battery_level?: number;
   firmware_version?: string;
   is_connected: boolean;
-  pen_id?: string;
 }
 
 // ============================================

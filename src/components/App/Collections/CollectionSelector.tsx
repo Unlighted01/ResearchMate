@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Plus, Folder, Loader2 } from "lucide-react";
-import { Collection } from "../types";
-import { getCollections, createCollection, addItemsToCollection } from "../services/collectionService";
-import { useFocusTrap } from "../hooks/useFocusTrap";
+import { Collection } from "../../../types";
+import { getCollections, createCollection, addItemsToCollection } from "../../../services/collectionService";
+import { useFocusTrap } from "../../../hooks/useFocusTrap";
 
 const PRESET_COLORS = [
   { label: "Indigo", value: "#4F46E5" },

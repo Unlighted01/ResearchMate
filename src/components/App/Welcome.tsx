@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { motion } from "motion/react";
-import logo from "../assets/logo.svg";
+import logo from "../../assets/logo.svg";
 
 interface WelcomeProps {
   onComplete: () => void;
