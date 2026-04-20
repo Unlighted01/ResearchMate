@@ -52,8 +52,21 @@ export function useSidePanelData() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeCollection, setActiveCollection] = useState<{ id: string; name: string } | null>(null);
 
-  // Navigation
-  const [nav, setNav] = useState<NavState>({ view: "list", item: null });
+  // Navigation — persisted across panel open/close
+  const NAV_VIEW_KEY = "rm_last_view";
+  // Views that make sense to restore (detail needs an item which we don't persist)
+  const RESTORABLE_VIEWS: ViewType[] = ["list", "collections", "settings", "smartpen", "notepad"];
+
+  const [nav, setNavState] = useState<NavState>({ view: "list", item: null });
+
+  // Wrap setNav so every navigation change is also saved to storage
+  const setNav = useCallback((newNav: NavState) => {
+    setNavState(newNav);
+    if (RESTORABLE_VIEWS.includes(newNav.view)) {
+      chrome.storage.local.set({ [NAV_VIEW_KEY]: newNav.view }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync
   const [sync, setSync] = useState<SyncState>({ running: false, status: null });
@@ -82,7 +95,7 @@ export function useSidePanelData() {
       setNextOffset(0);
       setLoading(false);
       
-      setNav((prev) => {
+      setNavState((prev) => {
         if (prev.view === "detail" && prev.item) {
           const fresh = all.find((i) => i.id === prev.item!.id);
           return fresh ? { ...prev, item: fresh } : prev;
@@ -96,7 +109,7 @@ export function useSidePanelData() {
       setNextOffset(result.nextOffset);
       setLoading(false);
 
-      setNav((prev) => {
+      setNavState((prev) => {
         if (prev.view === "detail" && prev.item) {
           const fresh = result.items.find((i) => i.id === prev.item!.id);
           return fresh ? { ...prev, item: fresh } : prev;
@@ -130,6 +143,14 @@ export function useSidePanelData() {
         }
       });
     }
+
+    // Restore last active view (so SmartPen / Notepad survive panel close/reopen)
+    chrome.storage.local.get([NAV_VIEW_KEY], (result) => {
+      const saved = result[NAV_VIEW_KEY] as ViewType | undefined;
+      if (saved && RESTORABLE_VIEWS.includes(saved)) {
+        setNavState({ view: saved, item: null });
+      }
+    });
 
     fetchItems();
     isAuthenticated().then((isAuth) => {
