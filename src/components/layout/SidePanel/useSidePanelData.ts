@@ -205,11 +205,27 @@ export function useSidePanelData() {
 
     chrome.storage.onChanged.addListener(handleStorageChange);
     chrome.runtime.onMessage.addListener(handleMessage);
-    
+
+    // ── Supabase Realtime: auto-refresh when the server changes ──────
+    let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
+    const realtimeChannel = supabase
+      .channel("extension-items-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "research_items" },
+        () => {
+          if (realtimeDebounce) clearTimeout(realtimeDebounce);
+          realtimeDebounce = setTimeout(() => fetchItems(), 2000);
+        }
+      )
+      .subscribe();
+
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange);
       chrome.runtime.onMessage.removeListener(handleMessage);
       subscription.unsubscribe();
+      supabase.removeChannel(realtimeChannel);
+      if (realtimeDebounce) clearTimeout(realtimeDebounce);
     };
   }, [fetchItems]);
 

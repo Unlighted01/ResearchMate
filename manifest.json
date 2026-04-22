@@ -51,7 +51,7 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
   },
   "oauth2": {
-    "client_id": "184661848523-ljcblimcgoemghcnahkfjpqgpmnihkp.apps.googleusercontent.com",
+    "client_id": "63045817614-6sn8ojehhraqfvd4lhk35f7jvfutfg5f.apps.googleusercontent.com",
     "scopes": ["openid", "email", "profile"]
   },
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuaAxpKOXCWde+WzFjOd54Z7jPPV4rGTNx5TvKEDKbK5mHfVThNwLy95wfFYlEqqsxsgmiaOUvDo56pwLxkgYwJfGxojKhwSAq00vnj6MW0M38MHBJORQyOAdKofBaND71DCWRhkygFCuTW0N2YRdmg7+n9RMoPWFEF/HOQq4ouTuZOEuS3SzHpTUEJFAZktnnjyDoPkiJzNh9gxvmDZ1UHGILB9S68udHsBfBfIwAZeqiZ3Rl8Y2vkgOs+UOWN/b50zCamgG6kjWF9XmtjDvA2SqNwhyKqZtLUqY+OSeWQlO391nuH4GRzFLHO6m9HY2MQrXGrQmB+BIS2diLfPi0QIDAQAB"

@@ -1,21 +1,45 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import logo from "../../../assets/logo.svg";
-import { RefreshCw, PenTool } from "lucide-react";
+import { RefreshCw, PenTool, Zap } from "lucide-react";
 import { GearIcon } from "../../icons";
 import { AnimatePresence, motion } from "motion/react";
 import { SyncState, NavState } from "./useSidePanelData";
+import { supabase } from "../../../services/supabaseClient";
 
 interface SidePanelHeaderProps {
   sync: SyncState;
   onSync: () => void;
   onNavigate: (view: NavState["view"]) => void;
+  /** Optional: invalidate credits after an AI operation by incrementing this. */
+  creditsBuster?: number;
 }
 
 export const SidePanelHeader: React.FC<SidePanelHeaderProps> = ({
   sync,
   onSync,
   onNavigate,
+  creditsBuster = 0,
 }) => {
+  const [credits, setCredits] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCredits = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setCredits(null); return; }
+        const { data } = await supabase
+          .from("profiles")
+          .select("ai_credits")
+          .eq("id", session.user.id)
+          .single();
+        if (!cancelled && data) setCredits(data.ai_credits ?? 0);
+      } catch { /* silent — badge is non-critical */ }
+    };
+    fetchCredits();
+    return () => { cancelled = true; };
+  }, [creditsBuster]);
+
   return (
     <div className="flex justify-between items-center mb-4">
       <div className="flex items-center gap-2">
@@ -45,6 +69,28 @@ export const SidePanelHeader: React.FC<SidePanelHeaderProps> = ({
             )}
           </AnimatePresence>
         </div>
+
+        {/* AI Credits Badge */}
+        <AnimatePresence>
+          {credits !== null && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              title={`${credits} AI credits remaining`}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                credits === 0
+                  ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                  : credits <= 10
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  : "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+              }`}
+            >
+              <Zap size={9} />
+              {credits}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Sync Button */}
         <button
