@@ -686,3 +686,16 @@ export async function updateItem(
     }
   }
 }
+
+export async function getItemsByCollection(collectionId: string): Promise<StorageItem[]> {
+  const all = await getAllItems();
+  return all.filter((item) => item.collectionId === collectionId);
+}
+
+export async function getItemsByTag(tag: string): Promise<StorageItem[]> {
+  const all = await getAllItems();
+  const lowerTag = tag.toLowerCase();
+  return all.filter((item) => {
+    return item.tags.some((t) => t.toLowerCase() === lowerTag);
+  });
+}

@@ -36,6 +36,15 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     handleSignOut,
     fileInputRef,
     exportMenuRef,
+    exportScope,
+    setExportScope,
+    selectedCollectionId,
+    setSelectedCollectionId,
+    selectedTag,
+    setSelectedTag,
+    collections,
+    uniqueTags,
+    exportCount,
   } = useSettings();
 
   // Close export dropdown on outside click
@@ -105,6 +114,15 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           onImportClick={() => fileInputRef.current?.click()}
           importing={importing}
           exportMenuRef={exportMenuRef}
+          exportScope={exportScope}
+          onExportScopeChange={setExportScope}
+          selectedCollectionId={selectedCollectionId}
+          onCollectionChange={setSelectedCollectionId}
+          selectedTag={selectedTag}
+          onTagChange={setSelectedTag}
+          collections={collections}
+          uniqueTags={uniqueTags}
+          exportCount={exportCount}
         />
 
         <input

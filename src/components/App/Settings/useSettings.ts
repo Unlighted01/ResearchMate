@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { getCurrentUser, signOut, supabase } from "../../../services/supabaseClient";
-import { getAllItems, addItem } from "../../../services/storageService";
+import { getAllItems, addItem, StorageItem } from "../../../services/storageService";
+import { getCollections } from "../../../services/collectionService";
+import { Collection } from "../../../types";
 import { runOCRFromDataUrl } from "../../../services/geminiService";
 import { exportToPdf } from "../../../services/pdfService";
 import { generateMarkdownTemplate } from "../../../utils/markdownGenerator";
@@ -18,9 +20,63 @@ export function useSettings() {
   const [exportFormat, setExportFormat] = useState(localStorage.getItem("exportFormat") || "pdf");
   const [importing, setImporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Export Scope States
+  const [exportScope, setExportScope] = useState<"all" | "collection" | "tag">("all");
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
+  const [selectedTag, setSelectedTag] = useState<string>("");
+  const [allItems, setAllItems] = useState<StorageItem[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [uniqueTags, setUniqueTags] = useState<string[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const items = await getAllItems();
+      setAllItems(items);
+
+      const tagsSet = new Set<string>();
+      items.forEach((item) => {
+        item.tags.forEach((tag) => {
+          if (
+            tag !== "quick-save" &&
+            !tag.startsWith("color:") &&
+            !tag.startsWith("ocr:") &&
+            tag !== "pinned:true"
+          ) {
+            tagsSet.add(tag);
+          }
+        });
+      });
+      const tags = Array.from(tagsSet);
+      setUniqueTags(tags);
+      if (tags.length > 0) {
+        setSelectedTag(tags[0]);
+      }
+
+      const cols = await getCollections();
+      setCollections(cols);
+      if (cols.length > 0) {
+        setSelectedCollectionId(cols[0].id);
+      }
+    };
+    loadData();
+  }, []);
+
+  const getExportItems = () => {
+    if (exportScope === "collection") {
+      return allItems.filter((i) => i.collectionId === selectedCollectionId);
+    }
+    if (exportScope === "tag") {
+      const lowerTag = selectedTag.toLowerCase();
+      return allItems.filter((i) => i.tags.some((t) => t.toLowerCase() === lowerTag));
+    }
+    return allItems;
+  };
+
+  const exportCount = getExportItems().length;
 
   useEffect(() => {
     getCurrentUser().then(async (u) => {
@@ -58,7 +114,7 @@ export function useSettings() {
 
   const handleExportAll = async (fmt: string) => {
     setShowExportMenu(false);
-    const items = await getAllItems();
+    const items = getExportItems();
     if (!items || items.length === 0) {
       toast("No research items found to export.", "info");
       return;
@@ -148,6 +204,15 @@ export function useSettings() {
     handleFileChange,
     handleSignOut: async () => { await signOut(); window.location.reload(); },
     fileInputRef,
-    exportMenuRef
+    exportMenuRef,
+    exportScope,
+    setExportScope,
+    selectedCollectionId,
+    setSelectedCollectionId,
+    selectedTag,
+    setSelectedTag,
+    collections,
+    uniqueTags,
+    exportCount
   };
 }
