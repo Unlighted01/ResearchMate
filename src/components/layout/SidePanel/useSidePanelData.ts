@@ -7,6 +7,7 @@ import {
   StorageItem, 
   deleteItem, 
   deleteItems, 
+  updateItem,
   syncLocalItemsToCloud 
 } from "../../../services/storageService";
 import { getCurrentUser, supabase, isAuthenticated } from "../../../services/supabaseClient";
@@ -396,6 +397,36 @@ export function useSidePanelData() {
     }, 5100);
   };
 
+  const handlePin = useCallback(async (id: string, pin: boolean) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    // Re-assemble raw tags (including the encoded special tags)
+    const rawTags = [
+      ...item.tags,
+      ...(item.color ? [`color:${item.color}`] : []),
+      ...(item.ocrEdited ? ["ocr:edited"] : []),
+    ].filter((t) => t !== "pinned:true"); // strip old pin state
+
+    const newTags = pin ? [...rawTags, "pinned:true"] : rawTags;
+
+    // Optimistic update so the card moves instantly
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, pinned: pin || undefined } : i))
+    );
+
+    try {
+      await updateItem(id, { tags: newTags });
+    } catch {
+      // Revert on failure
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, pinned: item.pinned } : i))
+      );
+      toast("Failed to update pin. Please try again.", "error");
+    }
+  }, [items, toast]);
+
+
   const toggleSelection = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const newSet = new Set(selection.ids);
@@ -421,19 +452,26 @@ export function useSidePanelData() {
     setNav({ view: "detail", item });
   };
 
-  const filteredItems = items.filter((item) => {
-    if (activeCollection && item.collectionId !== activeCollection.id) return false;
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      return (
-        item.text.toLowerCase().includes(q) ||
-        item.note?.toLowerCase().includes(q) ||
-        item.sourceTitle?.toLowerCase().includes(q) ||
-        item.tags.some((t) => !t.startsWith("color:") && !t.startsWith("ocr:") && t.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  const filteredItems = items
+    .filter((item) => {
+      if (activeCollection && item.collectionId !== activeCollection.id) return false;
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
+        return (
+          item.text.toLowerCase().includes(q) ||
+          item.note?.toLowerCase().includes(q) ||
+          item.sourceTitle?.toLowerCase().includes(q) ||
+          item.tags.some((t) => !t.startsWith("color:") && !t.startsWith("ocr:") && t.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      // Pinned items always float to the top; preserve relative order within each group
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return 0;
+    });
 
   return {
     items,
@@ -461,6 +499,7 @@ export function useSidePanelData() {
     handleSync,
     handleDelete,
     handleBulkDelete,
+    handlePin,
     toggleSelection,
     handleItemClick,
     filteredItems,

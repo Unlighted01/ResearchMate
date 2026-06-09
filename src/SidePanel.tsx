@@ -51,6 +51,7 @@ function SidePanel() {
     handleSync,
     handleDelete,
     handleBulkDelete,
+    handlePin,
     toggleSelection,
     handleItemClick,
     filteredItems,
@@ -306,6 +307,7 @@ function SidePanel() {
                         onSelect={toggleSelection}
                         onClick={handleItemClick}
                         onDelete={handleDelete}
+                        onPin={handlePin}
                         onEnterSelection={(id) => setSelection({ active: true, ids: new Set([id]), showCollectionPicker: false })}
                       />
                     ))}

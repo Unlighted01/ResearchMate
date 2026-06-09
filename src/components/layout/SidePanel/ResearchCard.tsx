@@ -6,7 +6,9 @@ import {
   Quote, 
   ExternalLink, 
   CheckSquare, 
-  Check 
+  Check,
+  Pin,
+  PinOff
 } from "lucide-react";
 import { TrashIcon } from "../../icons";
 import { StorageItem } from "../../../services/storageService";
@@ -18,6 +20,7 @@ interface ResearchCardProps {
   onSelect: (id: string, e: React.MouseEvent) => void;
   onClick: (item: StorageItem) => void;
   onDelete: (id: string, e: React.MouseEvent) => void;
+  onPin?: (id: string, pin: boolean) => void;
   onEnterSelection?: (id: string) => void;
 }
 
@@ -28,6 +31,7 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
   onSelect,
   onClick,
   onDelete,
+  onPin,
   onEnterSelection,
 }) => {
   const colorHex =
@@ -108,7 +112,12 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
         <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
           {hostname}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          {item.pinned && (
+            <span title="Pinned">
+              <Pin className="w-3 h-3 text-amber-500 fill-amber-400" />
+            </span>
+          )}
           {item.id.startsWith("local_") && (
             <div title="Not synced to cloud">
               <CloudOff className="w-3 h-3 text-red-400" />
@@ -152,6 +161,21 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
 
         {!selectionActive && (
           <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-3 right-3 flex gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-lg shadow-sm">
+            {/* Pin / Unpin */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onPin?.(item.id, !item.pinned);
+              }}
+              className={`cursor-pointer p-0.5 transition-colors ${
+                item.pinned
+                  ? "text-amber-500 hover:text-amber-600"
+                  : "text-gray-400 hover:text-amber-500"
+              }`}
+              title={item.pinned ? "Unpin" : "Pin to top"}
+            >
+              {item.pinned ? <PinOff size={16} /> : <Pin size={16} />}
+            </div>
             <div
               onClick={(e) => {
                 e.stopPropagation();
