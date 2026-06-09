@@ -146,13 +146,25 @@ export function useSidePanelData() {
       });
     }
 
-    // Restore last active view (so SmartPen / Notepad survive panel close/reopen)
-    chrome.storage.local.get([NAV_VIEW_KEY], (result) => {
-      const saved = result[NAV_VIEW_KEY] as ViewType | undefined;
-      if (saved && RESTORABLE_VIEWS.includes(saved)) {
-        setNavState({ view: saved, item: null });
-      }
-    });
+    // Check for viewDetail query parameter
+    const params = new URLSearchParams(window.location.search);
+    const viewDetailId = params.get("viewDetail");
+    if (viewDetailId) {
+      getAllItems().then((all) => {
+        const item = all.find((i) => i.id === viewDetailId);
+        if (item) {
+          setNavState({ view: "detail", item });
+        }
+      });
+    } else {
+      // Restore last active view (so SmartPen / Notepad survive panel close/reopen)
+      chrome.storage.local.get([NAV_VIEW_KEY], (result) => {
+        const saved = result[NAV_VIEW_KEY] as ViewType | undefined;
+        if (saved && RESTORABLE_VIEWS.includes(saved)) {
+          setNavState({ view: saved, item: null });
+        }
+      });
+    }
 
     fetchItems();
     isAuthenticated().then((isAuth) => {
@@ -211,6 +223,14 @@ export function useSidePanelData() {
           }
         }).catch(() => {
           toast("Saved to ResearchMate", "success");
+        });
+      }
+      if (msg.action === "viewItemDetail" && msg.itemId) {
+        getAllItems().then((all) => {
+          const item = all.find((i) => i.id === msg.itemId);
+          if (item) {
+            setNav({ view: "detail", item });
+          }
         });
       }
       if (msg.action === "authSynced") {

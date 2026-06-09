@@ -1,5 +1,6 @@
 // Content script to handle text selection and highlighting
 import { QUICK_SAVE_TAG } from "../constants";
+import { jaccardSimilarity } from "../utils/similarity";
 console.log("ResearchMate Content Script Loaded");
 
 // Overlay State
@@ -7,8 +8,12 @@ let overlayInstance: { root: HTMLDivElement; backdrop: HTMLDivElement } | null =
   null;
 
 // Toggle Overlay Function (Hoisted)
-function toggleOverlay() {
+function toggleOverlay(viewDetailId?: string) {
   if (overlayInstance) {
+    if (viewDetailId) {
+      chrome.runtime.sendMessage({ action: "viewItemDetail", itemId: viewDetailId }).catch(() => {});
+      return;
+    }
     // Close
     overlayInstance.root.style.transform = "translateX(100%)";
     setTimeout(() => {
@@ -34,7 +39,7 @@ function toggleOverlay() {
 
   // Iframe
   const iframe = document.createElement("iframe");
-  iframe.src = chrome.runtime.getURL("index.html");
+  iframe.src = chrome.runtime.getURL("index.html") + (viewDetailId ? `?viewDetail=${viewDetailId}` : "");
   iframe.style.width = "100%";
   iframe.style.height = "100%";
   iframe.style.border = "none";
@@ -48,7 +53,7 @@ function toggleOverlay() {
     root.style.transform = "translateX(0)";
   });
 
-  overlayInstance = { root, backdrop: root }; // Backdrop is just root placeholder to avoid breaking types if used elsewhere
+  overlayInstance = { root, backdrop: root };
 }
 
 // Listen for messages from the background script
@@ -520,38 +525,112 @@ const handleSelection = (e?: Event) => {
     selectionButton.appendChild(saveBtn);
 
     // Core save function
-    const doSave = () => {
+    const doSave = (forceSave = false) => {
       const selection = window.getSelection();
       const text = cleanSelectedText(selection);
       if (!text) return;
 
-      if (selectionButton) {
-        selectionButton.innerHTML = `<span style="padding: 0 8px; font-family: sans-serif; font-size: 13px; font-weight: 600; color: #333;">Saving...</span>`;
-        selectionButton.style.pointerEvents = "none";
-      }
+      const executeSave = () => {
+        if (selectionButton) {
+          selectionButton.innerHTML = `<span style="padding: 0 8px; font-family: sans-serif; font-size: 13px; font-weight: 600; color: #333;">Saving...</span>`;
+          selectionButton.style.pointerEvents = "none";
+        }
 
-      const payload: Record<string, unknown> = {
-        text,
-        sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
-        sourceTitle: document.title || "Unknown Title",
-        tags: [QUICK_SAVE_TAG],
-        deviceSource: "extension",
+        const payload: Record<string, unknown> = {
+          text,
+          sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
+          sourceTitle: document.title || "Unknown Title",
+          tags: [QUICK_SAVE_TAG],
+          deviceSource: "extension",
+        };
+
+        chrome.runtime.sendMessage({ action: "saveItemInBackground", payload }, (response) => {
+          if (chrome.runtime.lastError || !response || !response.success) {
+            console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
+            if (selectionButton) {
+              selectionButton.innerHTML = `<span style="color:red;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Error</span>`;
+              selectionButton.style.pointerEvents = "auto";
+              setTimeout(() => removeSelectionButton(), 2000);
+            }
+            return;
+          }
+          if (selectionButton && response.itemId) {
+            renderTagSelector(response.itemId, !!response.isLocal);
+          } else {
+            removeSelectionButton();
+          }
+        });
       };
 
-      chrome.runtime.sendMessage({ action: "saveItemInBackground", payload }, (response) => {
-        if (chrome.runtime.lastError || !response || !response.success) {
-          console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
-          if (selectionButton) {
-            selectionButton.innerHTML = `<span style="color:red;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Error</span>`;
-            selectionButton.style.pointerEvents = "auto";
-            setTimeout(() => removeSelectionButton(), 2000);
+      if (forceSave) {
+        executeSave();
+        return;
+      }
+
+      // Run duplicate detection check
+      chrome.storage.local.get("researchMateItems", (result) => {
+        let items: any[] = [];
+        try {
+          if (result.researchMateItems) {
+            items = JSON.parse(result.researchMateItems);
           }
-          return;
+        } catch (e) {
+          console.error("Failed to parse items for duplicate check:", e);
         }
-        if (selectionButton && response.itemId) {
-          renderTagSelector(response.itemId, !!response.isLocal);
+
+        const sortedItems = items
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 50);
+
+        let bestMatch: any = null;
+        let highestSim = 0;
+        for (const item of sortedItems) {
+          const sim = jaccardSimilarity(text, item.text);
+          if (sim > highestSim) {
+            highestSim = sim;
+            bestMatch = item;
+          }
+        }
+
+        if (highestSim > 0.75 && bestMatch) {
+          // Show duplicate warning UI
+          if (selectionButton) {
+            selectionButton.style.pointerEvents = "auto";
+            selectionButton.style.borderRadius = "12px";
+            selectionButton.style.padding = "10px";
+            selectionButton.style.flexDirection = "column";
+            selectionButton.style.alignItems = "stretch";
+            selectionButton.style.width = "220px";
+            selectionButton.style.gap = "8px";
+
+            selectionButton.innerHTML = `
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; color:#D97706; font-weight:600; text-align:left; line-height:1.4;">
+                ⚠️ Looks similar to a saved item. Save anyway?
+              </div>
+              <div style="display:flex; gap:6px; margin-top:2px;">
+                <button id="rm-view-existing-btn" style="flex:1; background:#E5E7EB; color:#374151; border:none; padding:4px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition: background 0.15s;">View Existing</button>
+                <button id="rm-save-anyway-btn" style="flex:1; background:#007AFF; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition: background 0.15s;">Save Anyway</button>
+              </div>
+            `;
+
+            const viewExistingBtn = selectionButton.querySelector("#rm-view-existing-btn") as HTMLButtonElement;
+            const saveAnywayBtn = selectionButton.querySelector("#rm-save-anyway-btn") as HTMLButtonElement;
+
+            viewExistingBtn.addEventListener("mousedown", (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              toggleOverlay(bestMatch.id);
+              removeSelectionButton();
+            });
+
+            saveAnywayBtn.addEventListener("mousedown", (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              executeSave();
+            });
+          }
         } else {
-          removeSelectionButton();
+          executeSave();
         }
       });
     };
