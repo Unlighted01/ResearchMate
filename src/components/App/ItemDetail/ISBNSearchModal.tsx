@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, X, Book, Loader2, AlertCircle, ExternalLink, Sparkles } from "lucide-react";
 import {
   searchBooks,
@@ -7,6 +7,7 @@ import {
   BookMetadata,
   IdentifyResult,
 } from "../../../services/citationService";
+import { useFocusTrap } from "../../../hooks/useFocusTrap";
 
 interface ISBNSearchModalProps {
   isOpen: boolean;
@@ -34,6 +35,9 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
   initialQuery = "",
   itemText = "",
 }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
+
   const [query, setQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BookMetadata[]>([]);
@@ -118,8 +122,15 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
     "text-red-500";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Identify source"
         className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >

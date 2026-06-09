@@ -206,28 +206,67 @@ export function useSidePanelData() {
     chrome.storage.onChanged.addListener(handleStorageChange);
     chrome.runtime.onMessage.addListener(handleMessage);
 
-    // ── Supabase Realtime: auto-refresh when the server changes ──────
-    let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
-    const realtimeChannel = supabase
-      .channel("extension-items-live")
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+      chrome.runtime.onMessage.removeListener(handleMessage);
+      subscription.unsubscribe();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Supabase Realtime: subscribe per-user so channels are stable ──────────
+  // Kept in a separate effect so it only runs when `user` changes, not on every
+  // search keystroke (avoids creating/destroying channels unnecessarily).
+  useEffect(() => {
+    if (!user) return; // Guest mode: no realtime, local storage listener handles it
+
+    let itemsDebounce: ReturnType<typeof setTimeout> | null = null;
+    let collectionsDebounce: ReturnType<typeof setTimeout> | null = null;
+
+    const itemsChannel = supabase
+      .channel(`items-live-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "research_items" },
+        {
+          event: "*",
+          schema: "public",
+          table: "items",
+          filter: `user_id=eq.${user.id}`,
+        },
         () => {
-          if (realtimeDebounce) clearTimeout(realtimeDebounce);
-          realtimeDebounce = setTimeout(() => fetchItems(), 2000);
+          // Debounce rapid bursts (e.g. bulk delete) into a single refresh
+          if (itemsDebounce) clearTimeout(itemsDebounce);
+          itemsDebounce = setTimeout(() => fetchItems(), 800);
+        }
+      )
+      .subscribe();
+
+    const collectionsChannel = supabase
+      .channel(`collections-live-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "collections",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Collections changing doesn't affect the items list directly,
+          // but we do a light re-fetch so collection names/counts stay fresh
+          if (collectionsDebounce) clearTimeout(collectionsDebounce);
+          collectionsDebounce = setTimeout(() => fetchItems(), 800);
         }
       )
       .subscribe();
 
     return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange);
-      chrome.runtime.onMessage.removeListener(handleMessage);
-      subscription.unsubscribe();
-      supabase.removeChannel(realtimeChannel);
-      if (realtimeDebounce) clearTimeout(realtimeDebounce);
+      if (itemsDebounce) clearTimeout(itemsDebounce);
+      if (collectionsDebounce) clearTimeout(collectionsDebounce);
+      supabase.removeChannel(itemsChannel);
+      supabase.removeChannel(collectionsChannel);
     };
-  }, [fetchItems]);
+  }, [user, fetchItems]);
 
   // Infinite scroll observer
   useEffect(() => {
