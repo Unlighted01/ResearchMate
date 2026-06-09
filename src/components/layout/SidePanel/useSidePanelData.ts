@@ -13,6 +13,7 @@ import {
 import { getCurrentUser, supabase, isAuthenticated } from "../../../services/supabaseClient";
 import { STORAGE_KEY } from "../../../constants";
 import { useToast } from "../../shared/ui/Toast";
+import { getCollections } from "../../../services/collectionService";
 
 export type ViewType = "list" | "collections" | "detail" | "settings" | "smartpen" | "notepad";
 
@@ -189,7 +190,29 @@ export function useSidePanelData() {
     };
 
     const handleMessage = (msg: any) => {
-      if (msg.action === "itemAdded") fetchItems();
+      if (msg.action === "itemAdded") {
+        fetchItems();
+        getCollections().then((cols) => {
+          if (cols && cols.length > 0 && msg.itemId) {
+            toast("Saved to ResearchMate", "success", {
+              action: {
+                label: "Add to collection?",
+                onClick: () => {
+                  setSelection({
+                    active: false,
+                    ids: new Set([msg.itemId]),
+                    showCollectionPicker: true,
+                  });
+                },
+              },
+            });
+          } else {
+            toast("Saved to ResearchMate", "success");
+          }
+        }).catch(() => {
+          toast("Saved to ResearchMate", "success");
+        });
+      }
       if (msg.action === "authSynced") {
         isAuthenticated().then((isAuth) => {
           if (isAuth) {
