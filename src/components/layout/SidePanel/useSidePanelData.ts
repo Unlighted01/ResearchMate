@@ -7,13 +7,15 @@ import {
   StorageItem, 
   deleteItem, 
   deleteItems, 
+  updateItem,
   syncLocalItemsToCloud 
 } from "../../../services/storageService";
 import { getCurrentUser, supabase, isAuthenticated } from "../../../services/supabaseClient";
 import { STORAGE_KEY } from "../../../constants";
 import { useToast } from "../../shared/ui/Toast";
+import { getCollections } from "../../../services/collectionService";
 
-export type ViewType = "list" | "collections" | "detail" | "settings" | "smartpen" | "notepad";
+export type ViewType = "list" | "collections" | "detail" | "settings" | "smartpen" | "notepad" | "chat";
 
 export interface NavState {
   view: ViewType;
@@ -55,7 +57,7 @@ export function useSidePanelData() {
   // Navigation — persisted across panel open/close
   const NAV_VIEW_KEY = "rm_last_view";
   // Views that make sense to restore (detail needs an item which we don't persist)
-  const RESTORABLE_VIEWS: ViewType[] = ["list", "collections", "settings", "smartpen", "notepad"];
+  const RESTORABLE_VIEWS: ViewType[] = ["list", "collections", "settings", "smartpen", "notepad", "chat"];
 
   const [nav, setNavState] = useState<NavState>({ view: "list", item: null });
 
@@ -144,13 +146,25 @@ export function useSidePanelData() {
       });
     }
 
-    // Restore last active view (so SmartPen / Notepad survive panel close/reopen)
-    chrome.storage.local.get([NAV_VIEW_KEY], (result) => {
-      const saved = result[NAV_VIEW_KEY] as ViewType | undefined;
-      if (saved && RESTORABLE_VIEWS.includes(saved)) {
-        setNavState({ view: saved, item: null });
-      }
-    });
+    // Check for viewDetail query parameter
+    const params = new URLSearchParams(window.location.search);
+    const viewDetailId = params.get("viewDetail");
+    if (viewDetailId) {
+      getAllItems().then((all) => {
+        const item = all.find((i) => i.id === viewDetailId);
+        if (item) {
+          setNavState({ view: "detail", item });
+        }
+      });
+    } else {
+      // Restore last active view (so SmartPen / Notepad survive panel close/reopen)
+      chrome.storage.local.get([NAV_VIEW_KEY], (result) => {
+        const saved = result[NAV_VIEW_KEY] as ViewType | undefined;
+        if (saved && RESTORABLE_VIEWS.includes(saved)) {
+          setNavState({ view: saved, item: null });
+        }
+      });
+    }
 
     fetchItems();
     isAuthenticated().then((isAuth) => {
@@ -188,7 +202,37 @@ export function useSidePanelData() {
     };
 
     const handleMessage = (msg: any) => {
-      if (msg.action === "itemAdded") fetchItems();
+      if (msg.action === "itemAdded") {
+        fetchItems();
+        getCollections().then((cols) => {
+          if (cols && cols.length > 0 && msg.itemId) {
+            toast("Saved to ResearchMate", "success", {
+              action: {
+                label: "Add to collection?",
+                onClick: () => {
+                  setSelection({
+                    active: false,
+                    ids: new Set([msg.itemId]),
+                    showCollectionPicker: true,
+                  });
+                },
+              },
+            });
+          } else {
+            toast("Saved to ResearchMate", "success");
+          }
+        }).catch(() => {
+          toast("Saved to ResearchMate", "success");
+        });
+      }
+      if (msg.action === "viewItemDetail" && msg.itemId) {
+        getAllItems().then((all) => {
+          const item = all.find((i) => i.id === msg.itemId);
+          if (item) {
+            setNav({ view: "detail", item });
+          }
+        });
+      }
       if (msg.action === "authSynced") {
         isAuthenticated().then((isAuth) => {
           if (isAuth) {
@@ -206,28 +250,67 @@ export function useSidePanelData() {
     chrome.storage.onChanged.addListener(handleStorageChange);
     chrome.runtime.onMessage.addListener(handleMessage);
 
-    // ── Supabase Realtime: auto-refresh when the server changes ──────
-    let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
-    const realtimeChannel = supabase
-      .channel("extension-items-live")
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+      chrome.runtime.onMessage.removeListener(handleMessage);
+      subscription.unsubscribe();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Supabase Realtime: subscribe per-user so channels are stable ──────────
+  // Kept in a separate effect so it only runs when `user` changes, not on every
+  // search keystroke (avoids creating/destroying channels unnecessarily).
+  useEffect(() => {
+    if (!user) return; // Guest mode: no realtime, local storage listener handles it
+
+    let itemsDebounce: ReturnType<typeof setTimeout> | null = null;
+    let collectionsDebounce: ReturnType<typeof setTimeout> | null = null;
+
+    const itemsChannel = supabase
+      .channel(`items-live-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "research_items" },
+        {
+          event: "*",
+          schema: "public",
+          table: "items",
+          filter: `user_id=eq.${user.id}`,
+        },
         () => {
-          if (realtimeDebounce) clearTimeout(realtimeDebounce);
-          realtimeDebounce = setTimeout(() => fetchItems(), 2000);
+          // Debounce rapid bursts (e.g. bulk delete) into a single refresh
+          if (itemsDebounce) clearTimeout(itemsDebounce);
+          itemsDebounce = setTimeout(() => fetchItems(), 800);
+        }
+      )
+      .subscribe();
+
+    const collectionsChannel = supabase
+      .channel(`collections-live-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "collections",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Collections changing doesn't affect the items list directly,
+          // but we do a light re-fetch so collection names/counts stay fresh
+          if (collectionsDebounce) clearTimeout(collectionsDebounce);
+          collectionsDebounce = setTimeout(() => fetchItems(), 800);
         }
       )
       .subscribe();
 
     return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange);
-      chrome.runtime.onMessage.removeListener(handleMessage);
-      subscription.unsubscribe();
-      supabase.removeChannel(realtimeChannel);
-      if (realtimeDebounce) clearTimeout(realtimeDebounce);
+      if (itemsDebounce) clearTimeout(itemsDebounce);
+      if (collectionsDebounce) clearTimeout(collectionsDebounce);
+      supabase.removeChannel(itemsChannel);
+      supabase.removeChannel(collectionsChannel);
     };
-  }, [fetchItems]);
+  }, [user, fetchItems]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -357,6 +440,36 @@ export function useSidePanelData() {
     }, 5100);
   };
 
+  const handlePin = useCallback(async (id: string, pin: boolean) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    // Re-assemble raw tags (including the encoded special tags)
+    const rawTags = [
+      ...item.tags,
+      ...(item.color ? [`color:${item.color}`] : []),
+      ...(item.ocrEdited ? ["ocr:edited"] : []),
+    ].filter((t) => t !== "pinned:true"); // strip old pin state
+
+    const newTags = pin ? [...rawTags, "pinned:true"] : rawTags;
+
+    // Optimistic update so the card moves instantly
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, pinned: pin || undefined } : i))
+    );
+
+    try {
+      await updateItem(id, { tags: newTags });
+    } catch {
+      // Revert on failure
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, pinned: item.pinned } : i))
+      );
+      toast("Failed to update pin. Please try again.", "error");
+    }
+  }, [items, toast]);
+
+
   const toggleSelection = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const newSet = new Set(selection.ids);
@@ -382,19 +495,26 @@ export function useSidePanelData() {
     setNav({ view: "detail", item });
   };
 
-  const filteredItems = items.filter((item) => {
-    if (activeCollection && item.collectionId !== activeCollection.id) return false;
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      return (
-        item.text.toLowerCase().includes(q) ||
-        item.note?.toLowerCase().includes(q) ||
-        item.sourceTitle?.toLowerCase().includes(q) ||
-        item.tags.some((t) => !t.startsWith("color:") && !t.startsWith("ocr:") && t.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  const filteredItems = items
+    .filter((item) => {
+      if (activeCollection && item.collectionId !== activeCollection.id) return false;
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
+        return (
+          item.text.toLowerCase().includes(q) ||
+          item.note?.toLowerCase().includes(q) ||
+          item.sourceTitle?.toLowerCase().includes(q) ||
+          item.tags.some((t) => !t.startsWith("color:") && !t.startsWith("ocr:") && t.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      // Pinned items always float to the top; preserve relative order within each group
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return 0;
+    });
 
   return {
     items,
@@ -422,6 +542,7 @@ export function useSidePanelData() {
     handleSync,
     handleDelete,
     handleBulkDelete,
+    handlePin,
     toggleSelection,
     handleItemClick,
     filteredItems,

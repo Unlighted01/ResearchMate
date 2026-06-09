@@ -17,6 +17,7 @@ export const SidePanelNav: React.FC<SidePanelNavProps> = ({
     { id: "list", label: "Items" },
     { id: "collections", label: "Collections" },
     { id: "notepad", label: "Notepad" },
+    { id: "chat", label: "Chat" },
   ];
 
   return (

@@ -1,5 +1,6 @@
 // Content script to handle text selection and highlighting
 import { QUICK_SAVE_TAG } from "../constants";
+import { jaccardSimilarity } from "../utils/similarity";
 console.log("ResearchMate Content Script Loaded");
 
 // Overlay State
@@ -7,8 +8,12 @@ let overlayInstance: { root: HTMLDivElement; backdrop: HTMLDivElement } | null =
   null;
 
 // Toggle Overlay Function (Hoisted)
-function toggleOverlay() {
+function toggleOverlay(viewDetailId?: string) {
   if (overlayInstance) {
+    if (viewDetailId) {
+      chrome.runtime.sendMessage({ action: "viewItemDetail", itemId: viewDetailId }).catch(() => {});
+      return;
+    }
     // Close
     overlayInstance.root.style.transform = "translateX(100%)";
     setTimeout(() => {
@@ -34,7 +39,7 @@ function toggleOverlay() {
 
   // Iframe
   const iframe = document.createElement("iframe");
-  iframe.src = chrome.runtime.getURL("index.html");
+  iframe.src = chrome.runtime.getURL("index.html") + (viewDetailId ? `?viewDetail=${viewDetailId}` : "");
   iframe.style.width = "100%";
   iframe.style.height = "100%";
   iframe.style.border = "none";
@@ -48,7 +53,7 @@ function toggleOverlay() {
     root.style.transform = "translateX(0)";
   });
 
-  overlayInstance = { root, backdrop: root }; // Backdrop is just root placeholder to avoid breaking types if used elsewhere
+  overlayInstance = { root, backdrop: root };
 }
 
 // Listen for messages from the background script
@@ -238,6 +243,177 @@ function cleanSelectedText(selection: Selection | null): string {
     .trim();
 }
 
+const renderTagSelector = (itemId: string, isLocal: boolean) => {
+  if (!selectionButton) return;
+  
+  // Enable mouse events so the user can click inputs and buttons
+  selectionButton.style.pointerEvents = "auto";
+  selectionButton.style.borderRadius = "12px";
+  selectionButton.style.padding = "10px";
+  selectionButton.style.flexDirection = "column";
+  selectionButton.style.alignItems = "stretch";
+  selectionButton.style.width = "220px";
+  selectionButton.style.gap = "8px";
+
+  const statusColor = isLocal ? "#F59E0B" : "#22C55E";
+  const statusText = isLocal ? "Saved Locally" : "Saved!";
+  const statusIcon = isLocal
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+  selectionButton.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:2px;">
+      <span style="color:${statusColor}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; font-weight:700; display:flex; align-items:center; gap:4px; line-height:1;">
+        ${statusIcon}
+        ${statusText}
+      </span>
+      <button id="rm-done-btn" style="background:#007AFF; color:#fff; border:none; padding:3px 10px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition: background 0.15s;">Done</button>
+    </div>
+    <div style="position:relative; width:100%;">
+      <input type="text" id="rm-tags-input" placeholder="Add tags (comma separated)" style="width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.15); padding:6px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; outline:none; background:#fff; color:#000; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);" />
+      <div id="rm-autocomplete-dropdown" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid rgba(0,0,0,0.15); border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:2147483647; max-height:100px; overflow-y:auto; display:none; margin-top:4px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"></div>
+    </div>
+  `;
+
+  const doneBtn = selectionButton.querySelector("#rm-done-btn") as HTMLButtonElement;
+  const tagsInput = selectionButton.querySelector("#rm-tags-input") as HTMLInputElement;
+  const dropdown = selectionButton.querySelector("#rm-autocomplete-dropdown") as HTMLDivElement;
+
+  tagsInput.focus();
+
+  let existingTags: string[] = [];
+  chrome.storage.local.get("researchMateItems", (result) => {
+    try {
+      const itemsStr = result.researchMateItems;
+      if (itemsStr) {
+        const items = JSON.parse(itemsStr);
+        if (Array.isArray(items)) {
+          const tagsSet = new Set<string>();
+          items.forEach((item: any) => {
+            if (Array.isArray(item.tags)) {
+              item.tags.forEach((tag: string) => {
+                if (
+                  tag !== "quick-save" &&
+                  !tag.startsWith("color:") &&
+                  !tag.startsWith("ocr:") &&
+                  tag !== "pinned:true"
+                ) {
+                  tagsSet.add(tag);
+                }
+              });
+            }
+          });
+          existingTags = Array.from(tagsSet);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse tags for autocomplete:", e);
+    }
+  });
+
+  const updateDropdown = () => {
+    const value = tagsInput.value;
+    const parts = value.split(",");
+    const currentPart = parts[parts.length - 1].trim();
+
+    if (!currentPart) {
+      dropdown.style.display = "none";
+      return;
+    }
+
+    const typedLower = currentPart.toLowerCase();
+    const matches = existingTags.filter(
+      (tag) =>
+        tag.toLowerCase().startsWith(typedLower) &&
+        !parts
+          .slice(0, -1)
+          .map((p) => p.trim().toLowerCase())
+          .includes(tag.toLowerCase())
+    );
+
+    if (matches.length === 0) {
+      dropdown.style.display = "none";
+      return;
+    }
+
+    dropdown.innerHTML = matches
+      .map(
+        (match) => `
+      <div class="rm-suggestion-item" style="padding:6px 10px; font-size:11px; cursor:pointer; color:#333; transition:background 0.15s; text-align:left; background:#fff;" data-tag="${match}">
+        ${match}
+      </div>
+    `
+      )
+      .join("");
+
+    if (!document.getElementById("rm-suggestion-styles")) {
+      const style = document.createElement("style");
+      style.id = "rm-suggestion-styles";
+      style.textContent = `
+        .rm-suggestion-item:hover {
+          background: #F3F4F6 !important;
+          color: #000 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    dropdown.style.display = "block";
+
+    dropdown.querySelectorAll(".rm-suggestion-item").forEach((itemEl) => {
+      itemEl.addEventListener("mousedown", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const selectedTag = itemEl.getAttribute("data-tag") || "";
+        parts[parts.length - 1] = " " + selectedTag;
+        tagsInput.value = parts.join(",").trim() + ", ";
+        dropdown.style.display = "none";
+        tagsInput.focus();
+      });
+    });
+  };
+
+  tagsInput.addEventListener("input", updateDropdown);
+  tagsInput.addEventListener("focus", updateDropdown);
+
+  const handleDocumentMouseDown = (ev: MouseEvent) => {
+    if (dropdown && !dropdown.contains(ev.target as Node) && ev.target !== tagsInput) {
+      dropdown.style.display = "none";
+    }
+  };
+  document.addEventListener("mousedown", handleDocumentMouseDown);
+
+  const saveTagsAndClose = () => {
+    document.removeEventListener("mousedown", handleDocumentMouseDown);
+    const inputTags = tagsInput.value
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+    const finalTags = Array.from(new Set([QUICK_SAVE_TAG, ...inputTags]));
+
+    chrome.runtime.sendMessage(
+      { action: "updateItemTags", payload: { itemId, tags: finalTags } },
+      () => {
+        removeSelectionButton();
+      }
+    );
+  };
+
+  doneBtn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    saveTagsAndClose();
+  });
+
+  tagsInput.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      saveTagsAndClose();
+    }
+  });
+};
+
 const handleSelection = (e?: Event) => {
   const selection = window.getSelection();
   
@@ -349,50 +525,112 @@ const handleSelection = (e?: Event) => {
     selectionButton.appendChild(saveBtn);
 
     // Core save function
-    const doSave = () => {
+    const doSave = (forceSave = false) => {
       const selection = window.getSelection();
       const text = cleanSelectedText(selection);
       if (!text) return;
 
-      if (selectionButton) {
-        selectionButton.innerHTML = `<span style="padding: 0 8px; font-family: sans-serif; font-size: 13px; font-weight: 600; color: #333;">Saving...</span>`;
-        selectionButton.style.pointerEvents = "none";
-      }
+      const executeSave = () => {
+        if (selectionButton) {
+          selectionButton.innerHTML = `<span style="padding: 0 8px; font-family: sans-serif; font-size: 13px; font-weight: 600; color: #333;">Saving...</span>`;
+          selectionButton.style.pointerEvents = "none";
+        }
 
-      const payload: Record<string, unknown> = {
-        text,
-        sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
-        sourceTitle: document.title || "Unknown Title",
-        tags: [QUICK_SAVE_TAG],
-        deviceSource: "extension",
+        const payload: Record<string, unknown> = {
+          text,
+          sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
+          sourceTitle: document.title || "Unknown Title",
+          tags: [QUICK_SAVE_TAG],
+          deviceSource: "extension",
+        };
+
+        chrome.runtime.sendMessage({ action: "saveItemInBackground", payload }, (response) => {
+          if (chrome.runtime.lastError || !response || !response.success) {
+            console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
+            if (selectionButton) {
+              selectionButton.innerHTML = `<span style="color:red;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Error</span>`;
+              selectionButton.style.pointerEvents = "auto";
+              setTimeout(() => removeSelectionButton(), 2000);
+            }
+            return;
+          }
+          if (selectionButton && response.itemId) {
+            renderTagSelector(response.itemId, !!response.isLocal);
+          } else {
+            removeSelectionButton();
+          }
+        });
       };
 
-      chrome.runtime.sendMessage({ action: "saveItemInBackground", payload }, (response) => {
-        if (chrome.runtime.lastError || !response || !response.success) {
-          console.error("Failed to save via background:", chrome.runtime.lastError || response?.error);
-          if (selectionButton) {
-            selectionButton.innerHTML = `<span style="color:red;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Error</span>`;
-            selectionButton.style.pointerEvents = "auto";
-            setTimeout(() => removeSelectionButton(), 2000);
+      if (forceSave) {
+        executeSave();
+        return;
+      }
+
+      // Run duplicate detection check
+      chrome.storage.local.get("researchMateItems", (result) => {
+        let items: any[] = [];
+        try {
+          if (result.researchMateItems) {
+            items = JSON.parse(result.researchMateItems);
           }
-          return;
+        } catch (e) {
+          console.error("Failed to parse items for duplicate check:", e);
         }
-        if (selectionButton) {
-          if (response.isLocal) {
-            selectionButton.innerHTML = `
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-              </svg>
-              <span style="color:#F59E0B;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Saved Locally</span>`;
-            setTimeout(() => removeSelectionButton(), 2500);
-          } else {
-            selectionButton.innerHTML = `
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <span style="color:#22C55E;padding:0 8px;font-family:sans-serif;font-size:13px;font-weight:600;">Saved!</span>`;
-            setTimeout(() => removeSelectionButton(), 1500);
+
+        const sortedItems = items
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 50);
+
+        let bestMatch: any = null;
+        let highestSim = 0;
+        for (const item of sortedItems) {
+          const sim = jaccardSimilarity(text, item.text);
+          if (sim > highestSim) {
+            highestSim = sim;
+            bestMatch = item;
           }
+        }
+
+        if (highestSim > 0.75 && bestMatch) {
+          // Show duplicate warning UI
+          if (selectionButton) {
+            selectionButton.style.pointerEvents = "auto";
+            selectionButton.style.borderRadius = "12px";
+            selectionButton.style.padding = "10px";
+            selectionButton.style.flexDirection = "column";
+            selectionButton.style.alignItems = "stretch";
+            selectionButton.style.width = "220px";
+            selectionButton.style.gap = "8px";
+
+            selectionButton.innerHTML = `
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; color:#D97706; font-weight:600; text-align:left; line-height:1.4;">
+                ⚠️ Looks similar to a saved item. Save anyway?
+              </div>
+              <div style="display:flex; gap:6px; margin-top:2px;">
+                <button id="rm-view-existing-btn" style="flex:1; background:#E5E7EB; color:#374151; border:none; padding:4px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition: background 0.15s;">View Existing</button>
+                <button id="rm-save-anyway-btn" style="flex:1; background:#007AFF; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition: background 0.15s;">Save Anyway</button>
+              </div>
+            `;
+
+            const viewExistingBtn = selectionButton.querySelector("#rm-view-existing-btn") as HTMLButtonElement;
+            const saveAnywayBtn = selectionButton.querySelector("#rm-save-anyway-btn") as HTMLButtonElement;
+
+            viewExistingBtn.addEventListener("mousedown", (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              toggleOverlay(bestMatch.id);
+              removeSelectionButton();
+            });
+
+            saveAnywayBtn.addEventListener("mousedown", (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              executeSave();
+            });
+          }
+        } else {
+          executeSave();
         }
       });
     };

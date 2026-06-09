@@ -22,6 +22,7 @@ export interface StorageItem {
   ocrEdited?: boolean;
   preferredView?: "original" | "summary";
   color?: "yellow" | "green" | "red" | "blue" | "purple";
+  pinned?: boolean;
 }
 
 export interface AddItemInput {
@@ -46,17 +47,22 @@ export interface AddItemInput {
 function transformDatabaseItem(item: any): StorageItem {
   const allTags = Array.isArray(item.tags) ? item.tags : [];
   
-  // Extract color tag if present (e.g., "color:green")
+  // Extract special-encoded tags: color:*, ocr:edited, pinned:true
   let extractedColor: "yellow" | "green" | "red" | "blue" | "purple" | undefined = undefined;
   let extractedOcrEdited = false;
+  let extractedPinned = false;
   const filteredTags = allTags.filter((tag: string) => {
     if (tag.startsWith("color:")) {
       extractedColor = tag.split(":")[1] as any;
-      return false; // Remove it from the standard tags array
+      return false; // Remove from display tags
     }
     if (tag === "ocr:edited") {
       extractedOcrEdited = true;
-      return false; // Remove it from the standard tags array
+      return false;
+    }
+    if (tag === "pinned:true") {
+      extractedPinned = true;
+      return false;
     }
     return true;
   });
@@ -80,6 +86,7 @@ function transformDatabaseItem(item: any): StorageItem {
     ocrEdited: extractedOcrEdited || undefined,
     preferredView: item.preferred_view || undefined,
     color: extractedColor,
+    pinned: extractedPinned || undefined,
   };
 }
 
@@ -640,12 +647,13 @@ export async function updateItem(
     const newItems = localItems.map((i): StorageItem => {
       if (i.id !== id) return i;
       const merged = { ...i, ...updates };
-      // Re-derive color from tags when tags are updated, so color field stays in sync
+      // Re-derive color and pinned from tags when tags are updated
       if (updates.tags !== undefined) {
         const colorTag = updates.tags.find((t) => t.startsWith("color:"));
         merged.color = colorTag
           ? (colorTag.split(":")[1] as StorageItem["color"])
           : undefined;
+        merged.pinned = updates.tags.includes("pinned:true") || undefined;
       }
       return merged;
     });
@@ -677,4 +685,17 @@ export async function updateItem(
       throw error;
     }
   }
+}
+
+export async function getItemsByCollection(collectionId: string): Promise<StorageItem[]> {
+  const all = await getAllItems();
+  return all.filter((item) => item.collectionId === collectionId);
+}
+
+export async function getItemsByTag(tag: string): Promise<StorageItem[]> {
+  const all = await getAllItems();
+  const lowerTag = tag.toLowerCase();
+  return all.filter((item) => {
+    return item.tags.some((t) => t.toLowerCase() === lowerTag);
+  });
 }
