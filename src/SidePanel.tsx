@@ -12,6 +12,7 @@ import { CollectionsView } from "./components/App/Collections/CollectionsView";
 import { Welcome } from "./components/App/Welcome";
 import { TrashIcon } from "./components/icons";
 import NotepadView from "./components/App/Notepad/NotepadView";
+import { ChatView } from "./components/App/Chat/ChatView";
 
 // Refactored Parts
 import { useSidePanelData } from "./components/layout/SidePanel/useSidePanelData";
@@ -139,6 +140,33 @@ function SidePanel() {
             </div>
             <div className="flex-1 overflow-hidden relative">
               <NotepadView />
+            </div>
+          </motion.div>
+        );
+      case "chat":
+        return (
+          <motion.div
+            key="chat"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="flex-1 flex flex-col overflow-hidden h-full"
+          >
+            <div className="p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
+              <SidePanelHeader
+                sync={sync}
+                onSync={handleSync}
+                onNavigate={(view) => setNav({ view, item: null })}
+              />
+              <SidePanelNav
+                activeView={nav.view}
+                onNavigate={(view) => setNav({ view, item: null })}
+                onSelectionReset={() => setSelection((p) => ({ ...p, active: false }))}
+              />
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+              <ChatView onItemClick={(item) => setNav({ view: "detail", item })} />
             </div>
           </motion.div>
         );

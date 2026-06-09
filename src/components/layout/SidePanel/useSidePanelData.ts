@@ -15,7 +15,7 @@ import { STORAGE_KEY } from "../../../constants";
 import { useToast } from "../../shared/ui/Toast";
 import { getCollections } from "../../../services/collectionService";
 
-export type ViewType = "list" | "collections" | "detail" | "settings" | "smartpen" | "notepad";
+export type ViewType = "list" | "collections" | "detail" | "settings" | "smartpen" | "notepad" | "chat";
 
 export interface NavState {
   view: ViewType;
@@ -57,7 +57,7 @@ export function useSidePanelData() {
   // Navigation — persisted across panel open/close
   const NAV_VIEW_KEY = "rm_last_view";
   // Views that make sense to restore (detail needs an item which we don't persist)
-  const RESTORABLE_VIEWS: ViewType[] = ["list", "collections", "settings", "smartpen", "notepad"];
+  const RESTORABLE_VIEWS: ViewType[] = ["list", "collections", "settings", "smartpen", "notepad", "chat"];
 
   const [nav, setNavState] = useState<NavState>({ view: "list", item: null });
 
