@@ -201,18 +201,19 @@ export function useSidePanelData() {
       if (changes[STORAGE_KEY]) fetchItems();
     };
 
-    const handleMessage = (msg: any) => {
-      if (msg.action === "itemAdded") {
+    const handleMessage = (msg: unknown) => {
+      const message = msg as { action?: string; itemId?: string };
+      if (message.action === "itemAdded") {
         fetchItems();
         getCollections().then((cols) => {
-          if (cols && cols.length > 0 && msg.itemId) {
+          if (cols && cols.length > 0 && message.itemId) {
             toast("Saved to ResearchMate", "success", {
               action: {
                 label: "Add to collection?",
                 onClick: () => {
                   setSelection({
                     active: false,
-                    ids: new Set([msg.itemId]),
+                    ids: new Set([message.itemId as string]),
                     showCollectionPicker: true,
                   });
                 },
@@ -225,15 +226,15 @@ export function useSidePanelData() {
           toast("Saved to ResearchMate", "success");
         });
       }
-      if (msg.action === "viewItemDetail" && msg.itemId) {
+      if (message.action === "viewItemDetail" && message.itemId) {
         getAllItems().then((all) => {
-          const item = all.find((i) => i.id === msg.itemId);
+          const item = all.find((i) => i.id === message.itemId);
           if (item) {
             setNav({ view: "detail", item });
           }
         });
       }
-      if (msg.action === "authSynced") {
+      if (message.action === "authSynced") {
         isAuthenticated().then((isAuth) => {
           if (isAuth) {
             getCurrentUser().then((currentUser) => {

@@ -68,7 +68,7 @@ function renderMarkdown(
       styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak" },
       margin: { left: margin, right: margin },
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
     tableBuffer = [];
     tableHeaders = [];
     tableSeparatorSeen = false;
@@ -281,7 +281,7 @@ export const exportToPdf = (items: StorageItem[], user: User | null) => {
       2: { cellWidth: 30 },
       3: { cellWidth: 40 },
     },
-    didDrawPage: (data: any) => {
+    didDrawPage: (data: { settings: { margin: { left: number } } }) => {
       const pageCount = doc.internal.pages.length - 1;
       doc.setFontSize(8);
       doc.setTextColor(150);
@@ -299,7 +299,6 @@ export const exportSingleItemToPdf = (item: StorageItem) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
-  let pageNum = 1;
 
   // Header band
   doc.setFillColor(0, 122, 255);
@@ -369,7 +368,7 @@ export const exportSingleItemToPdf = (item: StorageItem) => {
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  if (y + 10 > doc.internal.pageSize.getHeight() - 18) { doc.addPage(); pageNum++; y = margin; }
+  if (y + 10 > doc.internal.pageSize.getHeight() - 18) { doc.addPage(); y = margin; }
   doc.text(label, margin, y);
   y += 8;
 
@@ -384,7 +383,7 @@ export const exportSingleItemToPdf = (item: StorageItem) => {
     const lineH = 5;
     const pageH = doc.internal.pageSize.getHeight() - 18;
     for (const line of split) {
-      if (y + lineH > pageH) { doc.addPage(); pageNum++; y = margin; }
+      if (y + lineH > pageH) { doc.addPage(); y = margin; }
       doc.text(line, margin, y);
       y += lineH;
     }

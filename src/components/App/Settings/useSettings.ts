@@ -7,10 +7,11 @@ import { runOCRFromDataUrl } from "../../../services/geminiService";
 import { exportToPdf } from "../../../services/pdfService";
 import { generateMarkdownTemplate } from "../../../utils/markdownGenerator";
 import { useToast } from "../../shared/ui/Toast";
+import { User } from "@supabase/supabase-js";
 
 export function useSettings() {
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "system");
   const [visualTheme, setVisualTheme] = useState(localStorage.getItem("visualTheme") || "minimalist");

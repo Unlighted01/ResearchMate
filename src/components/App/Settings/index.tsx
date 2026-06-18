@@ -57,7 +57,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showExportMenu]);
+  }, [showExportMenu, exportMenuRef, setShowExportMenu]);
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">

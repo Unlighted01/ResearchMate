@@ -129,7 +129,7 @@ export async function isAuthenticated(): Promise<boolean> {
   if (session) return true;
 
   // Fallback: If Supabase auth state hasn't initialized yet, manually check storage
-  const allData = await new Promise<{ [key: string]: any }>((resolve) => {
+  const allData = await new Promise<Record<string, unknown>>((resolve) => {
     chrome.storage.local.get(null, (result) => resolve(result));
   });
 
@@ -139,9 +139,10 @@ export async function isAuthenticated(): Promise<boolean> {
 
   if (authKey && allData[authKey]) {
     try {
-      const sessionData = typeof allData[authKey] === "string"
-        ? JSON.parse(allData[authKey])
-        : allData[authKey];
+      const rawSession = allData[authKey];
+      const sessionData = typeof rawSession === "string"
+        ? JSON.parse(rawSession)
+        : (rawSession as { access_token?: string; refresh_token?: string });
 
       if (sessionData && sessionData.access_token) {
         await supabase.auth.setSession({
@@ -258,9 +259,9 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
 
     if (sessionError) throw sessionError;
     return { error: null };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Google Sign-In Error:", error);
-    return { error };
+    return { error: error as Error };
   }
 }
 

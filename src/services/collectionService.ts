@@ -1,6 +1,7 @@
 import { supabase, isAuthenticated } from "./supabaseClient";
 import type { Collection } from "../types";
 import { STORAGE_KEY } from "../constants";
+import type { StorageItem } from "./storageService";
 
 export interface CreateCollectionInput {
   name: string;
@@ -111,14 +112,14 @@ export async function addItemsToCollection(itemIds: string[], collectionId: stri
   // Local storage update
   const localIds = itemIds.filter(id => id.startsWith("local_"));
   if (localIds.length > 0 && typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-    const localItems = await new Promise<any[]>((resolve) => {
+    const localItems = await new Promise<StorageItem[]>((resolve) => {
       chrome.storage.local.get([STORAGE_KEY], (result) => {
         resolve(result[STORAGE_KEY] ? JSON.parse(result[STORAGE_KEY]) : []);
       });
     });
 
     const newItems = localItems.map((i) =>
-      localIds.includes(i.id) ? { ...i, collectionId: collectionId } : i
+      localIds.includes(i.id) ? { ...i, collectionId: collectionId || undefined } : i
     );
 
     await new Promise<void>((resolve) => {

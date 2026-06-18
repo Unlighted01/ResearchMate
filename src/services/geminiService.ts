@@ -324,17 +324,32 @@ export async function summarizeText(text: string, signal?: AbortSignal, mode: Su
       summary: data.summary,
       credits_remaining: data.credits_remaining,
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Summarize error:", error);
-    return { ok: false, summary: "", error: error.message };
+    return { ok: false, summary: "", error: error instanceof Error ? error.message : "Failed to summarize text" };
   }
 }
 
 /**
  * Generate Citation
  */
+export interface ExtractedPageMetadata {
+  title: string | null;
+  description: string | null;
+  author: string | null;
+  siteName: string | null;
+  publishDate: string | null;
+  publisher: string | null;
+  doi: string | null;
+  isbn: string | null;
+  volume: string | null;
+  issue: string | null;
+  pages: string | null;
+  url: string | null;
+}
+
 // Helper to extract metadata from the active tab
-async function extractPageMetadata(tabId: number): Promise<any> {
+async function extractPageMetadata(tabId: number): Promise<ExtractedPageMetadata | null> {
   try {
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
@@ -360,7 +375,7 @@ async function extractPageMetadata(tabId: number): Promise<any> {
             const data = JSON.parse(script.textContent || "{}");
             if (data.author) {
               if (Array.isArray(data.author)) {
-                jsonIdAuthor = data.author.map((a: any) => a.name).join(", ");
+                jsonIdAuthor = data.author.map((a: { name?: string }) => a.name).join(", ");
               } else if (typeof data.author === "object") {
                 jsonIdAuthor = data.author.name;
               } else {
@@ -369,7 +384,9 @@ async function extractPageMetadata(tabId: number): Promise<any> {
               if (jsonIdAuthor) break;
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignore JSON-LD parsing errors
+        }
 
         // Collect all citation_author meta tags (one per author on academic pages)
         const authorMetas = Array.from(
@@ -443,7 +460,7 @@ async function extractPageMetadata(tabId: number): Promise<any> {
         };
       },
     });
-    return result;
+    return (result as ExtractedPageMetadata) || null;
   } catch (e) {
     console.error("Failed to extract metadata:", e);
     return null;
@@ -493,8 +510,8 @@ export async function runOCR(imageUrl: string): Promise<OcrResult> {
       ocrConfidence: data.ocrConfidence,
       aiSummary: data.aiSummary,
     };
-  } catch (error: any) {
-    return { ok: false, error: error.message };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "OCR failed" };
   }
 }
 
@@ -522,8 +539,8 @@ export async function runOCRFromDataUrl(base64DataUrl: string): Promise<OcrResul
       ocrConfidence: data.ocrConfidence,
       aiSummary: data.aiSummary,
     };
-  } catch (error: any) {
-    return { ok: false, error: error.message };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "OCR failed" };
   }
 }
 
@@ -534,10 +551,10 @@ export async function generateCitation(
 ): Promise<CitationResult> {
   try {
     const style =
-      styleProp || (localStorage.getItem("citationStyle") as any) || "mla";
+      styleProp || (localStorage.getItem("citationStyle") as string | null) || "mla";
 
     // 1. Extract Local Metadata (Tier 2 Candidate)
-    let localMetadata: any = null;
+    let localMetadata: ExtractedPageMetadata | null = null;
     try {
       const [tab] = await chrome.tabs.query({
         active: true,
@@ -595,7 +612,7 @@ export async function generateCitation(
     // Strip common site-name suffixes added by ResearchGate/Springer ("(PDF) ...", "| SpringerLink")
     const cleanTitle = rawTitle
       .replace(/^\(PDF\)\s*/i, "")
-      .replace(/\s*[\|–—]\s*.+$/, "")
+      .replace(/\s*[|–—]\s*.+$/, "")
       .trim();
     if (cleanTitle.length > 20) {
       console.log("Attempting CrossRef title search:", cleanTitle);
@@ -717,8 +734,8 @@ export async function generateCitation(
     }
 
     return { ok: true, citation };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Citation Gen Error:", error);
-    return { ok: false, citation: "", error: error.message };
+    return { ok: false, citation: "", error: error instanceof Error ? error.message : "Failed to generate citation" };
   }
 }

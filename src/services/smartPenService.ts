@@ -69,7 +69,7 @@ export async function pairDevice(
         };
       }
 
-      const pairedDevice = listData.pens?.find((p: any) => p.pen_id === data.pen_id);
+      const pairedDevice = listData.pens?.find((p: { pen_id: string; id?: string; paired_at?: string }) => p.pen_id === data.pen_id);
 
       return { 
         success: true, 

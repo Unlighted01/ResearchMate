@@ -114,8 +114,8 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
       } else {
         toast(result.error || "Failed to generate summary", "error");
       }
-    } catch (e: any) {
-      if (e.name !== "AbortError") toast("Error generating summary", "error");
+    } catch (e) {
+      if ((e as { name?: string }).name !== "AbortError") toast("Error generating summary", "error");
     } finally {
       setSummarizing(false);
       abortControllerRef.current = null;

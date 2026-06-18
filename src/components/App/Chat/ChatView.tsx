@@ -80,8 +80,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ onItemClick }) => {
 
         setMessages((prev) => [...prev, assistantMessage]);
       }
-    } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+    } catch (err) {
+      setError((err as Error).message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }

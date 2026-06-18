@@ -92,8 +92,8 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
         setCollections((prev) => [{ ...created }, ...prev]);
       }
       setShowModal(false);
-    } catch (err: any) {
-      setCreateError(err?.message || "Failed to create collection.");
+    } catch (err) {
+      setCreateError((err as Error)?.message || "Failed to create collection.");
     } finally {
       setCreating(false);
     }

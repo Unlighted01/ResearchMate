@@ -1,5 +1,6 @@
 import React from "react";
 import { Download, Upload, Printer, FileText } from "lucide-react";
+import { Collection } from "../../../types";
 
 interface DataManagementProps {
   showExportMenu: boolean;
@@ -14,7 +15,7 @@ interface DataManagementProps {
   onCollectionChange: (id: string) => void;
   selectedTag: string;
   onTagChange: (tag: string) => void;
-  collections: any[];
+  collections: Collection[];
   uniqueTags: string[];
   exportCount: number;
 }

@@ -71,8 +71,8 @@ export async function identifySource(text: string): Promise<IdentifyResult> {
     const data = await response.json();
     if (!response.ok) return { ok: false, error: data.error || "Identification failed" };
     return { ok: true, ...data };
-  } catch (error: any) {
-    return { ok: false, error: error.message };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "An unexpected error occurred" };
   }
 }
 
@@ -104,9 +104,9 @@ export async function searchBooks(query: string): Promise<SearchResult> {
       ok: true,
       data: data.items || [], // Assuming API returns { items: [...] }
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Book Search Error:", error);
-    return { ok: false, error: error.message };
+    return { ok: false, error: error instanceof Error ? error.message : "An unexpected error occurred" };
   }
 }
 

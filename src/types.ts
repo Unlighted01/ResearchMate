@@ -116,7 +116,7 @@ export interface Activity {
   description: string;
   item_id?: string;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // ============================================
@@ -205,7 +205,7 @@ export interface ApiResponse<T> {
 export interface ApiError {
   message: string;
   code?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface PaginatedResponse<T> {

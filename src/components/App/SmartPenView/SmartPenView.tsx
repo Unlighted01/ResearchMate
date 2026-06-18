@@ -153,7 +153,7 @@ const SmartPenView: React.FC<SmartPenViewProps> = ({ onBack, onItemClick }) => {
 
   // Convert generic scan to StorageItem structure for detail view
   const handleScanClick = (scan: SmartPenScan) => {
-    const item: any = {
+    const item: StorageItem = {
       id: scan.id,
       text: scan.ocr_text || "Processing...",
       tags: [],

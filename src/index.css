@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;  
 @tailwind components;  
 @tailwind utilities;  
@@ -61,7 +63,7 @@
     "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     Roboto, sans-serif;
   --font-title:
-    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     Roboto, sans-serif;
 
   /* Transitions */
@@ -114,7 +116,7 @@ html[data-ui-theme] {
     "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     Roboto, sans-serif;
   --font-title:
-    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    "Outfit", "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     Roboto, sans-serif;
   --ui-radius-md: 10px;
   --ui-radius-lg: 12px;
@@ -189,10 +191,10 @@ html.dark[data-ui-theme] {
 /* ── MINIMALIST: Editorial precision — blue accent, hairline borders, no blur ── */
 html[data-ui-theme="minimalist"] {
   --font-sans:
-    "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     sans-serif;
   --font-title:
-    "Fraunces", Georgia, Cambria, "Times New Roman", Times, serif;
+    "Outfit", sans-serif;
   --ui-radius-md: 6px;
   --ui-radius-lg: 8px;
   --ui-surface-bg: #ffffff;
@@ -287,11 +289,10 @@ html[data-ui-theme="minimalist"] h3 {
 /* ── BUBBLE: Playful premium — rose/lavender palette, iridescent surfaces ── */
 html[data-ui-theme="bubble"] {
   --font-sans:
-    "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     sans-serif;
   --font-title:
-    "Fredoka", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Outfit", sans-serif;
   --ui-radius-md: 18px;
   --ui-radius-lg: 24px;
   --ui-surface-bg: rgba(255, 255, 255, 0.88);
@@ -391,11 +392,10 @@ html.dark[data-ui-theme="bubble"] body {
 
 html[data-ui-theme="glass"] {
   --font-sans:
-    "Sora", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     sans-serif;
   --font-title:
-    "Barlow Condensed", "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Outfit", sans-serif;
   --ui-radius-md: 14px;
   --ui-radius-lg: 20px;
 
@@ -566,6 +566,7 @@ html.dark[data-ui-theme="glass"] .theme-btn-primary:hover {
   color: var(--ui-btn-text) !important;
   border: 1px solid var(--ui-btn-border) !important;
   box-shadow: var(--ui-btn-shadow) !important;
+  transition: all var(--transition-fast) !important;
 }
 
 .theme-btn-primary:hover {
@@ -643,6 +644,7 @@ html.dark[data-ui-theme="bubble"] .theme-sidebar-item-active {
 
 .theme-icon-button {
   color: var(--ui-sidebar-icon) !important;
+  transition: all var(--transition-fast) !important;
 }
 
 .theme-icon-button:hover {
@@ -939,22 +941,22 @@ h6 {
    ============================================ */
 
 .hover-lift {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--transition-spring), box-shadow var(--transition-spring), border-color var(--transition-spring);
 }
 
 .hover-lift:hover {
-  transform: translateY(-6px);
+  transform: translateY(-4px) scale(1.015);
   box-shadow:
-    0 16px 32px -8px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(0, 122, 255, 0.1);
-  border-color: rgba(0, 122, 255, 0.2);
+    0 16px 32px -8px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 122, 255, 0.12);
+  border-color: rgba(0, 122, 255, 0.25);
 }
 
 .dark .hover-lift:hover {
   box-shadow:
-    0 16px 32px -8px rgba(0, 0, 0, 0.6),
-    0 0 40px rgba(0, 122, 255, 0.15);
-  border-color: rgba(0, 122, 255, 0.4);
+    0 16px 32px -8px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(0, 122, 255, 0.2);
+  border-color: rgba(0, 122, 255, 0.45);
 }
 
 /* ============================================

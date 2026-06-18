@@ -74,8 +74,8 @@ export function CollectionSelector({ isOpen, onClose, selectedItemIds, onComplet
         // Automatically assign selected items to the new collection
         await handleSelectCollection(newCol.id);
       }
-    } catch (err: any) {
-      setCreateError(err?.message || "Failed to create collection.");
+    } catch (err) {
+      setCreateError((err as Error)?.message || "Failed to create collection.");
     } finally {
       setCreatingLoading(false);
     }

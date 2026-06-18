@@ -129,11 +129,11 @@ export async function sendChatMessage(
       response: data.response,
       credits_remaining: data.credits_remaining,
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("sendChatMessage error:", error);
     return {
       response: "",
-      error: error.message || "Failed to communicate with AI chat service.",
+      error: error instanceof Error ? error.message : "Failed to communicate with AI chat service.",
     };
   }
 }

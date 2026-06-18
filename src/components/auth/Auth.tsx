@@ -13,9 +13,9 @@ export const Auth: React.FC = () => {
       const { error } = await signInWithGoogle();
       if (error) throw error;
       // Success is handled by auth state listener in parent/context
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to sign in");
+      setError((err as Error).message || "Failed to sign in");
     } finally {
       setLoading(false);
     }

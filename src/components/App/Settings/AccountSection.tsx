@@ -1,8 +1,10 @@
 import React from "react";
 import { LogOut, Coins, AlertCircle } from "lucide-react";
 
+import { User } from "@supabase/supabase-js";
+
 interface AccountSectionProps {
-  user: any;
+  user: User | null;
   credits: number | string;
   onSignOut: () => void;
   onGoToAuth: () => void;

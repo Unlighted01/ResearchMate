@@ -10,7 +10,7 @@ import {
 interface ItemMetadataProps {
   tags: string[];
   itemColor: string;
-  onColorChange: (color: any) => void;
+  onColorChange: (color: string) => void;
   isAddingTag: boolean;
   onStartAddingTag: () => void;
   onCancelAddingTag: () => void;

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";

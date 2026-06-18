@@ -39,38 +39,42 @@ export interface AddItemInput {
   preferredView?: "original" | "summary";
   createdAt?: string;
   color?: "yellow" | "green" | "red" | "blue" | "purple";
+  pinned?: boolean;
   imageUrl?: string;
   ocrConfidence?: number;
 }
 
 // Transform helpers
-function transformDatabaseItem(item: any): StorageItem {
-  const allTags = Array.isArray(item.tags) ? item.tags : [];
-  
-  // Extract special-encoded tags: color:*, ocr:edited, pinned:true
-  let extractedColor: "yellow" | "green" | "red" | "blue" | "purple" | undefined = undefined;
-  let extractedOcrEdited = false;
-  let extractedPinned = false;
-  const filteredTags = allTags.filter((tag: string) => {
-    if (tag.startsWith("color:")) {
-      extractedColor = tag.split(":")[1] as any;
-      return false; // Remove from display tags
-    }
-    if (tag === "ocr:edited") {
-      extractedOcrEdited = true;
-      return false;
-    }
-    if (tag === "pinned:true") {
-      extractedPinned = true;
-      return false;
-    }
-    return true;
-  });
+interface DatabaseResearchItem {
+  id: string | number;
+  user_id?: string;
+  text?: string;
+  source_url?: string;
+  source_title?: string;
+  tags?: string[];
+  collection_id?: string;
+  ai_summary?: string;
+  device_source?: DeviceSource;
+  created_at: string;
+  updated_at?: string;
+  note?: string;
+  notes?: string;
+  citation?: string;
+  citation_format?: string;
+  preferred_view?: "original" | "summary";
+  image_url?: string;
+  ocr_text?: string;
+  color?: "yellow" | "green" | "red" | "blue" | "purple";
+  pinned?: boolean;
+  ocr_edited?: boolean;
+}
 
+// Transform helpers
+function transformDatabaseItem(item: DatabaseResearchItem): StorageItem {
   return {
     id: String(item.id), // Ensure ID is always a string
     text: item.text || "",
-    tags: filteredTags,
+    tags: Array.isArray(item.tags) ? item.tags : [],
     note: item.note || item.notes || "",
     sourceUrl: item.source_url || "",
     sourceTitle: item.source_title || "",
@@ -83,28 +87,21 @@ function transformDatabaseItem(item: any): StorageItem {
     collectionId: item.collection_id,
     imageUrl: item.image_url,
     ocrText: item.ocr_text,
-    ocrEdited: extractedOcrEdited || undefined,
+    ocrEdited: item.ocr_edited || undefined,
     preferredView: item.preferred_view || undefined,
-    color: extractedColor,
-    pinned: extractedPinned || undefined,
+    color: item.color,
+    pinned: item.pinned || undefined,
   };
 }
 
 function transformToDatabase(
   item: AddItemInput,
   userId: string,
-): Record<string, any> {
-  const mergedTags = [...(item.tags || [])];
-  if (item.color) {
-    if (!mergedTags.includes(`color:${item.color}`)) {
-        mergedTags.push(`color:${item.color}`);
-    }
-  }
-
-  const payload: Record<string, any> = {
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
     user_id: userId,
     text: item.text,
-    tags: mergedTags,
+    tags: item.tags || [],
     note: item.note || "",
     source_url: item.sourceUrl || "",
     source_title: item.sourceTitle || "",
@@ -119,6 +116,8 @@ function transformToDatabase(
   if (item.createdAt !== undefined) payload.created_at = item.createdAt;
   if (item.imageUrl !== undefined) payload.image_url = item.imageUrl;
   if (item.ocrConfidence !== undefined) payload.ocr_confidence = item.ocrConfidence;
+  if (item.color !== undefined) payload.color = item.color;
+  if (item.pinned !== undefined) payload.pinned = item.pinned;
 
   return payload;
 }
@@ -133,15 +132,10 @@ const getLocalStorage = () => {
 
 // Helper to save locally
 async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
-  const mergedTags = [...(item.tags || [])];
-  if (item.color && !mergedTags.includes(`color:${item.color}`)) {
-    mergedTags.push(`color:${item.color}`);
-  }
-
   const newItem: StorageItem = {
     id: `local_${Date.now()}`,
     text: item.text,
-    tags: mergedTags,
+    tags: item.tags || [],
     note: item.note || "",
     sourceUrl: item.sourceUrl || "",
     sourceTitle: item.sourceTitle || "",
@@ -151,6 +145,7 @@ async function saveToLocalStorage(item: AddItemInput): Promise<StorageItem> {
     deviceSource: item.deviceSource || "extension",
     collectionId: item.collectionId,
     color: item.color,
+    pinned: item.pinned,
     imageUrl: item.imageUrl,
     ocrConfidence: item.ocrConfidence,
   };
@@ -229,13 +224,14 @@ export async function addItem(
         if (error) throw error;
         await purgeLocalDuplicates(item.text, item.sourceUrl || ""); // Cleanup
         return transformDatabaseItem(data);
-      } catch (insertError: any) {
+      } catch (insertError) {
+        const err = insertError as { code?: string; message?: string };
         // Check for "Column not found" error (Schema mismatch)
         if (
-          insertError.code === "PGRST204" ||
-          insertError.message?.includes("citation") ||
-          insertError.message?.includes("column") ||
-          insertError.message?.includes("does not exist")
+          err.code === "PGRST204" ||
+          err.message?.includes("citation") ||
+          err.message?.includes("column") ||
+          err.message?.includes("does not exist")
         ) {
           console.warn(
             "Schema mismatch detected (missing columns). Retrying with safe payload...",
@@ -350,12 +346,13 @@ export async function syncLocalItemsToCloud(): Promise<{
     try {
       const { error } = await supabase.from("items").insert(itemsToUpload);
       if (error) throw error;
-    } catch (insertError: any) {
+    } catch (insertError) {
+      const err = insertError as { code?: string; message?: string };
       if (
-        insertError.code === "PGRST204" || 
-        insertError.message?.includes("citation") ||
-        insertError.message?.includes("column") ||
-        insertError.message?.includes("does not exist")
+        err.code === "PGRST204" || 
+        err.message?.includes("citation") ||
+        err.message?.includes("column") ||
+        err.message?.includes("does not exist")
       ) {
         console.warn("Schema mismatch during sync. Retrying with safe payload...", insertError);
         const safeItems = itemsToUpload.map(item => ({
@@ -370,7 +367,7 @@ export async function syncLocalItemsToCloud(): Promise<{
         try {
           const { error: retryError } = await supabase.from("items").insert(safeItems);
           if (retryError) throw retryError;
-        } catch (retryErr: any) {
+        } catch (retryErr) {
           console.error("Second sync attempt with safe items failed:", retryErr);
           throw retryErr;
         }
@@ -385,12 +382,13 @@ export async function syncLocalItemsToCloud(): Promise<{
     });
     console.log("Sync complete and local items cleared.");
     return { success: true, count: localItems.length };
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("Sync exception:", err);
     return {
       success: false,
       count: 0,
-      error: err.message || "Unknown sync error",
+      error: errorMsg || "Unknown sync error",
     };
   }
 }
@@ -646,16 +644,7 @@ export async function updateItem(
     });
     const newItems = localItems.map((i): StorageItem => {
       if (i.id !== id) return i;
-      const merged = { ...i, ...updates };
-      // Re-derive color and pinned from tags when tags are updated
-      if (updates.tags !== undefined) {
-        const colorTag = updates.tags.find((t) => t.startsWith("color:"));
-        merged.color = colorTag
-          ? (colorTag.split(":")[1] as StorageItem["color"])
-          : undefined;
-        merged.pinned = updates.tags.includes("pinned:true") || undefined;
-      }
-      return merged;
+      return { ...i, ...updates };
     });
     await new Promise<void>((resolve) => {
       storage.set({ [STORAGE_KEY]: JSON.stringify(newItems) }, () =>
@@ -664,7 +653,7 @@ export async function updateItem(
     });
   } else if (authenticated) {
     // Map updates to DB columns
-    const dbUpdates: Record<string, any> = {};
+    const dbUpdates: Record<string, unknown> = {};
     if (updates.text !== undefined) dbUpdates.text = updates.text;
     if (updates.aiSummary !== undefined) dbUpdates.ai_summary = updates.aiSummary;
     if (updates.citation !== undefined) dbUpdates.citation = updates.citation;
@@ -675,6 +664,9 @@ export async function updateItem(
     if (updates.sourceTitle !== undefined) dbUpdates.source_title = updates.sourceTitle;
     if (updates.sourceUrl !== undefined) dbUpdates.source_url = updates.sourceUrl;
     if ("ocrConfidence" in updates) dbUpdates.ocr_confidence = updates.ocrConfidence ?? null;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.pinned !== undefined) dbUpdates.pinned = updates.pinned;
+    if (updates.ocrEdited !== undefined) dbUpdates.ocr_edited = updates.ocrEdited;
 
     const { error } = await supabase
       .from("items")

@@ -61,5 +61,5 @@ export function useFocusTrap(
       document.removeEventListener("keydown", handleKeyDown);
       previouslyFocused?.focus();
     };
-  }, [isActive]); // onEscape intentionally excluded — accessed via ref
+  }, [isActive, containerRef]); // onEscape intentionally excluded — accessed via ref
 }

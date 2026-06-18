@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Book, Loader2, AlertCircle, ExternalLink, Sparkles } from "lucide-react";
 import {
   searchBooks,
@@ -46,27 +46,28 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
   const [aiSuggestion, setAiSuggestion] = useState<IdentifyResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setResults([]);
-      setSearched(false);
-      setError("");
-      setAiSuggestion(null);
-      return;
+  const runSearch = useCallback(async (q: string) => {
+    if (!q.trim()) return;
+    setLoading(true);
+    setError("");
+    setResults([]);
+    setSearched(false);
+
+    const cleanQuery = q.replace(/[-\s]/g, "");
+    const isISBN = /^(\d{10}|\d{13})$/.test(cleanQuery);
+    const result = isISBN ? await lookupISBN(cleanQuery) : await searchBooks(q);
+
+    setLoading(false);
+    setSearched(true);
+
+    if (result.ok && result.data && result.data.length > 0) {
+      setResults(result.data);
+    } else {
+      setError(result.error || "No results found. Try a different title or author.");
     }
+  }, []);
 
-    // If we have full OCR text, use AI to identify first
-    if (itemText.trim().length > 30) {
-      runAiIdentify(itemText);
-    } else if (initialQuery.trim()) {
-      setQuery(initialQuery);
-      runSearch(initialQuery);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const runAiIdentify = async (text: string) => {
+  const runAiIdentify = useCallback(async (text: string) => {
     setAiLoading(true);
     const result = await identifySource(text);
     setAiLoading(false);
@@ -88,28 +89,25 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
         runSearch(fallback);
       }
     }
-  };
+  }, [initialQuery, runSearch]);
 
-  const runSearch = async (q: string) => {
-    if (!q.trim()) return;
-    setLoading(true);
-    setError("");
-    setResults([]);
-    setSearched(false);
-
-    const cleanQuery = q.replace(/[-\s]/g, "");
-    const isISBN = /^(\d{10}|\d{13})$/.test(cleanQuery);
-    const result = isISBN ? await lookupISBN(cleanQuery) : await searchBooks(q);
-
-    setLoading(false);
-    setSearched(true);
-
-    if (result.ok && result.data && result.data.length > 0) {
-      setResults(result.data);
-    } else {
-      setError(result.error || "No results found. Try a different title or author.");
+  useEffect(() => {
+    if (!isOpen) {
+      setResults([]);
+      setSearched(false);
+      setError("");
+      setAiSuggestion(null);
+      return;
     }
-  };
+
+    // If we have full OCR text, use AI to identify first
+    if (itemText.trim().length > 30) {
+      runAiIdentify(itemText);
+    } else if (initialQuery.trim()) {
+      setQuery(initialQuery);
+      runSearch(initialQuery);
+    }
+  }, [isOpen, itemText, initialQuery, runAiIdentify, runSearch]);
 
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -120,6 +118,8 @@ const ISBNSearchModal: React.FC<ISBNSearchModalProps> = ({
     (aiSuggestion?.confidence || 0) >= 70 ? "text-green-600 dark:text-green-400" :
     (aiSuggestion?.confidence || 0) >= 40 ? "text-yellow-600 dark:text-yellow-400" :
     "text-red-500";
+
+  if (!isOpen) return null;
 
   return (
     <div

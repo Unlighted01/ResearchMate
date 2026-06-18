@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ResearchMate",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "AI-powered research companion for your browser",
   "permissions": [
     "storage",
@@ -62,7 +62,7 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
   },
   "oauth2": {
     "client_id": "63045817614-6sn8ojehhraqfvd4lhk35f7jvfutfg5f.apps.googleusercontent.com",

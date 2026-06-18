@@ -289,7 +289,7 @@ const renderTagSelector = (itemId: string, isLocal: boolean) => {
         const items = JSON.parse(itemsStr);
         if (Array.isArray(items)) {
           const tagsSet = new Set<string>();
-          items.forEach((item: any) => {
+          items.forEach((item: { tags?: string[] }) => {
             if (Array.isArray(item.tags)) {
               item.tags.forEach((tag: string) => {
                 if (
@@ -569,7 +569,7 @@ const handleSelection = (e?: Event) => {
 
       // Run duplicate detection check
       chrome.storage.local.get("researchMateItems", (result) => {
-        let items: any[] = [];
+        let items: { text: string; createdAt: string; id: string }[] = [];
         try {
           if (result.researchMateItems) {
             items = JSON.parse(result.researchMateItems);
@@ -582,7 +582,7 @@ const handleSelection = (e?: Event) => {
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 50);
 
-        let bestMatch: any = null;
+        let bestMatch: { text: string; createdAt: string; id: string } | null = null;
         let highestSim = 0;
         for (const item of sortedItems) {
           const sim = jaccardSimilarity(text, item.text);
