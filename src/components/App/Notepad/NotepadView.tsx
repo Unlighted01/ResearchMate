@@ -41,13 +41,13 @@ const TitleModal: React.FC<TitleModalProps> = ({ open, value, onChange, onConfir
         <div className="flex gap-2 justify-end">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-xs font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="px-3 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-2 text-xs font-medium rounded-xl bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+            className="px-3 py-2 text-sm font-medium rounded-xl bg-blue-500 hover:bg-blue-600 text-white transition-colors"
           >
             Create Note
           </button>
@@ -99,20 +99,20 @@ export const NotepadView: React.FC = () => {
 
   return (
     <>
-      <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
+      <div className="theme-page theme-sidebar h-full flex flex-col bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="px-4 py-3 bg-white dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-[#3A3A3C]/50 flex items-center justify-between shrink-0 shadow-sm backdrop-blur-xl">
+        <div className="theme-headerbar theme-divider px-4 py-3 bg-white dark:bg-[#2C2C2E]/50 border-b border-gray-100 dark:border-[#3A3A3C]/50 flex items-center justify-between shrink-0 shadow-sm backdrop-blur-xl">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Edit3 className="w-4 h-4 text-blue-500" />
             Notepad
             {saving && (
-              <span className="text-[10px] text-gray-400 font-normal ml-1 animate-pulse">Saving…</span>
+              <span className="text-xs text-gray-400 font-normal ml-1 animate-pulse">Saving…</span>
             )}
           </h2>
           <div className="flex gap-2">
             <button
               onClick={openTitleModal}
-              className="p-1.5 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              className="theme-btn-secondary p-1.5 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
               title="New Document"
             >
               <Plus className="w-4 h-4" />
@@ -124,7 +124,7 @@ export const NotepadView: React.FC = () => {
                   : `https://research-mate-website.vercel.app/editor`;
                 window.open(url, "_blank");
               }}
-              className="p-1.5 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="theme-icon-button p-1.5 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               title="Open full Website Editor"
             >
               <ExternalLink className="w-4 h-4" />
@@ -134,7 +134,7 @@ export const NotepadView: React.FC = () => {
 
         {/* Document selector row — selector on left, delete on right, no overlap */}
         {documents.length > 0 && (
-          <div className="px-4 py-2 border-b border-gray-100 dark:border-[#3A3A3C] bg-white dark:bg-[#1C1C1E] flex items-center gap-2 shrink-0">
+          <div className="theme-headerbar theme-divider px-4 py-2 border-b border-gray-100 dark:border-[#3A3A3C] bg-white dark:bg-[#1C1C1E] flex items-center gap-2 shrink-0">
             <FileText className="w-4 h-4 text-gray-400 shrink-0" />
             <div className="relative flex-1 min-w-0">
               <select
@@ -157,7 +157,7 @@ export const NotepadView: React.FC = () => {
                     handleDeleteDocument(currentDoc.id);
                   }
                 }}
-                className="p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0 ml-1"
+                className="theme-icon-button p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0 ml-1"
                 title="Delete Document"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -179,14 +179,14 @@ export const NotepadView: React.FC = () => {
                 <Edit3 className="w-8 h-8 text-blue-500/50" />
               </div>
               <div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No documents found.</p>
-                <p className="text-xs text-gray-400 mt-1 max-w-[200px] mx-auto">
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-sm">No documents found.</p>
+                <p className="text-sm text-gray-400 mt-1 max-w-[200px] mx-auto">
                   Create a new note to start, or use the full Website Editor.
                 </p>
               </div>
               <button
                 onClick={openTitleModal}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                className="theme-btn-primary px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
               >
                 Create Note
               </button>

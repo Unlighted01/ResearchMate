@@ -233,6 +233,7 @@ export async function addItem(
         // Check for "Column not found" error (Schema mismatch)
         if (
           insertError.code === "PGRST204" ||
+          insertError.code === "42703" ||
           insertError.message?.includes("citation") ||
           insertError.message?.includes("column") ||
           insertError.message?.includes("does not exist")
@@ -353,6 +354,7 @@ export async function syncLocalItemsToCloud(): Promise<{
     } catch (insertError: any) {
       if (
         insertError.code === "PGRST204" || 
+        insertError.code === "42703" || 
         insertError.message?.includes("citation") ||
         insertError.message?.includes("column") ||
         insertError.message?.includes("does not exist")
@@ -431,32 +433,35 @@ export async function getAllItems(): Promise<StorageItem[]> {
 
   // 3. Merge and Sort
   // Instead of a global Map deduplicating by text (which hides legitimate duplicate highlights of the same text),
-  // we only want to drop `local_` items IF a Cloud item exists with the exact same text.
+  // we only want to drop `local_` items IF a Cloud item exists with the exact same text AND sourceUrl.
   // Cloud items should never overwrite each other.
 
   const finalItems: StorageItem[] = [];
-  const cloudItemsTextSet = new Set<string>();
+  const makeKey = (text: string, url: string) => `${text} ||| ${url || ""}`;
+  const cloudItemsMap = new Map<string, StorageItem>();
 
-  // Build a map of local items by text for fast lookup
-  const localByText = new Map<string, StorageItem>();
+  // Build a map of local items by key for fast lookup
+  const localByKey = new Map<string, StorageItem>();
   for (const localItem of localItems) {
-    localByText.set(localItem.text, localItem);
+    localByKey.set(makeKey(localItem.text, localItem.sourceUrl), localItem);
   }
 
   // Add all Cloud items first, merging imageUrl/ocrConfidence from local if cloud lacks them
   for (const item of items) {
-    const local = localByText.get(item.text);
+    const key = makeKey(item.text, item.sourceUrl);
+    const local = localByKey.get(key);
     if (local && (local.imageUrl || local.ocrConfidence != null) && !item.imageUrl) {
       finalItems.push({ ...item, imageUrl: local.imageUrl, ocrConfidence: local.ocrConfidence ?? item.ocrConfidence, deviceSource: local.deviceSource || item.deviceSource });
     } else {
       finalItems.push(item);
     }
-    cloudItemsTextSet.add(item.text);
+    cloudItemsMap.set(key, item);
   }
 
-  // Add Local items only if they don't exactly match a Cloud item's text
+  // Add Local items only if they don't exactly match a Cloud item's text AND sourceUrl
   for (const localItem of localItems) {
-    if (!cloudItemsTextSet.has(localItem.text)) {
+    const key = makeKey(localItem.text, localItem.sourceUrl);
+    if (!cloudItemsMap.has(key)) {
       finalItems.push(localItem);
     }
   }
@@ -615,8 +620,9 @@ export async function getItemsPage(
     });
   }
 
-  const cloudTexts = new Set(cloudItems.map((i) => i.text));
-  const filteredLocal = localItems.filter((l) => !cloudTexts.has(l.text));
+  const makeKeyForPage = (text: string, url: string) => `${text} ||| ${url || ""}`;
+  const cloudKeys = new Set(cloudItems.map((i) => makeKeyForPage(i.text, i.sourceUrl)));
+  const filteredLocal = localItems.filter((l) => !cloudKeys.has(makeKeyForPage(l.text, l.sourceUrl)));
   // Local items are small (context-menu saves); include them only on page 0 to avoid duplication
   const combined = offset === 0 ? [...filteredLocal, ...cloudItems] : [...cloudItems];
   const sorted = combined.sort(

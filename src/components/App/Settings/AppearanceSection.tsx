@@ -48,10 +48,9 @@ export const AppearanceSection: React.FC<AppearanceSectionProps> = ({
         <select 
           value={visualTheme} 
           onChange={(e) => onVisualThemeChange(e.target.value)}
-          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+          className="theme-input w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
         >
           <option value="minimalist">Minimalist (Default)</option>
-          <option value="bubble">Bubble</option>
           <option value="glass">Glass</option>
         </select>
         <p className="text-[10px] text-gray-400 mt-1">Applies globally to the extension UI.</p>

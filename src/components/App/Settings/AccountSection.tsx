@@ -18,7 +18,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
     <section className="space-y-3">
       <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Account</h2>
       {user ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="theme-surface bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-bold overflow-hidden">
               {user.user_metadata?.avatar_url ? (
@@ -37,13 +37,13 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
           </div>
           <button
             onClick={onSignOut}
-            className="w-full py-2 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
+            className="theme-btn-secondary w-full py-2 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
           >
             <LogOut size={16} /> Sign Out
           </button>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 text-center flex flex-col items-center">
+        <div className="theme-surface bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 text-center flex flex-col items-center">
           <AlertCircle size={24} className="text-gray-300 mb-2" />
           <p className="text-sm text-gray-500 mb-3">Sign in to sync your research across devices</p>
           <button onClick={onGoToAuth} className="text-blue-600 font-semibold text-sm hover:underline">

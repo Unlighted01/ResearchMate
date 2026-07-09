@@ -70,17 +70,17 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="theme-page theme-sidebar h-screen flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4 sticky top-0 z-10 shrink-0">
+      <div className="theme-headerbar theme-divider bg-white dark:bg-gray-800 p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4 sticky top-0 z-10 shrink-0">
         <button
           onClick={onBack}
           aria-label="Go back"
-          className="p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all group border border-gray-200 dark:border-gray-700"
+          className="theme-icon-button p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all group border border-gray-200 dark:border-gray-700"
         >
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
         </button>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Settings</h1>
+        <h1 className="theme-title text-xl font-bold text-gray-900 dark:text-white tracking-tight">Settings</h1>
       </div>
 
       <div className="p-4 space-y-6 overflow-y-auto flex-1 pb-20 scrollbar-hide">
@@ -137,7 +137,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         {/* About Section */}
         <section className="space-y-3">
           <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">About</h2>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
+          <div className="theme-surface bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
             <div className="flex justify-between text-xs">
               <span className="text-gray-500">Version</span>
               <span className="font-mono text-gray-900 dark:text-white">1.2.0</span>

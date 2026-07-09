@@ -53,7 +53,7 @@ const EditorCanvas: React.FC<EditorCanvasProps> = ({
     editorProps: {
       attributes: {
         // We use typical sidepanel padding and let index.css handle default text styling instead of relying heavily on typography plugins.
-        class: "focus:outline-none min-h-[400px] text-sm text-gray-800 dark:text-gray-200",
+        class: "focus:outline-none min-h-[400px] text-base text-gray-800 dark:text-gray-200",
       },
       handleDOMEvents: {
         drop: (_view, event) => {

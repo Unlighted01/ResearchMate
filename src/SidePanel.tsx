@@ -126,7 +126,7 @@ function SidePanel() {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="flex-1 flex flex-col overflow-hidden h-full"
           >
-            <div className="p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
+            <div className="theme-headerbar p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
               <SidePanelHeader
                 sync={sync}
                 onSync={handleSync}
@@ -153,7 +153,7 @@ function SidePanel() {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="flex-1 flex flex-col overflow-hidden h-full"
           >
-            <div className="p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
+            <div className="theme-headerbar p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
               <SidePanelHeader
                 sync={sync}
                 onSync={handleSync}
@@ -183,7 +183,7 @@ function SidePanel() {
             className="flex-1 flex flex-col overflow-hidden h-full"
           >
             {/* Header Area */}
-            <div className="p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
+            <div className="theme-headerbar p-4 bg-white dark:bg-gray-800 shadow-sm z-10 pb-0">
               <SidePanelHeader
                 sync={sync}
                 onSync={handleSync}
@@ -381,14 +381,14 @@ function SidePanel() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSelection((p) => ({ ...p, showCollectionPicker: true }))}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                      className="theme-btn-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                     >
                       <FolderPlus size={16} />
                       Collection
                     </button>
                     <button
                       onClick={handleBulkDelete}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                      className="theme-btn-destructive flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                     >
                       <TrashIcon size={16} dangerHover />
                       Delete
@@ -403,7 +403,7 @@ function SidePanel() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="theme-page theme-sidebar h-screen flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
       <AnimatePresence mode="wait">{renderContent()}</AnimatePresence>
 
       {/* Auth Modal Overlay */}

@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient";
 
-const API_BASE_URL = "https://research-mate-website.vercel.app/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://research-mate-website.vercel.app/api";
 
 export interface BookMetadata {
   title: string;

@@ -41,10 +41,10 @@ export const SidePanelHeader: React.FC<SidePanelHeaderProps> = ({
   }, [creditsBuster]);
 
   return (
-    <div className="flex justify-between items-center mb-4">
+    <div className="theme-headerbar theme-divider flex justify-between items-center mb-4">
       <div className="flex items-center gap-2">
         <img src={logo} alt="Logo" className="w-6 h-6" />
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+        <h1 className="theme-title text-lg font-bold text-gray-900 dark:text-white">
           ResearchMate
         </h1>
       </div>
@@ -96,7 +96,7 @@ export const SidePanelHeader: React.FC<SidePanelHeaderProps> = ({
         <button
           onClick={onSync}
           aria-label="Sync to Cloud"
-          className={`p-2 rounded-full transition-colors ${
+          className={`theme-icon-button p-2 rounded-full transition-colors ${
             sync.running
               ? "text-blue-500 bg-blue-50 animate-spin"
               : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -109,7 +109,7 @@ export const SidePanelHeader: React.FC<SidePanelHeaderProps> = ({
         <button
           onClick={() => onNavigate("smartpen")}
           aria-label="Smart Pen"
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400"
+          className="theme-icon-button p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400"
           title="Smart Pen"
         >
           <PenTool size={20} />
@@ -117,7 +117,7 @@ export const SidePanelHeader: React.FC<SidePanelHeaderProps> = ({
         <button
           onClick={() => onNavigate("settings")}
           aria-label="Settings"
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400"
+          className="theme-icon-button p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-600 dark:text-gray-400"
           title="Settings"
         >
           <GearIcon size={20} />

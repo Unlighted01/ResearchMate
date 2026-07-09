@@ -245,6 +245,9 @@ export function useSidePanelData() {
           }
         });
       }
+      if (msg.action === "navigateToChat") {
+        setNav({ view: "chat", item: null });
+      }
     };
 
     chrome.storage.onChanged.addListener(handleStorageChange);

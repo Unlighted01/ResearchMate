@@ -74,6 +74,18 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === "saveItemInBackground") {
+    const senderUrl = _sender.url;
+    const isValidOrigin = senderUrl && (
+      senderUrl.startsWith("http://") || 
+      senderUrl.startsWith("https://") || 
+      senderUrl.startsWith("chrome-extension://")
+    );
+    if (!isValidOrigin) {
+      console.warn("Blocked saveItemInBackground from invalid origin:", senderUrl);
+      sendResponse({ success: false, error: "Unauthorized sender origin" });
+      return;
+    }
+
     addItem(request.payload)
       .then((resultItem) => {
         // Broadcast the update to any open SidePanels
@@ -103,11 +115,26 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === "AUTH_SYNC") {
+    const senderOrigin = _sender.origin;
+    const senderUrl = _sender.url;
+    const allowedOrigin = import.meta.env.VITE_WEBSITE_URL || "https://research-mate-website.vercel.app";
+    
+    const isOriginAllowed = senderOrigin === allowedOrigin || (senderUrl && senderUrl.startsWith(allowedOrigin));
+    if (!isOriginAllowed) {
+      console.warn("Blocked AUTH_SYNC attempt from unauthorized sender:", senderOrigin || senderUrl);
+      return;
+    }
+
     const { key, data } = request.payload;
     chrome.storage.local.set({ [key]: data }, () => {
       console.log("Auth token synced from website to extension storage");
       // Notify any open UI components to check for new session
       chrome.runtime.sendMessage({ action: "authSynced" }).catch(() => {});
     });
+  }
+
+  if (request.action === "askAICopilot") {
+    chrome.runtime.sendMessage({ action: "navigateToChat" }).catch(() => { });
+    sendResponse({ success: true });
   }
 });

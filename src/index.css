@@ -534,6 +534,7 @@ html.dark[data-ui-theme="glass"] .theme-btn-primary:hover {
 
 .theme-page {
   font-family: var(--font-sans) !important;
+  color: var(--ui-sidebar-text, #374151) !important;
 }
 
 .theme-surface {
@@ -550,6 +551,13 @@ html.dark[data-ui-theme="glass"] .theme-btn-primary:hover {
   background: var(--ui-input-bg) !important;
   border: 1px solid var(--ui-input-border) !important;
   border-radius: var(--ui-radius-md) !important;
+  color: var(--ui-title-color) !important;
+}
+
+/* Fix native select options colors in dark mode */
+select option {
+  background-color: var(--ui-surface-bg, #ffffff) !important;
+  color: var(--ui-title-color, #111827) !important;
 }
 
 .theme-search {

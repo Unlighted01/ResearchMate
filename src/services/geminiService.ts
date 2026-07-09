@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient";
 import { lookupISBN } from "./citationService";
 
-const API_BASE_URL = "https://research-mate-website.vercel.app/api"; // Extension points to production API
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://research-mate-website.vercel.app/api"; // Extension points to production API
 
 export interface SummaryResult {
   ok: boolean;

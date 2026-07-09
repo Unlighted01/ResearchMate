@@ -21,7 +21,7 @@ export const SidePanelNav: React.FC<SidePanelNavProps> = ({
   ];
 
   return (
-    <div className="flex gap-4 border-b border-gray-100 dark:border-gray-800 mb-3 px-1">
+    <div className="theme-divider flex gap-4 border-b border-gray-100 dark:border-gray-800 mb-3 px-1">
       {tabs.map((tab) => (
         <button
           key={tab.id}

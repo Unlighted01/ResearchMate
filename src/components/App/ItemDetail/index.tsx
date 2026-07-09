@@ -32,6 +32,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
     copied,
     summary,
     citation,
+    inTextCitation,
     citationFormat,
     tags,
     itemColor,
@@ -78,7 +79,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
   const hasOcrData = item.deviceSource === "smart_pen" || item.ocrConfidence != null || !!item.imageUrl;
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-gray-900 relative">
+    <div className="theme-page theme-sidebar h-screen flex flex-col bg-white dark:bg-gray-900 relative">
       <ISBNSearchModal
         isOpen={isIdentifyModalOpen}
         onClose={() => setIsIdentifyModalOpen(false)}
@@ -135,6 +136,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
 
         <CitationCard
           citation={citation}
+          inTextCitation={inTextCitation}
           format={citationFormat}
           onFormatChange={(f) => handleCite(f)}
           loading={loadingCitation}
@@ -170,7 +172,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
-            className="absolute bottom-6 right-6 p-3 bg-white dark:bg-gray-800 text-gray-500 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 hover:text-blue-500 transition-colors z-20"
+             className="theme-icon-button absolute bottom-6 right-6 p-3 bg-white dark:bg-gray-800 text-gray-500 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 hover:text-blue-500 transition-colors z-20"
           >
             <ArrowUp size={20} />
           </motion.button>
@@ -181,7 +183,7 @@ const ItemDetail: React.FC<ItemDetailProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             onClick={() => scrollContainerRef.current?.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: "smooth" })}
-            className="absolute bottom-6 right-20 p-3 bg-white dark:bg-gray-800 text-gray-500 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 hover:text-blue-500 transition-colors z-20"
+             className="theme-icon-button absolute bottom-6 right-20 p-3 bg-white dark:bg-gray-800 text-gray-500 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 hover:text-blue-500 transition-colors z-20"
           >
             <ArrowDown size={20} />
           </motion.button>

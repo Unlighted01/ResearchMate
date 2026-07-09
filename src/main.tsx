@@ -58,7 +58,11 @@ const initializeTheme = () => {
   };
 
   const applyVisualTheme = (t: string) => {
-    root.setAttribute("data-ui-theme", t);
+    const themeToApply = t === "bubble" ? "minimalist" : t;
+    root.setAttribute("data-ui-theme", themeToApply);
+    if (t === "bubble") {
+      localStorage.setItem("visualTheme", "minimalist");
+    }
   };
 
   applyTheme(theme);

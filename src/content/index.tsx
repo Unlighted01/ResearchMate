@@ -1,7 +1,11 @@
 // Content script to handle text selection and highlighting
 import { QUICK_SAVE_TAG } from "../constants";
 import { jaccardSimilarity } from "../utils/similarity";
+import { parseMetadata, formatMetadataCitation } from "../utils/metadataParser";
+import { isResearchContent } from "../utils/classifier";
 console.log("ResearchMate Content Script Loaded");
+
+
 
 // Overlay State
 let overlayInstance: { root: HTMLDivElement; backdrop: HTMLDivElement } | null =
@@ -68,6 +72,12 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     toggleOverlay();
   } else if (request.action === "showErrorToast") {
     showErrorToast(request.message);
+  } else if (request.action === "getPageText") {
+    sendResponse({
+      text: extractFullPageText(),
+      title: document.title,
+      url: window.location.href,
+    });
   }
 });
 
@@ -135,6 +145,85 @@ function showErrorToast(message: string) {
     toast.style.opacity = "0";
     setTimeout(() => toast.remove(), 300);
   }, 2500);
+}
+
+function extractFullPageText(): string {
+  // Try to find main content or body
+  const mainEl = document.querySelector("article, main, #content, .content, [role='main']") || document.body;
+  const clone = mainEl.cloneNode(true) as HTMLElement;
+
+  // Define selectors for elements we want to completely ignore
+  const junkSelectors = [
+    "ins.adsbygoogle",
+    '[id*="google_ads"]',
+    '[class*="ad-"]',
+    '[class*="sponsored"]',
+    "[data-ad]",
+    "iframe",
+    "script",
+    "style",
+    "noscript",
+    "svg",
+    "nav",
+    "footer",
+    "header",
+    "aside",
+    ".site-header",
+    ".post-sidebar",
+    ".related-articles",
+    ".newsletter-signup",
+    ".social-share",
+    "#researchmate-overlay-root",
+    "#researchmate-trigger-root",
+  ];
+
+  // Remove completely ignored elements
+  const junk = clone.querySelectorAll(junkSelectors.join(","));
+  junk.forEach((el) => el.remove());
+
+  let extractedText = "";
+
+  function processNode(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      extractedText += node.textContent || "";
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const isBlock = [
+        "DIV",
+        "P",
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "SECTION",
+        "ARTICLE",
+        "LI",
+        "BLOCKQUOTE",
+        "PRE",
+        "CODE",
+      ].includes(el.tagName);
+
+      if (isBlock || el.tagName === "BR" || el.tagName === "HR") {
+        extractedText += "\n";
+      }
+
+      node.childNodes.forEach(processNode);
+
+      if (isBlock) {
+        extractedText += "\n";
+      }
+    }
+  }
+
+  clone.childNodes.forEach(processNode);
+
+  return extractedText
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/^\s+|\s+$/g, "")
+    .trim();
 }
 
 function cleanSelectedText(selection: Selection | null): string {
@@ -215,9 +304,21 @@ function cleanSelectedText(selection: Selection | null): string {
       ].includes(el.tagName);
       
       const isLineBreak = ["BR", "HR"].includes(el.tagName);
-
+      
       if (isBlock || isLineBreak) {
         extractedText += "\n";
+      }
+
+      // Prepend bullet or number formatting for list items
+      if (el.tagName === "LI") {
+        const parent = el.parentElement;
+        if (parent && parent.tagName === "OL") {
+          const siblings = Array.from(parent.children);
+          const index = siblings.indexOf(el) + 1;
+          extractedText += `${index}. `;
+        } else {
+          extractedText += "• ";
+        }
       }
 
       // Process children
@@ -423,18 +524,66 @@ const handleSelection = (e?: Event) => {
     return;
   }
 
+  // 2. Suppress if selection is inside form inputs or editable areas
+  const activeEl = document.activeElement;
+  if (
+    activeEl &&
+    (activeEl.tagName === "INPUT" ||
+      activeEl.tagName === "TEXTAREA" ||
+      (activeEl as HTMLElement).isContentEditable)
+  ) {
+    removeSelectionButton();
+    return;
+  }
+
+  // 3. Suppress if parent element is navigation, headers, footers, or interactive components
+  const range = selection.getRangeAt(0);
+  let parent = range.commonAncestorContainer;
+  if (parent.nodeType === Node.TEXT_NODE) {
+    parent = parent.parentNode!;
+  }
+  const parentEl = parent as HTMLElement;
+  if (
+    parentEl.closest(
+      "nav, header, footer, button, select, option, input, textarea, [role='button'], [role='menu'], [role='menuitem'], [role='tab'], [role='combobox']"
+    )
+  ) {
+    removeSelectionButton();
+    return;
+  }
+
   const text = cleanSelectedText(selection);
 
-  // 2. Skip if no cleaned text
+  // 4. Skip if no cleaned text
   if (!text || text.length === 0) {
     removeSelectionButton();
     return;
   }
 
-  // 3. Stricter requirement: At least 3 words AND 15 characters
-  // This prevents it from appearing on tiny selections or single words
+  // 5. Apply Domain-Based Thresholds & Relevancy Classifier
+  const host = window.location.hostname.toLowerCase();
+  const isAcademicPage =
+    host.endsWith(".edu") ||
+    host.includes("arxiv.org") ||
+    host.includes("pubmed") ||
+    host.includes("nature.com") ||
+    host.includes("scholar.google") ||
+    host.includes("sciencedirect") ||
+    host.includes("researchgate.net") ||
+    host.includes("ieee.org") ||
+    host.includes("springer.com");
+
   const words = text.split(/\s+/).filter((w) => w.length > 0);
-  if (words.length < 3 || text.length < 15) {
+  const minWords = isAcademicPage ? 5 : 8;
+  const minChars = isAcademicPage ? 20 : 45;
+
+  if (words.length < minWords || text.length < minChars) {
+    removeSelectionButton();
+    return;
+  }
+
+  // 6. Intelligent Research Classifier Check (free/offline)
+  if (!isResearchContent(text, window.location.hostname)) {
     removeSelectionButton();
     return;
   }
@@ -513,19 +662,14 @@ const handleSelection = (e?: Event) => {
           transition: background 0.15s;
         }
         .rm-save-btn:hover { background: #0066dd; }
+        .rm-color-dot:hover { transform: scale(1.2); }
+        .rm-action-btn:hover { background: rgba(0,0,0,0.05) !important; }
       `;
       document.head.appendChild(style);
     }
 
-    // Default Save button
-    const saveBtn = document.createElement("button");
-    saveBtn.className = "rm-save-btn";
-    saveBtn.textContent = "Save";
-
-    selectionButton.appendChild(saveBtn);
-
     // Core save function
-    const doSave = (forceSave = false) => {
+    const doSave = (color?: string, noteText?: string, forceSave = false) => {
       const selection = window.getSelection();
       const text = cleanSelectedText(selection);
       if (!text) return;
@@ -536,13 +680,28 @@ const handleSelection = (e?: Event) => {
           selectionButton.style.pointerEvents = "none";
         }
 
+        const metadata = parseMetadata(document);
+        const url = window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com";
+        const citation = metadata.authors ? formatMetadataCitation(metadata, url, "apa") : undefined;
+
         const payload: Record<string, unknown> = {
           text,
-          sourceUrl: window.location.href !== "about:blank" ? window.location.href : document.referrer || "https://example.com",
-          sourceTitle: document.title || "Unknown Title",
+          sourceUrl: url,
+          sourceTitle: metadata.title || document.title || "Unknown Title",
           tags: [QUICK_SAVE_TAG],
           deviceSource: "extension",
+          note: noteText || "",
         };
+
+        if (color) {
+          payload.color = color;
+          // Add it to tags as well for compatibility with older sync structures
+          payload.tags = [QUICK_SAVE_TAG, `color:${color}`];
+        }
+        if (citation) {
+          payload.citation = citation;
+          payload.citationFormat = "apa";
+        }
 
         chrome.runtime.sendMessage({ action: "saveItemInBackground", payload }, (response) => {
           if (chrome.runtime.lastError || !response || !response.success) {
@@ -554,6 +713,34 @@ const handleSelection = (e?: Event) => {
             }
             return;
           }
+          
+          // Apply DOM Highlight if color was chosen
+          if (color && selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const span = document.createElement("span");
+            span.className = `rm-highlight rm-highlight-${color}`;
+            const bgColors: Record<string, string> = {
+              yellow: "rgba(253, 224, 71, 0.4)",
+              green: "rgba(134, 239, 172, 0.4)",
+              blue: "rgba(147, 197, 253, 0.4)",
+              red: "rgba(252, 165, 165, 0.4)",
+            };
+            span.style.backgroundColor = bgColors[color] || bgColors.yellow;
+            span.style.borderRadius = "2px";
+            
+            try {
+              range.surroundContents(span);
+            } catch (e) {
+              try {
+                const documentFragment = range.extractContents();
+                span.appendChild(documentFragment);
+                range.insertNode(span);
+              } catch (e2) {
+                console.error("Failed to highlight DOM range:", e2);
+              }
+            }
+          }
+
           if (selectionButton && response.itemId) {
             renderTagSelector(response.itemId, !!response.isLocal);
           } else {
@@ -635,16 +822,110 @@ const handleSelection = (e?: Event) => {
       });
     };
 
-    // Default save (no color)
-    saveBtn.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      doSave();
+    // Render micro-actions bubble contents
+    selectionButton.innerHTML = `
+      <div style="display:flex; align-items:center; gap:6px; padding:2px; pointer-events:auto;">
+        <!-- Colors -->
+        <div style="display:flex; align-items:center; gap:5px; padding-right:6px; border-right:1px solid rgba(0,0,0,0.1);">
+          <button class="rm-color-dot" data-color="yellow" title="Highlight Yellow" style="width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,0.15); background:#FDE047; cursor:pointer; padding:0; transition:transform 0.1s;"></button>
+          <button class="rm-color-dot" data-color="green" title="Highlight Green" style="width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,0.15); background:#86EFAC; cursor:pointer; padding:0; transition:transform 0.1s;"></button>
+          <button class="rm-color-dot" data-color="blue" title="Highlight Blue" style="width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,0.15); background:#93C5FD; cursor:pointer; padding:0; transition:transform 0.1s;"></button>
+          <button class="rm-color-dot" data-color="red" title="Highlight Rose" style="width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,0.15); background:#FCA5A5; cursor:pointer; padding:0; transition:transform 0.1s;"></button>
+        </div>
+        <!-- Note -->
+        <button id="rm-action-note-btn" class="rm-action-btn" style="background:transparent; border:none; color:#4B5563; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:4px; transition:background 0.15s; outline:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Note
+        </button>
+        <!-- Ask AI -->
+        <button id="rm-action-ai-btn" class="rm-action-btn" style="background:transparent; border:none; color:#007AFF; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:4px; transition:background 0.15s; outline:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Ask AI
+        </button>
+      </div>
+    `;
+
+    // Attach listeners to Color Dots
+    selectionButton.querySelectorAll(".rm-color-dot").forEach((dotEl) => {
+      dotEl.addEventListener("mousedown", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const color = dotEl.getAttribute("data-color") || "yellow";
+        doSave(color);
+      });
+    });
+
+    // Attach listener to Note Button
+    const noteBtn = selectionButton.querySelector("#rm-action-note-btn") as HTMLButtonElement;
+    noteBtn.addEventListener("mousedown", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      
+      if (selectionButton) {
+        selectionButton.style.pointerEvents = "auto";
+        selectionButton.style.flexDirection = "column";
+        selectionButton.style.alignItems = "stretch";
+        selectionButton.style.width = "220px";
+        selectionButton.style.gap = "8px";
+        selectionButton.style.padding = "10px";
+        selectionButton.innerHTML = `
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; color:#4B5563; font-weight:600; text-align:left; margin-bottom:2px;">
+            Add note to selection:
+          </div>
+          <textarea id="rm-note-textarea" placeholder="Type a note..." style="width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.15); padding:6px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; outline:none; background:#fff; color:#000; height:60px; resize:none; font-weight:normal; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);"></textarea>
+          <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:2px;">
+            <button id="rm-note-cancel" style="background:#E5E7EB; color:#374151; border:none; padding:4px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition:background 0.15s;">Cancel</button>
+            <button id="rm-note-save" style="background:#007AFF; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition:background 0.15s;">Save</button>
+          </div>
+        `;
+
+        const textarea = selectionButton.querySelector("#rm-note-textarea") as HTMLTextAreaElement;
+        const cancelBtn = selectionButton.querySelector("#rm-note-cancel") as HTMLButtonElement;
+        const saveBtn = selectionButton.querySelector("#rm-note-save") as HTMLButtonElement;
+
+        textarea.focus();
+
+        cancelBtn.addEventListener("mousedown", (cancelEv) => {
+          cancelEv.preventDefault();
+          cancelEv.stopPropagation();
+          removeSelectionButton();
+        });
+
+        saveBtn.addEventListener("mousedown", (saveEv) => {
+          saveEv.preventDefault();
+          saveEv.stopPropagation();
+          doSave(undefined, textarea.value.trim());
+        });
+        
+        textarea.addEventListener("keydown", (keyEv) => {
+          if (keyEv.key === "Enter" && !keyEv.shiftKey) {
+            keyEv.preventDefault();
+            doSave(undefined, textarea.value.trim());
+          }
+        });
+      }
+    });
+
+    // Attach listener to Ask AI Button
+    const aiBtn = selectionButton.querySelector("#rm-action-ai-btn") as HTMLButtonElement;
+    aiBtn.addEventListener("mousedown", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const selectionText = text;
+      
+      chrome.storage.local.set({ pendingChatQuery: selectionText, chatMode: "page" }, () => {
+        chrome.runtime.sendMessage({ action: "askAICopilot" }, () => {
+          toggleOverlay();
+          removeSelectionButton();
+        });
+      });
     });
 
     document.body.appendChild(selectionButton);
   }
 };
+
 
 document.addEventListener("mouseup", handleSelection);
 document.addEventListener("keyup", handleSelection);

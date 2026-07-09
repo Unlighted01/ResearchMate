@@ -3,6 +3,7 @@ import { Quote, Check, Copy } from "lucide-react";
 
 interface CitationCardProps {
   citation: string;
+  inTextCitation?: string;
   format: string;
   onFormatChange: (format: string) => void;
   loading: boolean;
@@ -10,18 +11,28 @@ interface CitationCardProps {
 
 export const CitationCard: React.FC<CitationCardProps> = ({
   citation,
+  inTextCitation,
   format,
   onFormatChange,
   loading,
 }) => {
-  const [copied, setCopied] = useState(false);
+  const [copiedBib, setCopiedBib] = useState(false);
+  const [copiedInText, setCopiedInText] = useState(false);
   
   if (!citation && !loading) return null;
 
-  const handleCopy = () => {
+  const handleCopyBib = () => {
     navigator.clipboard.writeText(citation);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedBib(true);
+    setTimeout(() => setCopiedBib(false), 2000);
+  };
+
+  const handleCopyInText = () => {
+    if (inTextCitation) {
+      navigator.clipboard.writeText(inTextCitation);
+      setCopiedInText(true);
+      setTimeout(() => setCopiedInText(false), 2000);
+    }
   };
 
   const formats = ["mla", "apa", "chicago", "harvard"];
@@ -51,7 +62,7 @@ export const CitationCard: React.FC<CitationCardProps> = ({
         </div>
       </div>
       
-      <div className="p-5 relative group">
+      <div className="p-5 space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-6">
             <div className="flex gap-1.5">
@@ -62,15 +73,37 @@ export const CitationCard: React.FC<CitationCardProps> = ({
           </div>
         ) : (
           <>
-            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-serif italic pr-8">
-              {citation}
-            </p>
-            <button
-              onClick={handleCopy}
-              className="absolute top-4 right-4 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-blue-100 dark:border-blue-800 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} className="text-blue-500" />}
-            </button>
+            {/* Full Bibliography Entry */}
+            <div className="relative group p-3 bg-white dark:bg-gray-800 rounded-xl border border-blue-100/50 dark:border-blue-900/20">
+              <h4 className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1">Bibliography Entry</h4>
+              <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-serif italic pr-8 whitespace-pre-wrap">
+                {citation}
+              </p>
+              <button
+                onClick={handleCopyBib}
+                aria-label="Copy bibliography entry"
+                className="absolute top-3 right-3 p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                {copiedBib ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+              </button>
+            </div>
+
+            {/* In-Text Citation */}
+            {inTextCitation && (
+              <div className="relative group p-3 bg-white dark:bg-gray-800 rounded-xl border border-blue-100/50 dark:border-blue-900/20">
+                <h4 className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1">In-Text Citation</h4>
+                <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-serif pr-8">
+                  {inTextCitation}
+                </p>
+                <button
+                  onClick={handleCopyInText}
+                  aria-label="Copy in-text citation"
+                  className="absolute top-3 right-3 p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {copiedInText ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

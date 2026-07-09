@@ -56,6 +56,9 @@
 
   // Also listen for potential manual broadcast events if the website wants to trigger sync
   window.addEventListener('message', (event) => {
+    const allowedOrigin = import.meta.env.VITE_WEBSITE_URL || "https://research-mate-website.vercel.app";
+    if (event.origin !== allowedOrigin) return;
+
     if (event.data && event.data.type === 'RESEARCH_MATE_FORCE_SYNC') {
       syncAuth();
     }

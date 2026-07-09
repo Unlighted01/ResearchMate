@@ -14,7 +14,7 @@ export interface User {
 // PART 2: DEVICE SOURCE TYPES
 // ============================================
 
-export type DeviceSource = "extension" | "mobile" | "smart_pen" | "web" | "transcription";
+export type DeviceSource = "extension" | "mobile" | "smart_pen" | "web" | "transcription" | "mobile_scanner" | "tablet_sync";
 
 export const DEVICE_SOURCES: Record<
   DeviceSource,
@@ -25,6 +25,8 @@ export const DEVICE_SOURCES: Record<
   smart_pen: { label: "Smart Pen", icon: "PenTool" },
   web: { label: "Web App", icon: "Globe" },
   transcription: { label: "Media Transcription", icon: "Mic" },
+  mobile_scanner: { label: "Mobile Scanner", icon: "Smartphone" },
+  tablet_sync: { label: "Tablet Sync", icon: "Tablet" },
 };
 
 // ============================================

@@ -56,7 +56,7 @@ export const ItemMetadata: React.FC<ItemMetadataProps> = ({
       <div>
         <div className="flex items-center gap-2 mb-3">
           <TagIcon className="w-4 h-4 text-gray-400" />
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Categorization</h3>
+          <h3 className="theme-title text-xs font-bold text-gray-400 uppercase tracking-wider">Categorization</h3>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center mb-4">
@@ -86,7 +86,7 @@ export const ItemMetadata: React.FC<ItemMetadataProps> = ({
                 value={newTag}
                 onChange={(e) => onNewTagChange(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onAddTag()}
-                className="w-24 px-2 py-1 text-xs bg-white dark:bg-gray-800 border border-blue-300 rounded-lg outline-none"
+                className="theme-input w-24 px-2 py-1 text-sm bg-white dark:bg-gray-800 border border-blue-300 rounded-lg outline-none"
                 placeholder="Tag name..."
               />
               <button onClick={onAddTag} className="p-1 text-blue-600"><Plus size={16} /></button>
@@ -108,10 +108,10 @@ export const ItemMetadata: React.FC<ItemMetadataProps> = ({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sticky-note w-4 h-4 text-gray-400"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v5a2 2 0 0 0 2 2h5"/><path d="m3 21 9-9"/><path d="M9 18h.01"/></svg>
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Personal Notes</h3>
+            <h3 className="theme-title text-xs font-bold text-gray-400 uppercase tracking-wider">Personal Notes</h3>
           </div>
           {!isEditingNote && (
-            <button onClick={onStartEditingNote} className="text-[10px] font-bold uppercase text-gray-400 hover:text-blue-600 flex items-center gap-1 transition-colors">
+            <button onClick={onStartEditingNote} className="text-xs font-bold uppercase text-gray-400 hover:text-blue-600 flex items-center gap-1 transition-colors">
               <Pencil className="w-3 h-3" /> Edit
             </button>
           )}
@@ -122,12 +122,12 @@ export const ItemMetadata: React.FC<ItemMetadataProps> = ({
             <textarea
               value={itemNote}
               onChange={(e) => onNoteChange(e.target.value)}
-              className="w-full min-h-[100px] p-3 text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-400/20"
+              className="theme-input w-full min-h-[100px] p-3 text-base text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-400/20"
               placeholder="Add your thoughts or context here..."
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => onStartEditingNote()} className="px-3 py-1 text-xs font-semibold text-gray-500">Cancel</button>
-              <button onClick={onSaveNote} className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold">
+              <button onClick={() => onStartEditingNote()} className="px-3 py-1.5 text-xs font-semibold text-gray-500">Cancel</button>
+              <button onClick={onSaveNote} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold">
                 <Save size={14} /> Save Note
               </button>
             </div>
@@ -135,9 +135,9 @@ export const ItemMetadata: React.FC<ItemMetadataProps> = ({
         ) : (
           <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800/50">
             {itemNote ? (
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed italic">"{itemNote}"</p>
+              <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed italic">"{itemNote}"</p>
             ) : (
-              <p className="text-sm text-gray-400 italic">No notes added yet.</p>
+              <p className="text-base text-gray-400 italic">No notes added yet.</p>
             )}
           </div>
         )}

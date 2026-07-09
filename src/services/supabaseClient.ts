@@ -194,7 +194,7 @@ export async function signUpWithEmail(
       options: {
         // Extensions usually redirect back via Identity API, but for simple email verification
         // we point them to the website
-        emailRedirectTo: `https://research-mate-website.vercel.app/auth/callback`,
+        emailRedirectTo: `${import.meta.env.VITE_WEBSITE_URL || "https://research-mate-website.vercel.app"}/#/auth/callback`,
       },
     });
     return { user: data.user, error: error as Error | null };

@@ -34,11 +34,81 @@ function extractSearchQuery(sourceTitle?: string, text?: string): string {
   return "";
 }
 
+function deriveInTextCitation(citationStr: string, format: string): string {
+  if (!citationStr) return "";
+  const fmt = format.toLowerCase();
+  if (fmt === "ieee") return "[1]";
+  if (fmt === "bibtex") {
+    const match = citationStr.match(/@\w+\{(\w+),/);
+    return match ? `\\cite{${match[1]}}` : "";
+  }
+
+  // Find the first author's name
+  const authorPart = citationStr.split(/[.(]/)[0].trim();
+  if (!authorPart || authorPart.toLowerCase().includes("unknown")) {
+    const yearMatch = citationStr.match(/\((\d{4})\)/) || citationStr.match(/\b(\d{4})\b/);
+    const year = yearMatch ? yearMatch[1] : "n.d.";
+    return `(Unknown, ${year})`;
+  }
+
+  let familyName = authorPart;
+  if (authorPart.includes(",")) {
+    familyName = authorPart.split(",")[0].trim();
+  } else {
+    const parts = authorPart.split(/\s+/);
+    familyName = parts[parts.length - 1];
+  }
+
+  const hasEtAl = authorPart.toLowerCase().includes("et al") || citationStr.toLowerCase().includes("et al");
+  const hasMultiple = authorPart.includes("&") || authorPart.includes(" and ") || authorPart.includes(";");
+
+  let authorDisplay = familyName;
+  if (hasEtAl) {
+    authorDisplay = `${familyName} et al.`;
+  } else if (hasMultiple) {
+    const splitRegex = /&|\band\b/;
+    const splitParts = authorPart.split(splitRegex);
+    if (splitParts.length > 1) {
+      const secondAuthor = splitParts[1].trim();
+      let secondFamily = secondAuthor;
+      if (secondAuthor.includes(",")) {
+        secondFamily = secondAuthor.split(",")[0].trim();
+      } else {
+        const parts = secondAuthor.split(/\s+/);
+        secondFamily = parts[parts.length - 1];
+      }
+      secondFamily = secondFamily.replace(/[.,&]/g, "").trim();
+      const conj = fmt === "apa" ? " & " : " and ";
+      authorDisplay = `${familyName}${conj}${secondFamily}`;
+    }
+  }
+
+  authorDisplay = authorDisplay.replace(/[.&]/g, "").trim();
+  if (fmt === "apa" && hasMultiple && !authorDisplay.includes("&")) {
+    authorDisplay = authorDisplay.replace(" and ", " & ");
+  }
+
+  const yearMatch = citationStr.match(/\((\d{4})\)/) || citationStr.match(/\b(19\d{2}|20\d{2})\b/);
+  const year = yearMatch ? yearMatch[1] : "n.d.";
+
+  switch (fmt) {
+    case "apa":
+    case "harvard":
+      return `(${authorDisplay}, ${year})`;
+    case "mla":
+      return `(${authorDisplay})`;
+    case "chicago":
+      return `(${authorDisplay} ${year})`;
+    default:
+      return `(${authorDisplay}, ${year})`;
+  }
+}
+
 export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete: () => void) {
   const [copied, setCopied] = useState(false);
   const [summary, setSummary] = useState(item.aiSummary || "");
   const [citation, setCitation] = useState(item.citation || "");
-  const [_inTextCitation, setInTextCitation] = useState("");
+  const [inTextCitation, setInTextCitation] = useState("");
   const [citationFormat, setCitationFormat] = useState(item.citationFormat || "mla");
   const [tags, setTags] = useState<string[]>(item.tags || []);
   const [itemColor, setItemColor] = useState<"yellow" | "green" | "red" | "blue" | "purple" | "">(item.color || "");
@@ -77,6 +147,11 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
     setCitation(item.citation || "");
     setItemNote(item.note || "");
     setItemColor(item.color || "");
+    if (item.citation) {
+      setInTextCitation(deriveInTextCitation(item.citation, item.citationFormat || "mla"));
+    } else {
+      setInTextCitation("");
+    }
   }, [item]);
 
   const handleCopy = useCallback(() => {
@@ -146,7 +221,11 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
       const result = await generateCitation(item.sourceUrl, formatToUse);
       if (result.ok) {
         setCitation(result.citation);
-        if (result.inTextCitation) setInTextCitation(result.inTextCitation);
+        if (result.inTextCitation) {
+          setInTextCitation(result.inTextCitation);
+        } else {
+          setInTextCitation(deriveInTextCitation(result.citation, formatToUse));
+        }
         setCitationFormat(formatToUse);
         await updateItem(item.id, { citation: result.citation, citationFormat: formatToUse });
         onUpdate();
@@ -156,6 +235,7 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
     } else {
       const newCitation = `${item.sourceTitle || "Untitled"}. (${new Date(item.createdAt).getFullYear()}). ResearchMate Save. [${formatToUse.toUpperCase()}]`;
       setCitation(newCitation);
+      setInTextCitation(deriveInTextCitation(newCitation, formatToUse));
       setCitationFormat(formatToUse);
       await updateItem(item.id, { citation: newCitation, citationFormat: formatToUse });
       onUpdate();
@@ -226,11 +306,12 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
     if (!editedOcrText.trim()) return;
     try {
       const newTags = [...item.tags.filter((t) => t !== "ocr:edited"), "ocr:edited"];
-      await updateItem(item.id, { text: editedOcrText, tags: newTags });
+      await updateItem(item.id, { text: editedOcrText, tags: newTags, ocrConfidence: null });
       setOcrEdited(true);
       setIsEditingOcr(false);
       onUpdate();
       toast("OCR text updated", "success");
+      lastCiteRef.current = 0; // reset rate limit to force regeneration
       if (citation) await handleCite(citationFormat);
     } catch {
       toast("Failed to save changes", "error");
@@ -263,6 +344,7 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
     const newCitation = `${authors} (${year}). *${book.title}*. ${book.publisher || "Publisher"}.`;
     await updateItem(item.id, { sourceTitle: book.title, citation: newCitation, sourceUrl: book.previewLink || book.infoLink || "", citationFormat: "apa" });
     setCitation(newCitation);
+    setInTextCitation(deriveInTextCitation(newCitation, "apa"));
     setCitationFormat("apa");
     onUpdate();
     setIsIdentifyModalOpen(false);
@@ -272,6 +354,7 @@ export function useItemDetail(item: StorageItem, onUpdate: () => void, onDelete:
     copied,
     summary,
     citation,
+    inTextCitation,
     citationFormat,
     tags,
     itemColor,

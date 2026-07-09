@@ -5,7 +5,7 @@
 import { getAllItems, StorageItem } from "./storageService";
 import { supabase } from "./supabaseClient";
 
-const API_BASE_URL = "https://research-mate-website.vercel.app/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://research-mate-website.vercel.app/api";
 
 export interface ChatMessage {
   id: string;
@@ -76,22 +76,28 @@ export function getRelevantContext(query: string, items: StorageItem[]): Storage
  */
 export async function sendChatMessage(
   message: string,
-  _history: ChatMessage[]
+  _history: ChatMessage[],
+  customContext?: string
 ): Promise<{ response: string; error?: string; credits_remaining?: number | string }> {
   try {
-    // 1. Fetch library items
-    const allItems = await getAllItems();
-    const relevantItems = getRelevantContext(message, allItems);
+    let contextText = "";
+    if (customContext !== undefined) {
+      contextText = customContext;
+    } else {
+      // 1. Fetch library items
+      const allItems = await getAllItems();
+      const relevantItems = getRelevantContext(message, allItems);
 
-    // 2. Format context for the API prompt
-    const contextText = relevantItems
-      .map((item, idx) => {
-        const titleStr = item.sourceTitle ? `[Source: ${item.sourceTitle}]` : `[Untitled Item #${idx + 1}]`;
-        const urlStr = item.sourceUrl ? ` (URL: ${item.sourceUrl})` : "";
-        const tagsStr = item.tags && item.tags.length > 0 ? ` (Tags: ${item.tags.join(", ")})` : "";
-        return `${titleStr}${urlStr}${tagsStr}:\nContent: ${item.text}\nNotes: ${item.note || "None"}\nSummary: ${item.aiSummary || "None"}`;
-      })
-      .join("\n\n---\n\n");
+      // 2. Format context for the API prompt
+      contextText = relevantItems
+        .map((item, idx) => {
+          const titleStr = item.sourceTitle ? `[Source: ${item.sourceTitle}]` : `[Untitled Item #${idx + 1}]`;
+          const urlStr = item.sourceUrl ? ` (URL: ${item.sourceUrl})` : "";
+          const tagsStr = item.tags && item.tags.length > 0 ? ` (Tags: ${item.tags.join(", ")})` : "";
+          return `${titleStr}${urlStr}${tagsStr}:\nContent: ${item.text}\nNotes: ${item.note || "None"}\nSummary: ${item.aiSummary || "None"}`;
+        })
+        .join("\n\n---\n\n");
+    }
 
     // 3. Get Auth Session Headers
     const headers: HeadersInit = {

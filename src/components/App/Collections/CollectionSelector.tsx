@@ -153,6 +153,7 @@ export function CollectionSelector({ isOpen, onClose, selectedItemIds, onComplet
                       key={c.value}
                       title={c.label}
                       aria-label={`${c.label}${newColColor === c.value ? " (selected)" : ""}`}
+                      aria-pressed={newColColor === c.value}
                       onClick={() => setNewColColor(c.value)}
                       className="w-6 h-6 rounded-full transition-transform focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
                       style={{

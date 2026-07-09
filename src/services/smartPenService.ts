@@ -10,21 +10,50 @@ export interface PairingResult {
 export async function getPairedDevice(
   userId: string,
 ): Promise<SmartPenDevice | null> {
-  const { data, error } = await supabase
-    .from("paired_pens")
-    .select("*")
-    .eq("user_id", userId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("paired_pens")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
 
-  if (error) {
-    if (error.code !== "PGRST116") {
-      // PGRST116 is "Row not found"
-      console.error("Error fetching paired pen:", error);
+    if (!error && data) {
+      return data as SmartPenDevice;
     }
-    return null;
+
+    if (error && error.code !== "PGRST116") {
+      console.warn("Direct query failed (possibly RLS), falling back to Edge Function:", error);
+    }
+  } catch (e) {
+    console.warn("Direct query exception, trying Edge Function fallback:", e);
   }
 
-  return data as SmartPenDevice;
+  // Edge Function Fallback
+  try {
+    const { data: listData, error: listError } = await supabase.functions.invoke("smart-pen", {
+      body: {
+        action: "list",
+        user_id: userId,
+      },
+    });
+
+    if (!listError && listData?.success && listData.pens) {
+      const activePen = listData.pens[0];
+      if (activePen) {
+        return {
+          ...activePen,
+          id: activePen.id || activePen.pen_id,
+          device_name: "ResearchMate Pen",
+          is_connected: true,
+          last_sync: activePen.paired_at
+        } as SmartPenDevice;
+      }
+    }
+  } catch (e) {
+    console.error("Edge function fallback for getPairedDevice failed:", e);
+  }
+
+  return null;
 }
 
 export async function pairDevice(
@@ -43,9 +72,6 @@ export async function pairDevice(
     if (funcError) throw funcError;
 
     if (data.success) {
-      // Fetch the device record using the Edge Function 'list' action to bypass RLS if needed,
-      // or just trust the confirmed status and return a minimal object.
-      // Website uses 'list', let's do the same to ensure consistency.
       const { data: listData, error: listError } = await supabase.functions.invoke("smart-pen", {
         body: {
           action: "list",
@@ -54,12 +80,10 @@ export async function pairDevice(
       });
 
       if (listError || !listData.success) {
-        // Fallback: created a minimal device object if fetch fails
         return { 
           success: true, 
           device: {
             id: data.pen_id,
-            pen_id: data.pen_id,
             user_id: userId,
             device_name: "ResearchMate Pen",
             last_sync: new Date().toISOString(),
@@ -98,39 +122,50 @@ export async function pairDevice(
 }
 
 export async function unpairDevice(id: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke("smart-pen", {
+      body: {
+        action: "unpair",
+        pen_id: id,
+      },
+    });
+    if (!error && data?.success) {
+      return true;
+    }
+  } catch (e) {
+    console.error("Failed to unpair device via Edge Function:", e);
+  }
+
   const { error } = await supabase.from("paired_pens").delete().eq("id", id);
   return !error;
+}
+
+export async function generateSyncToken(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("smart-pen", {
+      body: {
+        action: "generate-sync-token",
+        user_id: userId,
+      },
+    });
+
+    if (!error && data?.success) {
+      return data.token;
+    }
+  } catch (e) {
+    console.error("Failed to generate sync token:", e);
+  }
+  return null;
 }
 
 export async function getSmartPenScans(
   userId: string,
 ): Promise<SmartPenScan[]> {
-  // This might be fetched from 'items' table where device_source = 'smart_pen'
-  // OR a specific 'scans' table if they are separate.
-  // Based on previous types, they seem to be ResearchItems.
-  // BUT types.ts also has `SmartPenScan` interface.
-  // Let's assume for this "Space" we want the dedicated scan list OR just research items filtered.
-  // Given the user said "syncs... website", and website usually lists "Items".
-  // I'll fetch from `items` table filtering by device_source for now to be safe,
-  // effectively treating generic Items as Scans if they are from the pen.
-
-  // Actually, looking at types.ts SmartPenScan has `research_item_id`.
-  // This implies a separation. But for the basic "List scans", probing `items` is safer as a start.
-  // Let's return Item[] but cast/transform if needed, or just import ResearchItem.
-
-  // Re-reading types.ts: SmartPenScan is separate.
-  // I will try to fetch that if table exists, else fallback to items.
-  // User showed `paired_pens` table, but not `scans` table. He showed `items`.
-  // I'll stick to `items` where device_source='smart_pen'.
-
-  // Wait, I can just use getAllItems() from storageService and filter in UI?
-  // No, efficient to filter in query if getting many.
-
   const { data } = await supabase
     .from("items")
     .select("*")
     .eq("user_id", userId)
-    .eq("device_source", "smart_pen")
+    .in("device_source", ["smart_pen", "mobile_scanner", "tablet_sync"])
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -139,7 +174,7 @@ export async function getSmartPenScans(
     user_id: item.user_id,
     image_url: item.image_url || "",
     ocr_text: item.ocr_text || item.text,
-    processed: !!item.ocr_text,
+    processed: !!(item.ocr_text || item.text),
     created_at: item.created_at,
   })) as SmartPenScan[];
 }

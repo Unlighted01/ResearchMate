@@ -13,7 +13,10 @@ export function useSettings() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "system");
-  const [visualTheme, setVisualTheme] = useState(localStorage.getItem("visualTheme") || "minimalist");
+  const [visualTheme, setVisualTheme] = useState(() => {
+    const saved = localStorage.getItem("visualTheme");
+    return saved === "bubble" ? "minimalist" : (saved || "minimalist");
+  });
   const [credits, setCredits] = useState<number | string>("...");
   const [citationStyle, setCitationStyle] = useState(localStorage.getItem("citationStyle") || "apa");
   const [useAiCitation, setUseAiCitation] = useState(localStorage.getItem("useAiCitation") === "true");

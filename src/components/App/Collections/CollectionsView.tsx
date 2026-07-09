@@ -158,7 +158,7 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
             onClick={openModal}
             title="New Collection"
             aria-label="Create new collection"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+            className="theme-btn-primary flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
           >
             <Plus size={13} />
             New
@@ -183,7 +183,7 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
             </p>
             <button
               onClick={openModal}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+              className="theme-btn-primary flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
             >
               <Plus size={13} /> New Collection
             </button>
@@ -201,13 +201,23 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
             {collections.map((col) => (
               <motion.div
                 key={col.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Collection ${col.name}, ${col.item_count || 0} items`}
                 variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-                className={`relative bg-white dark:bg-gray-800 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 cursor-pointer group hover:-translate-y-0.5 transition-all
+                className={`theme-surface relative bg-white dark:bg-gray-800 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 cursor-pointer group hover:-translate-y-0.5 transition-all focus:ring-2 focus:ring-blue-500 focus:outline-none
                   ${viewMode === "grid" ? "p-4 aspect-square flex flex-col justify-between" : "p-3 flex items-center gap-3"}
                 `}
                 onClick={() => {
                   if (menuOpenId === col.id) { setMenuOpenId(null); return; }
                   onCollectionClick(col.id, col.name);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (menuOpenId === col.id) { setMenuOpenId(null); return; }
+                    onCollectionClick(col.id, col.name);
+                  }
                 }}
               >
                 {viewMode === "grid" ? (
@@ -302,7 +312,7 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5 space-y-4"
+              className="theme-surface w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-5 space-y-4"
             >
               {/* Header */}
               <div className="flex items-center justify-between">
@@ -348,6 +358,7 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
                       key={c.value}
                       title={c.label}
                       aria-label={`${c.label}${newColor === c.value ? " (selected)" : ""}`}
+                      aria-pressed={newColor === c.value}
                       onClick={() => setNewColor(c.value)}
                       className="w-7 h-7 rounded-full transition-transform focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
                       style={{
@@ -388,7 +399,7 @@ export function CollectionsView({ onCollectionClick, isGuest }: CollectionsViewP
                 <button
                   onClick={handleCreate}
                   disabled={creating || !newName.trim()}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="theme-btn-primary flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creating ? "Creating…" : "Create"}
                 </button>

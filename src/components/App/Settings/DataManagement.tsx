@@ -39,11 +39,11 @@ export const DataManagement: React.FC<DataManagementProps> = ({
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Data Management</h2>
-      <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="theme-surface bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
         <div ref={exportMenuRef} className="border-b border-gray-100 dark:border-gray-700">
           <button
             onClick={onToggleExportMenu}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            className="theme-btn-secondary w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
           >
             <div className="flex items-center gap-3">
               <Download size={16} className="text-gray-500" />
@@ -84,7 +84,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({
                       <select
                         value={selectedCollectionId}
                         onChange={(e) => onCollectionChange(e.target.value)}
-                        className="w-full text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500"
+                        className="theme-input w-full text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500"
                       >
                         {collections.map((col) => (
                           <option key={col.id} value={col.id}>
@@ -105,7 +105,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({
                       <select
                         value={selectedTag}
                         onChange={(e) => onTagChange(e.target.value)}
-                        className="w-full text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500"
+                        className="theme-input w-full text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500"
                       >
                         {uniqueTags.map((t) => (
                           <option key={t} value={t}>
@@ -146,7 +146,7 @@ export const DataManagement: React.FC<DataManagementProps> = ({
         <button
           onClick={onImportClick}
           disabled={importing}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+          className="theme-btn-secondary w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
         >
           <div className="flex items-center gap-3">
             <Upload size={16} className="text-gray-500" />

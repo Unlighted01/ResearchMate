@@ -78,10 +78,10 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
         hidden: { opacity: 0, y: 10 },
         show: { opacity: 1, y: 0 },
       }}
-      className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border transition-all cursor-pointer group hover-lift relative overflow-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${colorBgClass} ${
+      className={`theme-surface bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-[var(--glass-shadow)] backdrop-blur-md p-4 rounded-xl transition-all cursor-pointer group hover-lift relative overflow-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${colorBgClass} ${
         isSelected
-          ? "border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/10"
-          : "border-gray-100 dark:border-gray-700"
+          ? "border-[var(--apple-blue)] dark:border-[var(--apple-blue)] bg-blue-50/10 dark:bg-blue-900/10 scale-[0.99]"
+          : "hover:border-slate-300 dark:hover:border-slate-700"
       }`}
     >
       {/* Color indicator bar */}
@@ -99,17 +99,17 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
           onClick={(e) => onSelect(item.id, e)}
         >
           {isSelected ? (
-            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border border-blue-500 shadow-sm">
+            <div className="w-5 h-5 bg-[var(--apple-blue)] rounded-full flex items-center justify-center border border-[var(--apple-blue)] shadow-sm">
               <Check className="w-3 h-3 text-white" />
             </div>
           ) : (
-            <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-500 rounded-full bg-white dark:bg-gray-800 shadow-sm group-hover:border-blue-400 transition-colors"></div>
+            <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-500 rounded-full bg-white dark:bg-gray-800 shadow-sm group-hover:border-[var(--apple-blue)] transition-colors"></div>
           )}
         </div>
       )}
 
       <div className="flex justify-between items-start mb-2">
-        <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+        <span className="text-xs uppercase font-bold text-gray-400 tracking-wider">
           {hostname}
         </span>
         <div className="flex items-center gap-1.5">
@@ -123,7 +123,7 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
               <CloudOff className="w-3 h-3 text-red-400" />
             </div>
           )}
-          <span className="text-[10px] text-gray-400">
+          <span className="text-xs text-gray-400">
             {new Date(item.createdAt).toLocaleDateString()}
           </span>
         </div>
@@ -142,7 +142,7 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
               .map((tag) => (
                 <span
                   key={tag}
-                  className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded"
+                  className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-lg border border-slate-200/40 dark:border-slate-700/40 font-medium"
                 >
                   #{tag}
                 </span>
@@ -160,7 +160,7 @@ export const ResearchCard: React.FC<ResearchCardProps> = ({
         </div>
 
         {!selectionActive && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-3 right-3 flex gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-lg shadow-sm">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-3 right-3 flex gap-2 bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-[var(--glass-shadow)] p-1 rounded-xl backdrop-blur-md">
             {/* Pin / Unpin */}
             <div
               onClick={(e) => {

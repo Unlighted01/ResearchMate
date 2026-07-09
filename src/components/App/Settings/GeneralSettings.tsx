@@ -22,7 +22,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Research Preferences</h2>
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-5">
+      <div className="theme-surface bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-5">
         {/* Style Selector */}
         <div>
           <label className="text-xs text-gray-500 mb-2 block">Primary Citation Format</label>

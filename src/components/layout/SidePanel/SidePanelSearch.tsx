@@ -23,7 +23,7 @@ export const SidePanelSearch: React.FC<SidePanelSearchProps> = ({
           placeholder="Search your research..."
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-apple-blue dark:text-white outline-none"
+          className="theme-search w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-apple-blue dark:text-white outline-none"
         />
       </div>
       {/* Active collection filter chip */}
