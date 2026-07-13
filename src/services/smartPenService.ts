@@ -10,6 +10,29 @@ export interface PairingResult {
 export async function getPairedDevice(
   userId: string,
 ): Promise<SmartPenDevice | null> {
+  // First, check if there is a connected mobile/tablet scanner device
+  try {
+    const { data, error } = await supabase
+      .from("paired_devices")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_connected", true)
+      .limit(1);
+
+    if (!error && data && data.length > 0) {
+      const dev = data[0];
+      return {
+        id: dev.id,
+        user_id: dev.user_id,
+        device_name: dev.device_name || "Mobile Scanner",
+        is_connected: dev.is_connected,
+        last_sync: dev.last_sync || dev.created_at,
+      } as SmartPenDevice;
+    }
+  } catch (e) {
+    console.warn("Failed to check paired_devices in getPairedDevice:", e);
+  }
+
   try {
     const { data, error } = await supabase
       .from("paired_pens")
@@ -122,6 +145,17 @@ export async function pairDevice(
 }
 
 export async function unpairDevice(id: string): Promise<boolean> {
+  // Try deleting from paired_devices first (for mobile scanner)
+  try {
+    const { error } = await supabase
+      .from("paired_devices")
+      .delete()
+      .eq("id", id);
+    if (!error) return true;
+  } catch (e) {
+    console.warn("Failed to delete from paired_devices, falling back:", e);
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke("smart-pen", {
       body: {
